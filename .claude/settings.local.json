@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\Eng_Joseph\\\\PycharmProjects\\\\balla\\\\balla\" && find . -type f -name \"*filter*\" -o -name \"*firebase*\" 2>/dev/null | grep -v __pycache__)",
+      "Read(//c/Users/Eng_Joseph/PycharmProjects/balla/balla/**)",
+      "Read(//c/Users/Eng_Joseph/Desktop/**)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='java.exe' or Name='dart.exe' or Name='dartaotruntime.exe' or Name='dartvm.exe'\" | Where-Object { $_.CommandLine -match \"emulator-5554|assembleDebug\" } | Select-Object ProcessId, Name, CommandLine | Format-List)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP:%{http_code} time:%{time_total}s\\\\n\" --max-time 15 https://dl.google.com/android/repository/repository2-3.xml)",
+      "PowerShell(Get-NetTCPConnection -OwningProcess 28364 -ErrorAction SilentlyContinue)",
+      "Bash(find \"/c/Users/Eng_Joseph/AppData/Local/Android/sdk/temp\" -type f -newermt \"5 minutes ago\" 2>/dev/null | head -20 *)",
+      "Read(//c/Users/Eng_Joseph/AppData/Local/Android/sdk/**)",
+      "PowerShell(Get-NetTCPConnection -OwningProcess 16632,7948 -ErrorAction SilentlyContinue)",
+      "Bash(sleep 5; ls -la \"/c/Users/Eng_Joseph/AppData/Local/Android/sdk/.temp/PackageOperation04/android-ndk-r27-windows.zip\")",
+      "Read(//c/Users/Eng_Joseph/AppData/Local/Android/sdk/.temp/PackageOperation04/**)",
+      "Bash(python manage.py shell -c ' *)",
+      "Read(//c/Users/Eng_Joseph/PycharmProjects/balla/balla/core/**)",
+      "Bash(python manage.py check)",
+      "Bash(flutter run *)",
+      "Bash(flutter test *)",
+      "Bash('C:\\\\Users\\\\Eng_Joseph\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\emulator\\\\emulator.exe' -avd Pixel_8_Pro -wipe-data -no-snapshot-load)",
+      "Bash('C:\\\\Users\\\\Eng_Joseph\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe' devices *)",
+      "Bash('C:\\\\Users\\\\Eng_Joseph\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe' shell *)",
+      "Bash(export MSYS_NO_PATHCONV=1)",
+      "Bash(dart analyze *)",
+      "Bash(adb devices *)",
+      "Bash(adb shell *)",
+      "PowerShell(try { & \"$env:LOCALAPPDATA\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" devices -l } catch { \"adb not found\" })"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Eng_Joseph\\PycharmProjects\\balla\\balla\\core"
+    ]
+  }
+}

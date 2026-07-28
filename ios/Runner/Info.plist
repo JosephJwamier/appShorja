@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>e-Shorja</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>e-Shorja</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<!-- Required for FCM push notifications in background/terminated state -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<!-- Live shopping broadcasts (Agora RTC) -->
+	<key>NSCameraUsageDescription</key>
+	<string>يحتاج التطبيق للوصول إلى الكاميرا لبدء أو مشاهدة بث مباشر</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>يحتاج التطبيق للوصول إلى الميكروفون لبدء بث مباشر</string>
+	<!-- Nearby items/stores map, delivery address picker (geolocator, flutter_map) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>يحتاج التطبيق للوصول إلى الموقع لعرض المنتجات والمتاجر القريبة منك وتحديد عنوان التوصيل</string>
+	<!-- Selecting product/store photos (image_picker) -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يحتاج التطبيق للوصول إلى مكتبة الصور لاختيار صور المنتجات والمتجر</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>يحتاج التطبيق لحفظ الصور في مكتبة الصور عند الحاجة</string>
+	<!-- Routes the Google Sign-In OAuth redirect back into the app (REVERSED_CLIENT_ID from GoogleService-Info.plist) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.78176989926-9bo83u0cjuv3jilhhpbohs4kq997q7hv</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

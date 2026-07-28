@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "78176989926",
+    "project_id": "balla-c917b",
+    "storage_bucket": "balla-c917b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:78176989926:android:ef1ebda235775acf36c127",
+        "android_client_info": {
+          "package_name": "com.example.marketplace_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "78176989926-2ovl8s1sreurgdps9k6mfdo809ciq4j8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.marketplace_app",
+            "certificate_hash": "df67e989e45762655530a9fdba5ea87c8b7c896a"
+          }
+        },
+        {
+          "client_id": "78176989926-uoq73g7huevsghb109o1eitn28h1nd9n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtFH_IZ_EfFIj9zrr8bs8oFbn12GTKotA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "78176989926-uoq73g7huevsghb109o1eitn28h1nd9n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
