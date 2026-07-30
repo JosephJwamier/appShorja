@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/auctions_provider.dart';
 import '../providers/category_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/refreshable_tab.dart';
 import '../widgets/home/categories_row.dart';
 import '../widgets/home/categories_bottom_sheet.dart';
 import 'auction_details_screen.dart';
@@ -16,242 +17,7 @@ import 'filter_screen.dart';
 
 enum _AuctionFilter { all, active, endingSoon }
 
-// ===== الشاشة المستقلّة (بشريط علويّ كامل) =====
-class AuctionsScreen extends StatefulWidget {
-  const AuctionsScreen({super.key});
-
-  @override
-  State<AuctionsScreen> createState() => _AuctionsScreenState();
-}
-
-class _AuctionsScreenState extends State<AuctionsScreen> {
-  Timer? _ticker;
-  Timer? _debounce;
-  _AuctionFilter _filter = _AuctionFilter.all;
-  FilterParams _filters = FilterParams.empty;
-  final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
-  bool _searching = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _load();
-      _loadCategories();
-    });
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    _debounce?.cancel();
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _load() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final provider = Provider.of<AuctionsProvider>(context, listen: false);
-    if (auth.accessToken != null) {
-      await provider.loadAuctions(
-        accessToken: auth.accessToken!,
-        filters: _filters,
-      );
-    }
-  }
-
-  Future<void> _loadCategories() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.accessToken != null) {
-      await Provider.of<CategoryProvider>(
-        context,
-        listen: false,
-      ).loadCategories(accessToken: auth.accessToken!);
-    }
-  }
-
-  Future<void> _loadMore() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final provider = Provider.of<AuctionsProvider>(context, listen: false);
-    if (auth.accessToken != null) {
-      await provider.loadMore(accessToken: auth.accessToken!);
-    }
-  }
-
-  Future<void> _openFilters() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.accessToken == null) return;
-    final result = await Navigator.push<FilterParams>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AuctionFilterScreen(
-          initialFilters: _filters,
-          accessToken: auth.accessToken!,
-        ),
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() => _filters = result);
-      _load();
-    }
-  }
-
-  void _onCategorySelected(int? categoryId) {
-    if (categoryId == null) {
-      setState(() {
-        _filters = _filters.copyWith(categoryId: null);
-      });
-      _load();
-      return;
-    }
-
-    // البنر (الصف وقائمة "عرض الكل") يعرض التصنيفات الرئيسية فقط، فالضغط على
-    // أيّ منها يفتح شاشة تصفّح التصنيفات دائماً بدل التصفية في مكانها.
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CategoryBrowseScreen(
-          initialCategoryId: categoryId,
-          auctionsMode: true,
-        ),
-      ),
-    );
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _searching = !_searching;
-      if (!_searching) {
-        _searchController.clear();
-        _debounce?.cancel();
-        _load();
-      }
-    });
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final provider = Provider.of<AuctionsProvider>(context, listen: false);
-      if (auth.accessToken != null) {
-        provider.loadAuctions(
-          accessToken: auth.accessToken!,
-          search: value.trim().isNotEmpty ? value.trim() : null,
-          filters: _filters,
-        );
-      }
-    });
-  }
-
-  List<Auction> _applyFilter(List<Auction> all) {
-    switch (_filter) {
-      case _AuctionFilter.all:
-        return all;
-      case _AuctionFilter.active:
-        return all.where((a) => a.isActive).toList();
-      case _AuctionFilter.endingSoon:
-        return all.where((a) {
-          if (!a.isActive) return false;
-          final remaining = a.endTime.difference(DateTime.now()).inSeconds;
-          return remaining > 0 && remaining <= 3600;
-        }).toList();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Column(
-            children: [
-              _AuctionsTopBar(
-                searching: _searching,
-                controller: _searchController,
-                onToggleSearch: _toggleSearch,
-                onChanged: _onSearchChanged,
-                onOpenFilters: _openFilters,
-                hasActiveFilters: _filters.hasActiveAuctionFilters,
-              ),
-              _AuctionsFilterBar(
-                filter: _filter,
-                onChanged: (f) => setState(() => _filter = f),
-              ),
-              _AuctionsCategoriesRow(
-                selectedCategoryId: _filters.categoryId,
-                onCategorySelected: _onCategorySelected,
-              ),
-              Expanded(
-                child: Consumer<AuctionsProvider>(
-                  builder: (context, provider, child) {
-                    if (provider.isLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (provider.errorMessage != null) {
-                      return _ErrorView(
-                        message: provider.errorMessage!,
-                        onRetry: _load,
-                      );
-                    }
-                    if (provider.auctions.isEmpty) {
-                      return const Center(child: Text('لا توجد مزادات حالياً'));
-                    }
-                    final filtered = _applyFilter(provider.auctions);
-                    if (filtered.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'لا توجد مزادات تطابق بحثك',
-                          style: TextStyle(color: AppColors.onSurfaceVariant),
-                        ),
-                      );
-                    }
-                    return RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        itemCount: filtered.length + (provider.hasMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == filtered.length) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          }
-                          return AuctionCard(auction: filtered[index]);
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ===== نسخة تُستخدم داخل MainShell =====
+// ===== نسخة تُستخدم داخل MainShell (الوحيدة المُوجَّه إليها أي مسار فعلي) =====
 class AuctionsListView extends StatefulWidget {
   final String searchQuery;
   const AuctionsListView({super.key, this.searchQuery = ''});
@@ -260,7 +26,8 @@ class AuctionsListView extends StatefulWidget {
   State<AuctionsListView> createState() => _AuctionsListViewState();
 }
 
-class _AuctionsListViewState extends State<AuctionsListView> {
+class _AuctionsListViewState extends State<AuctionsListView>
+    implements RefreshableTab {
   Timer? _ticker;
   Timer? _debounce;
   _AuctionFilter _filter = _AuctionFilter.all;
@@ -308,15 +75,45 @@ class _AuctionsListViewState extends State<AuctionsListView> {
     }
   }
 
+  /// Maps the "الكل / نشط / ينتهي قريباً" segmented control to the backend
+  /// query params it actually corresponds to, so the tab narrows results on
+  /// the server (and across pagination) instead of only on already-loaded items.
+  ({String? status, bool activeOnly, DateTime? endsBefore}) get _auctionFilterQuery {
+    switch (_filter) {
+      case _AuctionFilter.all:
+        return (status: null, activeOnly: false, endsBefore: null);
+      case _AuctionFilter.active:
+        return (status: null, activeOnly: true, endsBefore: null);
+      case _AuctionFilter.endingSoon:
+        return (
+          status: null,
+          activeOnly: true,
+          endsBefore: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        );
+    }
+  }
+
+  bool get _hasAnyActiveNarrowing =>
+      _filter != _AuctionFilter.all ||
+      _filters.hasActiveAuctionFilters ||
+      widget.searchQuery.trim().isNotEmpty ||
+      _searchController.text.trim().isNotEmpty;
+
+  @override
+  Future<void> refreshTab() => _load();
+
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final provider = Provider.of<AuctionsProvider>(context, listen: false);
-    if (auth.accessToken != null) {
-      await provider.loadAuctions(
-        accessToken: auth.accessToken!,
-        filters: _filters,
-      );
-    }
+    if (auth.accessToken == null) return;
+    final q = _auctionFilterQuery;
+    await provider.loadAuctions(
+      accessToken: auth.accessToken!,
+      status: q.status,
+      activeOnly: q.activeOnly,
+      endsBefore: q.endsBefore,
+      filters: _filters,
+    );
   }
 
   Future<void> _loadCategories() async {
@@ -332,13 +129,16 @@ class _AuctionsListViewState extends State<AuctionsListView> {
   Future<void> _loadWithSearch(String search) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final provider = Provider.of<AuctionsProvider>(context, listen: false);
-    if (auth.accessToken != null) {
-      await provider.loadAuctions(
-        accessToken: auth.accessToken!,
-        search: search.trim().isNotEmpty ? search.trim() : null,
-        filters: _filters,
-      );
-    }
+    if (auth.accessToken == null) return;
+    final q = _auctionFilterQuery;
+    await provider.loadAuctions(
+      accessToken: auth.accessToken!,
+      search: search.trim().isNotEmpty ? search.trim() : null,
+      status: q.status,
+      activeOnly: q.activeOnly,
+      endsBefore: q.endsBefore,
+      filters: _filters,
+    );
   }
 
   Future<void> _loadMore() async {
@@ -346,6 +146,18 @@ class _AuctionsListViewState extends State<AuctionsListView> {
     final provider = Provider.of<AuctionsProvider>(context, listen: false);
     if (auth.accessToken != null) {
       await provider.loadMore(accessToken: auth.accessToken!);
+    }
+  }
+
+  void _onAuctionFilterChanged(_AuctionFilter f) {
+    if (_filter == f) return;
+    setState(() => _filter = f);
+    if (_searching) {
+      _loadWithSearch(_searchController.text);
+    } else if (widget.searchQuery.isNotEmpty) {
+      _loadWithSearch(widget.searchQuery);
+    } else {
+      _load();
     }
   }
 
@@ -406,28 +218,17 @@ class _AuctionsListViewState extends State<AuctionsListView> {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final provider = Provider.of<AuctionsProvider>(context, listen: false);
       if (auth.accessToken != null) {
+        final q = _auctionFilterQuery;
         provider.loadAuctions(
           accessToken: auth.accessToken!,
           search: value.trim().isNotEmpty ? value.trim() : null,
+          status: q.status,
+          activeOnly: q.activeOnly,
+          endsBefore: q.endsBefore,
           filters: _filters,
         );
       }
     });
-  }
-
-  List<Auction> _applyFilter(List<Auction> all) {
-    switch (_filter) {
-      case _AuctionFilter.all:
-        return all;
-      case _AuctionFilter.active:
-        return all.where((a) => a.isActive).toList();
-      case _AuctionFilter.endingSoon:
-        return all.where((a) {
-          if (!a.isActive) return false;
-          final remaining = a.endTime.difference(DateTime.now()).inSeconds;
-          return remaining > 0 && remaining <= 3600;
-        }).toList();
-    }
   }
 
   @override
@@ -447,7 +248,7 @@ class _AuctionsListViewState extends State<AuctionsListView> {
             ),
             _AuctionsFilterBar(
               filter: _filter,
-              onChanged: (f) => setState(() => _filter = f),
+              onChanged: _onAuctionFilterChanged,
             ),
             _AuctionsCategoriesRow(
               selectedCategoryId: _filters.categoryId,
@@ -467,14 +268,13 @@ class _AuctionsListViewState extends State<AuctionsListView> {
                     );
                   }
                   if (provider.auctions.isEmpty) {
-                    return const Center(child: Text('لا توجد مزادات بعد'));
-                  }
-                  final list = _applyFilter(provider.auctions);
-                  if (list.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        'لا توجد مزادات تطابق بحثك',
-                        style: TextStyle(color: AppColors.onSurfaceVariant),
+                        _hasAnyActiveNarrowing
+                            ? 'لا توجد مزادات تطابق بحثك'
+                            : 'لا توجد مزادات بعد',
+                        style: const TextStyle(
+                            color: AppColors.onSurfaceVariant),
                       ),
                     );
                   }
@@ -482,10 +282,12 @@ class _AuctionsListViewState extends State<AuctionsListView> {
                     onRefresh: _load,
                     child: ListView.builder(
                       controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      itemCount: list.length + (provider.hasMore ? 1 : 0),
+                      itemCount: provider.auctions.length +
+                          (provider.hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (index == list.length) {
+                        if (index == provider.auctions.length) {
                           return const Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
@@ -493,7 +295,7 @@ class _AuctionsListViewState extends State<AuctionsListView> {
                             ),
                           );
                         }
-                        return AuctionCard(auction: list[index]);
+                        return AuctionCard(auction: provider.auctions[index]);
                       },
                     ),
                   );

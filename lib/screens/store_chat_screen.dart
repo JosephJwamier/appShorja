@@ -84,6 +84,10 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
   bool _otherIsTyping = false;
   Timer? _otherTypingTimeout;
 
+  // "متصل الآن": يبدأ من لقطة REST عند فتح المحادثة، ثم يتحدّث حيّاً عبر
+  // حدث presence الذي يبثّه ChatConsumer عند اتصال/انقطاع الطرف الآخر.
+  bool _otherOnline = false;
+
   /// عند الفتح عبر chatId فقط (كما من إشعار push) لا يُمرَّر عنوان جاهز —
   /// فنعتمد على `_conversation.displayTitle` بعد جلبه بدل ترك العنوان
   /// فارغاً بشكل دائم.
@@ -231,6 +235,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
       _loading = false;
       _conversation = full;
       _item = full?.item;
+      _otherOnline = full?.otherUserOnline ?? false;
       _hasMoreMessages = full?.hasMoreMessages ?? false;
       _messages
         ..clear()
@@ -316,6 +321,13 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
               }
             }
           });
+        }
+      } else if (data['type'] == 'presence') {
+        // الخادم (ChatConsumer.presence_update) لا يعيد بثّ هذا الحدث إلى
+        // مُرسله، فأي حدث نستلمه هنا هو دوماً من الطرف الآخر.
+        final userId = data['user_id'] as int?;
+        if (userId != null && userId != _myId) {
+          setState(() => _otherOnline = data['is_online'] as bool? ?? false);
         }
       }
     } catch (_) {
@@ -547,18 +559,38 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
           ),
           title: Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppColors.surfaceContainer,
-                backgroundImage: _avatarUrl != null
-                    ? NetworkImage(_avatarUrl!)
-                    : null,
-                child: _avatarUrl == null
-                    ? Icon(
-                        _isSupportChat ? Icons.support_agent : Icons.store,
-                        size: 18,
-                        color: AppColors.onSurfaceVariant)
-                    : null,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.surfaceContainer,
+                    backgroundImage: _avatarUrl != null
+                        ? NetworkImage(_avatarUrl!)
+                        : null,
+                    child: _avatarUrl == null
+                        ? Icon(
+                            _isSupportChat ? Icons.support_agent : Icons.store,
+                            size: 18,
+                            color: AppColors.onSurfaceVariant)
+                        : null,
+                  ),
+                  if (_otherOnline && !_isSupportChat)
+                    Positioned(
+                      bottom: -1,
+                      left: -1,
+                      child: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: AppColors.surfaceContainerLowest, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 10),
               Expanded(

@@ -63,6 +63,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   bool _isCapturing = false;
   int _reserveCooldownSeconds = 0;
   Timer? _cooldownTimer;
+  bool _banned = false;
 
   String get _accessToken => context.read<AuthProvider>().accessToken!;
   int? get _currentUserId => context.read<AuthProvider>().user?.id;
@@ -144,7 +145,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
       _subscription = _channel!.stream.listen(
         _handleWsMessage,
         onError: (_) => _scheduleReconnect(),
-        onDone: _scheduleReconnect,
+        onDone: _handleWsDone,
       );
       _reconnectAttempts = 0;
     } catch (_) {
@@ -153,12 +154,25 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     }
   }
 
+  /// A rejected connect() closes with code 4403 (see backend
+  /// LiveSessionConsumer.is_banned) before the server ever accepts the
+  /// socket — e.g. reopening the stream after already being banned.
+  /// Without this check that rejection would just look like a dropped
+  /// connection and retry forever.
+  void _handleWsDone() {
+    if (_channel?.closeCode == 4403) {
+      _onBanned();
+      return;
+    }
+    _scheduleReconnect();
+  }
+
   /// A dropped connection is common on mobile networks — without this the
   /// viewer count/comments/now-showing feed just goes silent until the
   /// viewer leaves and reopens the screen. Backs off up to 30s so a
   /// genuinely offline device isn't hammered with reconnect attempts.
   void _scheduleReconnect() {
-    if (!mounted || _streamEnded) return;
+    if (!mounted || _streamEnded || _banned) return;
     _reconnectTimer?.cancel();
     _reconnectAttempts++;
     final delaySeconds = [2, 4, 8, 16, 30][
@@ -242,10 +256,43 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
         case 'stream_ended':
           _onStreamEnded();
           break;
+        case 'viewer_banned':
+          if (payload['user_id'] == _currentUserId) _onBanned();
+          break;
       }
     } catch (_) {
       // ignore malformed events
     }
+  }
+
+  /// Soft-kick for a viewer banned mid-stream (see backend broadcast_live_event
+  /// call in the bans view) — the server can't force-close this specific
+  /// socket, so the client disconnects itself the moment it sees its own
+  /// user_id in the event.
+  void _onBanned() {
+    if (_banned || _streamEnded) return;
+    _banned = true;
+    _reconnectTimer?.cancel();
+    _subscription?.cancel();
+    _channel?.sink.close();
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('تم حظرك'),
+        content: const Text('قام صاحب المتجر بحظرك من هذا البث المباشر.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onStreamEnded() {

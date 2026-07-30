@@ -18,8 +18,8 @@ class EditListingPriceScreen extends StatefulWidget {
 
 class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _priceController;
   late final TextEditingController _originalPriceController;
+  late final TextEditingController _currentPriceController;
   late bool _discountEnabled;
 
   bool _isSubmitting = false;
@@ -33,33 +33,35 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
   void initState() {
     super.initState();
     final p = widget.product;
-    final price = p.price ?? 0;
-    _discountEnabled = (p.originalPrice ?? 0) > price;
-    _priceController = TextEditingController(
-      text: p.price != null ? price.toStringAsFixed(0) : '',
-    );
+    final currentPrice = p.price ?? 0;
+    _discountEnabled = (p.originalPrice ?? 0) > currentPrice;
+    final basePrice = _discountEnabled ? p.originalPrice! : currentPrice;
     _originalPriceController = TextEditingController(
-      text: _discountEnabled ? p.originalPrice!.toStringAsFixed(0) : '',
+      text: basePrice > 0 ? basePrice.toStringAsFixed(0) : '',
+    );
+    _currentPriceController = TextEditingController(
+      text: _discountEnabled ? currentPrice.toStringAsFixed(0) : '',
     );
   }
 
   @override
   void dispose() {
-    _priceController.dispose();
     _originalPriceController.dispose();
+    _currentPriceController.dispose();
     super.dispose();
   }
 
-  double? get _price => double.tryParse(_priceController.text.trim());
   double? get _originalPrice =>
       double.tryParse(_originalPriceController.text.trim());
+  double? get _currentPrice =>
+      double.tryParse(_currentPriceController.text.trim());
 
   int? get _discountPct {
-    final price = _price;
     final original = _originalPrice;
-    if (!_discountEnabled || price == null || original == null) return null;
-    if (original <= price || original <= 0) return null;
-    return ((1 - price / original) * 100).round();
+    final current = _currentPrice;
+    if (!_discountEnabled || original == null || current == null) return null;
+    if (original <= current || original <= 0) return null;
+    return ((1 - current / original) * 100).round();
   }
 
   Future<void> _submit() async {
@@ -72,10 +74,11 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
 
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
+      final effectivePrice = _discountEnabled ? _currentPrice! : _originalPrice!;
       await ItemService().updateFixedListing(
         accessToken: auth.accessToken!,
         itemId: widget.product.id,
-        price: _price!,
+        price: effectivePrice,
         originalPrice: _discountEnabled ? _originalPrice : null,
       );
 
@@ -118,17 +121,17 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                   const SizedBox(height: 24),
 
                   const _SectionTitle(
-                    title: 'السعر الحالي',
+                    title: 'السعر الأصلي',
                     icon: Icons.sell_outlined,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    controller: _priceController,
+                    controller: _originalPriceController,
                     keyboardType: TextInputType.number,
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       labelText: 'السعر (IQD)',
-                      helperText: 'هذا هو السعر الذي يدفعه المشتري فعليًا',
+                      helperText: 'هذا هو سعر المنتج الأساسي قبل أي خصم',
                       border: _inputBorder,
                     ),
                     validator: (v) {
@@ -151,7 +154,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                         value: _discountEnabled,
                         onChanged: (v) => setState(() {
                           _discountEnabled = v;
-                          if (!v) _originalPriceController.clear();
+                          if (!v) _currentPriceController.clear();
                         }),
                       ),
                     ],
@@ -159,12 +162,12 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                   if (_discountEnabled) ...[
                     const SizedBox(height: 10),
                     TextFormField(
-                      controller: _originalPriceController,
+                      controller: _currentPriceController,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
                       decoration: const InputDecoration(
-                        labelText: 'السعر الأصلي قبل الخصم (IQD)',
-                        helperText: 'يجب أن يكون أعلى من السعر الحالي',
+                        labelText: 'السعر الحالي بعد الخصم (IQD)',
+                        helperText: 'هذا هو السعر الذي يدفعه المشتري فعليًا',
                         prefixIcon: Icon(Icons.price_change_outlined),
                         border: _inputBorder,
                       ),
@@ -172,9 +175,9 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                         if (!_discountEnabled) return null;
                         final n = double.tryParse((v ?? '').trim());
                         if (n == null || n <= 0) return 'أدخل سعراً صحيحاً';
-                        final price = _price;
-                        if (price != null && n <= price) {
-                          return 'يجب أن يكون أعلى من السعر الحالي';
+                        final original = _originalPrice;
+                        if (original != null && n >= original) {
+                          return 'يجب أن يكون أقل من السعر الأصلي';
                         }
                         return null;
                       },
@@ -183,7 +186,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                       const SizedBox(height: 16),
                       _DiscountPreviewCard(
                         pct: _discountPct!,
-                        price: _price!,
+                        price: _currentPrice!,
                         originalPrice: _originalPrice!,
                       ),
                     ],

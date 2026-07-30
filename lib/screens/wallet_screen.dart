@@ -104,6 +104,7 @@ class _WalletScreenState extends State<WalletScreen> {
           return RefreshIndicator(
             onRefresh: _load,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               children: [
                 if (provider.wallet != null)

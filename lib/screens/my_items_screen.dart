@@ -159,6 +159,7 @@ class _MyItemsScreenState extends State<MyItemsScreen> {
             return RefreshIndicator(
               onRefresh: _load,
               child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: myItems.items.length,
                 itemBuilder: (context, index) {
                   final item = myItems.items[index];

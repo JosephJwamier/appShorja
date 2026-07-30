@@ -121,6 +121,7 @@ class _DisputesScreenState extends State<DisputesScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _disputes.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),

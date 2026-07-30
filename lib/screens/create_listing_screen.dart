@@ -258,7 +258,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         controller: _priceController,
         keyboardType: TextInputType.number,
         decoration: const InputDecoration(
-          labelText: 'السعر (\$)',
+          labelText: 'السعر (IQD)',
           border: OutlineInputBorder(),
         ),
         validator: (v) {
@@ -295,7 +295,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         controller: _startingPriceController,
         keyboardType: TextInputType.number,
         decoration: const InputDecoration(
-          labelText: 'السعر الافتتاحي (\$)',
+          labelText: 'السعر الافتتاحي (IQD)',
           border: OutlineInputBorder(),
         ),
         validator: (v) {
@@ -310,7 +310,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         controller: _incrementController,
         keyboardType: TextInputType.number,
         decoration: const InputDecoration(
-          labelText: 'الحدّ الأدنى للزيادة (\$)',
+          labelText: 'الحدّ الأدنى للزيادة (IQD)',
           border: OutlineInputBorder(),
           helperText: 'الفارق المطلوب بين كلّ مزايدة وما قبلها',
         ),
@@ -326,7 +326,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         controller: _bidDepositController,
         keyboardType: TextInputType.number,
         decoration: const InputDecoration(
-          labelText: 'عربون المزايدة (\$)',
+          labelText: 'عربون المزايدة (IQD)',
           border: OutlineInputBorder(),
           helperText: 'مبلغ يُجمَّد من كلّ مزايد لجدّيّة العرض',
         ),

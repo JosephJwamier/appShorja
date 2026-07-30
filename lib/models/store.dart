@@ -25,6 +25,8 @@ class Store {
   final double positiveReviewPercent;
   final double communicationRating;
   final int totalSold;
+  // معرّف جلسة البث المباشر الحالية لهذا المتجر، أو null إن لم يكن يبثّ الآن.
+  final int? liveSessionId;
 
   Store({
     required this.id,
@@ -49,7 +51,10 @@ class Store {
     this.positiveReviewPercent = 0,
     this.communicationRating = 0,
     this.totalSold = 0,
+    this.liveSessionId,
   });
+
+  bool get isLive => liveSessionId != null;
 
   /// Returns a copy with follow state (or active state, after toggle_active)
   /// overridden.
@@ -77,6 +82,7 @@ class Store {
       positiveReviewPercent: positiveReviewPercent,
       communicationRating: communicationRating,
       totalSold: totalSold,
+      liveSessionId: liveSessionId,
     );
   }
 
@@ -122,6 +128,7 @@ class Store {
       positiveReviewPercent: _toDouble(json['positive_review_percent']),
       communicationRating: _toDouble(json['communication_rating']),
       totalSold: json['total_sold'] as int? ?? 0,
+      liveSessionId: json['live_session_id'] as int?,
     );
   }
 

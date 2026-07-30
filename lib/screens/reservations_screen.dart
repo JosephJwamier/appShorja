@@ -9,11 +9,13 @@ import '../services/delivery_service.dart';
 import '../services/reservation_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../utils/refreshable_tab.dart';
 import '../features/location/providers/location_provider.dart';
 import '../features/location/screens/add_edit_location_screen.dart';
 import '../features/location/screens/location_picker_sheet.dart';
 import 'file_dispute_screen.dart';
 import 'disputes_screen.dart';
+import 'print_delivery_label_screen.dart';
 import 'reservation_detail_screen.dart';
 
 class ReservationsScreen extends StatefulWidget {
@@ -24,7 +26,8 @@ class ReservationsScreen extends StatefulWidget {
 }
 
 class _ReservationsScreenState extends State<ReservationsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin
+    implements RefreshableTab {
   late final TabController _tabController;
   List<Reservation> _all = [];
   bool _isLoading = true;
@@ -43,6 +46,9 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     _tabController.dispose();
     super.dispose();
   }
+
+  @override
+  Future<void> refreshTab() => _load();
 
   Future<void> _load() async {
     setState(() {
@@ -855,6 +861,7 @@ class _ReservationsListState extends State<_ReservationsList> {
     ('all', 'الكل'),
     ('pending', 'انتظار'),
     ('completed', 'مكتملة'),
+    ('confirmed', 'مؤكد'),
     ('cancelled', 'ملغية'),
   ];
 
@@ -1015,6 +1022,7 @@ class _ReservationsListState extends State<_ReservationsList> {
               : RefreshIndicator(
                   onRefresh: widget.onRefresh,
                   child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     itemCount: list.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -1191,32 +1199,34 @@ class _ReservationCard extends StatelessWidget {
   }
 
   String _deliveryStatusLabel(DeliveryOrder order) {
+    final prefix = order.isMerged ? '🔗 مدموج — ' : '';
     if (order.direction == 'return') {
       switch (order.status) {
         case 'assigned':
-          return 'إرجاع للبائع — بانتظار استلام الشركة من المشتري';
+          return '$prefixإرجاع للبائع — بانتظار استلام الشركة من المشتري';
         case 'picked_up':
         case 'delivered':
-          return 'استلمت الشركة المنتج — تم استرداد المبلغ';
+          return '$prefixاستلمت الشركة المنتج — تم استرداد المبلغ';
         default:
-          return 'إرجاع للبائع';
+          return '$prefixإرجاع للبائع';
       }
     }
     switch (order.status) {
       case 'assigned':
-        return 'تم إسناد التوصيل — بانتظار استلام الشركة';
+        return '$prefixتم إسناد التوصيل — بانتظار استلام الشركة';
       case 'picked_up':
-        return 'استلمت الشركة المنتج — بالطريق إليك';
+        return '$prefixاستلمت الشركة المنتج — بالطريق إليك';
       case 'delivered':
-        return order.cashCollected
-            ? 'وصل المنتج وتم تحصيل الباقي نقداً — بانتظار تأكيد المشتري'
-            : 'وصل المنتج — بانتظار تأكيد المشتري';
+        return prefix +
+            (order.cashCollected
+                ? 'وصل المنتج وتم تحصيل الباقي نقداً — بانتظار تأكيد المشتري'
+                : 'وصل المنتج — بانتظار تأكيد المشتري');
       case 'confirmed':
-        return 'أكّد المشتري الاستلام';
+        return '$prefixأكّد المشتري الاستلام';
       case 'refused':
-        return 'رفض المشتري الاستلام';
+        return '$prefixرفض المشتري الاستلام';
       default:
-        return 'قيد التوصيل';
+        return '$prefixقيد التوصيل';
     }
   }
 
@@ -1229,9 +1239,13 @@ class _ReservationCard extends StatelessWidget {
     // to the hold expiring). Paying to complete the reservation is a
     // buyer-only action.
     final canComplete = isBuyer && r.status == 'pending';
-    // Backend-computed: seller, payment still held, and (if a delivery
-    // company is involved) only once the buyer has confirmed receipt.
-    final canRequestPaymentRelease = r.canRequestPaymentRelease;
+    // Backend-computed: seller, payment still held. The backend flag alone
+    // doesn't check delivery-company progress, so gate it further here so
+    // the seller can only nudge the buyer once the item has actually
+    // reached them (deliveryOrder.deliveredAt set), not while it's still
+    // assigned/picked-up/in transit.
+    final canRequestPaymentRelease = r.canRequestPaymentRelease &&
+        (r.deliveryOrder == null || r.deliveryOrder!.deliveredAt != null);
     // Remainder is only outstanding while still 'completed' (paid deposit,
     // awaiting delivery/confirmation) and not yet collected by the delivery
     // company — once collected, amountCharged (from the backend) already
@@ -1620,6 +1634,39 @@ class _ReservationCard extends StatelessWidget {
                             style: FilledButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      // Seller: print an A6 label with the buyer's address
+                      // and a QR code that opens their location on a maps
+                      // app — only useful before the company actually picks
+                      // the item up, so it disappears once they have.
+                      if (!isBuyer &&
+                          r.deliveryOrder != null &&
+                          r.deliveryOrder!.isOutbound &&
+                          r.deliveryOrder!.status == 'assigned') ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PrintDeliveryLabelScreen(
+                                  order: r.deliveryOrder!,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.print_outlined, size: 16),
+                            label: const Text('طباعة ملصق التوصيل'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
                               visualDensity: VisualDensity.compact,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),

@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
+import '../config/api_config.dart';
 import '../models/user.dart';
 import 'api_client.dart';
 
@@ -30,6 +33,8 @@ class AuthService {
 
   Future<({User user, String accessToken, String refreshToken})> register({
     required String username,
+    required String firstName,
+    required String lastName,
     required String email,
     required String phone,
     required String password,
@@ -39,6 +44,8 @@ class AuthService {
       '/auth/register/',
       body: {
         'username': username,
+        'first_name': firstName,
+        'last_name': lastName,
         'email': email,
         'phone': phone,
         'password': password,
@@ -113,20 +120,50 @@ class AuthService {
   // ApiClient tracks the live token itself (and silently refreshes it on a
   // 401), so it's no longer read directly here.
 
+  /// Multipart (not the shared ApiClient's JSON PATCH) since avatar upload
+  /// needs a file field — same reasoning as StoreService.updateStore
+  /// (see StoreService's note on bypassing ApiClient directly). Text fields
+  /// go through fine as regular multipart fields either way.
   Future<({bool success, String message, User? user})> updateProfile({
     required String accessToken,
     String? username,
+    String? firstName,
+    String? lastName,
     String? email,
     String? phone,
+    String? bio,
+    DateTime? dateOfBirth,
+    XFile? avatar,
   }) async {
-    final response = await _client.patch(
-      '/auth/profile/update/',
-      body: {
-        'username': ?username,
-        'email': ?email,
-        'phone': ?phone,
-      },
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/auth/profile/update/');
+    final request = http.MultipartRequest('PATCH', uri);
+    request.headers['Authorization'] = 'Bearer $accessToken';
+
+    if (username != null) request.fields['username'] = username;
+    if (firstName != null) request.fields['first_name'] = firstName;
+    if (lastName != null) request.fields['last_name'] = lastName;
+    if (email != null) request.fields['email'] = email;
+    if (phone != null) request.fields['phone'] = phone;
+    if (bio != null) request.fields['bio'] = bio;
+    if (dateOfBirth != null) {
+      request.fields['date_of_birth'] =
+          dateOfBirth.toIso8601String().split('T').first;
+    }
+    if (avatar != null) {
+      final bytes = await avatar.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'avatar',
+          bytes,
+          filename: avatar.name,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return (success: true, message: 'تم تحديث البيانات', user: User.fromJson(data));

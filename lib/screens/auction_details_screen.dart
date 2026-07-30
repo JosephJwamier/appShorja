@@ -11,7 +11,8 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auctions_provider.dart';
 import '../services/analytics_service.dart';
-import '../services/auction_service.dart' show AuctionService, BidsResult, MyBidStatus;
+import '../services/auction_service.dart'
+    show AuctionService, BidsResult, MyBidStatus;
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
@@ -96,8 +97,13 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
     if (!mounted || !_auction.isActive) return;
     _reconnectTimer?.cancel();
     _reconnectAttempts++;
-    final delaySeconds = [2, 4, 8, 16, 30][
-        (_reconnectAttempts - 1).clamp(0, 4)];
+    final delaySeconds = [
+      2,
+      4,
+      8,
+      16,
+      30,
+    ][(_reconnectAttempts - 1).clamp(0, 4)];
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
       if (mounted && !_isConnected) _connectWebSocket();
     });
@@ -123,20 +129,16 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
 
         final newBid = Bid(
           id: -DateTime.now().millisecondsSinceEpoch,
-          bidder: User(
-            id: -1,
-            username: bidderUsername,
-            email: '',
-            phone: '',
-          ),
+          bidder: User(id: -1, username: bidderUsername, email: '', phone: ''),
           amount: bidAmount,
           depositPaid: false,
           isWinning: true,
           createdAt: DateTime.now(),
         );
 
-        final previousBids =
-            _auction.bids.map((b) => b.copyWith(isWinning: false)).toList();
+        final previousBids = _auction.bids
+            .map((b) => b.copyWith(isWinning: false))
+            .toList();
 
         setState(() {
           _auction = _auction.copyWith(
@@ -241,7 +243,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.primaryContainer),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primaryContainer,
+            ),
             child: const Text('إنهاء الآن'),
           ),
         ],
@@ -342,7 +346,8 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
   Future<void> _placeBidFromBar() async {
     if (_isPlacingBid) return;
     final calculatedMin = _auction.currentPrice + _auction.minimumIncrement;
-    final minimumBid = _minimumNextBid != null && _minimumNextBid! > calculatedMin
+    final minimumBid =
+        _minimumNextBid != null && _minimumNextBid! > calculatedMin
         ? _minimumNextBid!
         : calculatedMin;
     final typed = _bidController.text.trim();
@@ -409,8 +414,10 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
           _minimumNextBid = amount + rollbackAuction.minimumIncrement;
         });
         if (mounted) {
-          Provider.of<AuctionsProvider>(context, listen: false)
-              .loadAuctions(accessToken: auth.accessToken!);
+          Provider.of<AuctionsProvider>(
+            context,
+            listen: false,
+          ).loadAuctions(accessToken: auth.accessToken!);
           _fetchMyStatus();
         }
       }
@@ -428,10 +435,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
         _isPlacingBid = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطأ: $e'),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error),
       );
     }
   }
@@ -446,8 +450,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
       createdAt: DateTime.now(),
     );
 
-    final previousBids =
-        _auction.bids.map((b) => b.copyWith(isWinning: false)).toList();
+    final previousBids = _auction.bids
+        .map((b) => b.copyWith(isWinning: false))
+        .toList();
 
     return _auction.copyWith(
       currentPrice: amount,
@@ -461,7 +466,8 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
     final item = _auction.item;
     final images = item.imageUrls;
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final isOwner = auth.user != null &&
+    final isOwner =
+        auth.user != null &&
         item.owner.id != 0 &&
         auth.user!.id == item.owner.id;
     final calcMin = _auction.currentPrice + _auction.minimumIncrement;
@@ -472,203 +478,236 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
     final showBidBar = _auction.isActive && !isOwner;
 
     // الفائز: من حقل winner في API أو أعلى bid isWinning
-    final winnerUser = _auction.winner ??
+    final winnerUser =
+        _auction.winner ??
         _auction.bids.where((b) => b.isWinning).firstOrNull?.bidder;
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      // شريط علويّ زجاجيّ
-      appBar: AppBar(
-        backgroundColor: AppColors.surface.withValues(alpha: 0.85),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
-          color: AppColors.onSurfaceVariant,
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'المزاد المباشر',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        // شريط علويّ زجاجيّ
+        appBar: AppBar(
+          backgroundColor: AppColors.surface.withValues(alpha: 0.85),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios),
+            color: AppColors.onSurfaceVariant,
+            onPressed: () => Navigator.pop(context),
           ),
-        ),
-        actions: [
-          if (_isRefreshing)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.refresh, color: AppColors.primary),
-              tooltip: 'تحديث',
-              onPressed: _refreshAuction,
-            ),
-          IconButton(
-            icon: const Icon(Icons.share, color: AppColors.primary),
-            onPressed: () => shareLink(
-              context,
-              text: DeepLinkConfig.auctionLink(_auction.id),
-              subject: _auction.item.title,
+          title: const Text(
+            'المزاد المباشر',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
             ),
           ),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const SizedBox(height: 16),
-
-          // صندوق العدّاد التنازليّ الذهبيّ
-          if (countdown != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _CountdownBox(
-                hours: countdown.h,
-                minutes: countdown.m,
-                seconds: countdown.s,
-                label: _auction.isUpcoming
-                    ? 'يبدأ المزاد خلال:'
-                    : 'ينتهي المزاد خلال:',
-                connected: _isConnected,
-              ),
-            ),
-
-          // بانر حالة المزايد — يظهر فقط للمزايدين (ليس المالك)
-          if (!isOwner && _myStatus != null && _auction.isActive) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _BidStatusBanner(status: _myStatus!),
-            ),
-          ],
-
-          // بطاقة الفائز — تظهر فقط عند انتهاء المزاد
-          if (_auction.isEnded && winnerUser != null) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _WinnerCard(
-                username: winnerUser.username,
-                amount: _auction.currentPrice,
-                isMe: auth.user != null && auth.user!.id == winnerUser.id,
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          // معرض الصور المربّع
-          _ImageGallery(
-            images: images,
-            controller: _pageController,
-            currentIndex: _currentImage,
-            onChanged: (i) => setState(() => _currentImage = i),
-          ),
-
-          const SizedBox(height: 24),
-
-          // العنوان + شارة الحالة
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.onSurface,
-                      height: 1.3,
+          actions: [
+            if (_isRefreshing)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                _StatusBadge(auction: _auction),
-              ],
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppColors.primary),
+                tooltip: 'تحديث',
+                onPressed: _refreshAuction,
+              ),
+            IconButton(
+              icon: const Icon(Icons.share, color: AppColors.primary),
+              onPressed: () => shareLink(
+                context,
+                text: DeepLinkConfig.auctionLink(_auction.id),
+                subject: _auction.item.title,
+              ),
             ),
-          ),
+          ],
+        ),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 8),
+            // صندوق العدّاد التنازليّ الذهبيّ
+            if (countdown != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _CountdownBox(
+                  hours: countdown.h,
+                  minutes: countdown.m,
+                  seconds: countdown.s,
+                  label: _auction.isUpcoming
+                      ? 'يبدأ المزاد خلال:'
+                      : 'ينتهي المزاد خلال:',
+                  connected: _isConnected,
+                ),
+              ),
 
-          // أعلى مزايدة حالية
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                const Text(
-                  'أعلى مزايدة حالية: ',
-                  style: TextStyle(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 14,
-                  ),
+            // بانر حالة المزايد — يظهر فقط للمزايدين (ليس المالك)
+            if (!isOwner && _myStatus != null && _auction.isActive) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _BidStatusBanner(status: _myStatus!),
+              ),
+            ],
+
+            // بطاقة الفائز — تظهر فقط عند انتهاء المزاد
+            if (_auction.isEnded && winnerUser != null) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _WinnerCard(
+                  username: winnerUser.username,
+                  amount: _auction.currentPrice,
+                  isMe: auth.user != null && auth.user!.id == winnerUser.id,
                 ),
-                Text(
-                  formatIqd(_auction.currentPrice),
-                  style: const TextStyle(
-                    color: AppColors.primaryContainer,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // معرض الصور المربّع
+            _ImageGallery(
+              images: images,
+              controller: _pageController,
+              currentIndex: _currentImage,
+              onChanged: (i) => setState(() => _currentImage = i),
             ),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // بطاقة البائع
-          if (item.owner.username.isNotEmpty)
+            // العنوان + شارة الحالة
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _SellerCard(
-                sellerName: item.owner.username,
-                sellerUsername: item.owner.username,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onSurface,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _StatusBadge(auction: _auction),
+                ],
               ),
             ),
 
-          // أزرار المالك — إنهاء مبكر وإلغاء
-          if (isOwner && (_auction.isActive || _auction.isUpcoming))
+            const SizedBox(height: 8),
+
+            // أعلى مزايدة حالية
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
+                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
                 children: [
-                  // إنهاء مبكر — فقط للمزادات النشطة
-                  if (_auction.isActive) ...[
+                  const Text(
+                    'أعلى مزايدة حالية: ',
+                    style: TextStyle(
+                      color: AppColors.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    formatIqd(_auction.currentPrice),
+                    style: const TextStyle(
+                      color: AppColors.primaryContainer,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // بطاقة البائع
+            if (item.owner.username.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _SellerCard(
+                  sellerName: item.owner.username,
+                  sellerUsername: item.owner.username,
+                ),
+              ),
+
+            // أزرار المالك — إنهاء مبكر وإلغاء
+            if (isOwner && (_auction.isActive || _auction.isUpcoming))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Row(
+                  children: [
+                    // إنهاء مبكر — فقط للمزادات النشطة
+                    if (_auction.isActive) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isEndingEarly ? null : _endAuctionEarly,
+                          icon: _isEndingEarly
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primaryContainer,
+                                  ),
+                                )
+                              : const Icon(Icons.timer_off_outlined, size: 18),
+                          label: Text(
+                            _isEndingEarly ? 'جاري...' : 'إنهاء مبكر',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primaryContainer,
+                            side: const BorderSide(
+                              color: AppColors.primaryContainer,
+                            ),
+                            minimumSize: const Size(0, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _isEndingEarly ? null : _endAuctionEarly,
-                        icon: _isEndingEarly
+                        onPressed: _isCancelling ? null : _cancelAuction,
+                        icon: _isCancelling
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.primaryContainer,
+                                  color: AppColors.error,
                                 ),
                               )
-                            : const Icon(Icons.timer_off_outlined, size: 18),
-                        label: Text(_isEndingEarly ? 'جاري...' : 'إنهاء مبكر'),
+                            : const Icon(Icons.cancel_outlined, size: 18),
+                        label: Text(_isCancelling ? 'جاري...' : 'إلغاء المزاد'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryContainer,
-                          side: const BorderSide(color: AppColors.primaryContainer),
+                          foregroundColor: AppColors.error,
+                          side: const BorderSide(color: AppColors.error),
                           minimumSize: const Size(0, 48),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -676,124 +715,98 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
                   ],
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isCancelling ? null : _cancelAuction,
-                      icon: _isCancelling
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.error,
-                              ),
-                            )
-                          : const Icon(Icons.cancel_outlined, size: 18),
-                      label: Text(_isCancelling ? 'جاري...' : 'إلغاء المزاد'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        minimumSize: const Size(0, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                ),
+              ),
+
+            // وصف المنتج
+            if (item.description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'وصف المنتج',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onSurface,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      item.description,
+                      style: const TextStyle(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 15,
+                        height: 1.7,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-          // وصف المنتج
-          if (item.description.isNotEmpty)
+            const SizedBox(height: 32),
+
+            // سجلّ المزايدات
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'وصف المنتج',
+                    'سجل المزايدات',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
                       color: AppColors.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 12),
                   Text(
-                    item.description,
+                    '${_auction.bidCount} مزايدة',
                     style: const TextStyle(
                       color: AppColors.onSurfaceVariant,
-                      fontSize: 15,
-                      height: 1.7,
+                      fontSize: 13,
                     ),
                   ),
                 ],
               ),
             ),
 
-          const SizedBox(height: 32),
+            const SizedBox(height: 16),
 
-          // سجلّ المزايدات
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'سجل المزايدات',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onSurface,
+            if (_auction.bids.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'لا توجد مزايدات بعد',
+                    style: TextStyle(color: AppColors.onSurfaceVariant),
                   ),
                 ),
-                Text(
-                  '${_auction.bidCount} مزايدة',
-                  style: const TextStyle(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          if (_auction.bids.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Text(
-                  'لا توجد مزايدات بعد',
-                  style: TextStyle(color: AppColors.onSurfaceVariant),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: _auction.bids
+                      .map(
+                        (bid) =>
+                            _BidTile(bid: bid, timeFormatter: _formatBidTime),
+                      )
+                      .toList(),
                 ),
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: _auction.bids
-                    .map((bid) => _BidTile(
-                          bid: bid,
-                          timeFormatter: _formatBidTime,
-                        ))
-                    .toList(),
-              ),
-            ),
 
-          // مساحة سفليّة حتى لا يغطّي شريط المزايدة آخر عنصر
-          SizedBox(height: showBidBar ? 120 : 32),
-        ],
+            // مساحة سفليّة حتى لا يغطّي شريط المزايدة آخر عنصر
+            SizedBox(height: showBidBar ? 120 : 32),
+          ],
+        ),
+
+        // الشريط السفليّ الثابت للمزايدة
+        bottomNavigationBar: showBidBar ? _buildBidBar(minNextBid) : null,
       ),
-
-      // الشريط السفليّ الثابت للمزايدة
-      bottomNavigationBar:
-          showBidBar ? _buildBidBar(minNextBid) : null,
     );
   }
 
@@ -820,7 +833,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
         children: [
           Row(
             children: [
-              // حقل المبلغ مع لاحقة "ريال"
+              // حقل المبلغ مع لاحقة "IQD"
               Expanded(
                 child: SizedBox(
                   height: 56,
@@ -835,11 +848,12 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
                     ),
                     decoration: InputDecoration(
                       hintText: 'المبلغ',
-                      suffixText: 'ريال',
+                      suffixText: 'IQD',
                       filled: true,
                       fillColor: AppColors.surfaceContainer,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -1040,8 +1054,11 @@ class _ImageGallery extends StatelessWidget {
             color: AppColors.surfaceContainer,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.image,
-              size: 80, color: AppColors.onSurfaceVariant),
+          child: const Icon(
+            Icons.image,
+            size: 80,
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -1172,8 +1189,11 @@ class _SellerCard extends StatelessWidget {
               color: AppColors.secondaryContainer,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.storefront,
-                color: AppColors.secondary, size: 24),
+            child: const Icon(
+              Icons.storefront,
+              color: AppColors.secondary,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -1230,7 +1250,8 @@ class _BidStatusBanner extends StatelessWidget {
           ? formatIqd(status.amountBehind!)
           : formatIqd(status.currentPrice - status.yourHighestBid!);
       title = 'تجاوزك أحد!';
-      subtitle = 'مزايدتك ${formatIqd(status.yourHighestBid!)} · متأخر بـ $behind';
+      subtitle =
+          'مزايدتك ${formatIqd(status.yourHighestBid!)} · متأخر بـ $behind';
     }
 
     return Container(
@@ -1259,7 +1280,10 @@ class _BidStatusBanner extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 12, color: textColor.withValues(alpha: 0.8)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textColor.withValues(alpha: 0.8),
+                  ),
                 ),
               ],
             ),
@@ -1292,7 +1316,9 @@ class _WinnerCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF7C948).withValues(alpha: 0.5)),
+        border: Border.all(
+          color: const Color(0xFFF7C948).withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1306,7 +1332,11 @@ class _WinnerCard extends StatelessWidget {
                   color: Color(0xFFF7C948),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.emoji_events, color: Colors.white, size: 26),
+                child: const Icon(
+                  Icons.emoji_events,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1315,10 +1345,7 @@ class _WinnerCard extends StatelessWidget {
                   children: [
                     const Text(
                       'الفائز بالمزاد',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF8D6E00),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8D6E00)),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1441,8 +1468,9 @@ class _BidTile extends StatelessWidget {
                       bid.bidder.username,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight:
-                            isWinning ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isWinning
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         color: AppColors.onSurface,
                       ),
                     ),

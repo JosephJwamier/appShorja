@@ -10,6 +10,7 @@ import '../../screens/store_profile_screen.dart';
 import '../../services/item_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
+import '../live/live_store_avatar.dart';
 
 /// Home-screen section: stores the user follows (as a circular avatar row,
 /// like the "متابعاتك" row in the design) followed by a preview row of the
@@ -145,25 +146,29 @@ class _StoreAvatarItem extends StatelessWidget {
         width: 64,
         child: Column(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surfaceContainer,
-                border: Border.all(color: AppColors.surfaceContainerHigh, width: 1.5),
+            LiveStoreAvatar(
+              store: store,
+              size: 64,
+              avatar: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surfaceContainer,
+                  border: Border.all(color: AppColors.surfaceContainerHigh, width: 1.5),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: logo != null
+                    ? Image.network(
+                        logo,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.storefront,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      )
+                    : const Icon(Icons.storefront, color: AppColors.onSurfaceVariant),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: logo != null
-                  ? Image.network(
-                      logo,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.storefront,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    )
-                  : const Icon(Icons.storefront, color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 4),
             Text(

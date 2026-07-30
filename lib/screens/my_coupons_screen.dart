@@ -121,6 +121,7 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _coupons.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),

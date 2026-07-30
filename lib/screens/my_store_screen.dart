@@ -179,6 +179,7 @@ class _StoreView extends StatelessWidget {
       child: RefreshIndicator(
         onRefresh: onRefresh,
         child: NestedScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           headerSliverBuilder: (context, _) => [
             SliverToBoxAdapter(child: _CoverHeader(store: store)),
             SliverToBoxAdapter(child: _StoreInfoHeader(store: store)),
@@ -515,6 +516,7 @@ class _ProductsTabState extends State<_ProductsTab> {
         }
 
         return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             if (myItems.items.isNotEmpty) ...[
               const SliverToBoxAdapter(
@@ -694,6 +696,7 @@ class _AuctionsTabState extends State<_AuctionsTab> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _auctions.length,
         itemBuilder: (context, i) => _StoreAuctionCard(
@@ -728,6 +731,7 @@ class _AboutTab extends StatelessWidget {
       color: AppColors.outlineVariant.withValues(alpha: 0.4),
     );
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         if (store.description.isNotEmpty) ...[
@@ -1115,44 +1119,53 @@ class _CoverHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cover = store.fullCoverUrl;
     return SizedBox(
       height: 220,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.secondary, AppColors.onSurface],
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _circleIcon(
-                      context,
-                      Icons.share,
-                      () => shareLink(
-                        context,
-                        text: DeepLinkConfig.storeLink(store.id),
-                        subject: store.name,
+          ClipRect(
+            child: SizedBox(
+              height: 180,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  cover != null
+                      ? Image.network(
+                          cover,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _gradientBg(),
+                        )
+                      : _gradientBg(),
+                  SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _circleIcon(
+                            context,
+                            Icons.share,
+                            () => shareLink(
+                              context,
+                              text: DeepLinkConfig.storeLink(store.id),
+                              subject: store.name,
+                            ),
+                          ),
+                          _circleIcon(
+                            context,
+                            Icons.arrow_forward_ios,
+                            () => Navigator.maybePop(context),
+                          ),
+                        ],
                       ),
                     ),
-                    _circleIcon(
-                      context,
-                      Icons.arrow_back_ios,
-                      () => Navigator.maybePop(context),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1197,6 +1210,18 @@ class _CoverHeader extends StatelessWidget {
       color: AppColors.surfaceContainer,
       child: const Icon(Icons.storefront,
           size: 48, color: AppColors.onSurfaceVariant),
+    );
+  }
+
+  Widget _gradientBg() {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.secondary, AppColors.onSurface],
+        ),
+      ),
     );
   }
 

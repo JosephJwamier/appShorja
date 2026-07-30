@@ -91,6 +91,7 @@ class _RecommendedListingsScreenState
               onRefresh: _initialize,
               child: CustomScrollView(
                 controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.all(16),

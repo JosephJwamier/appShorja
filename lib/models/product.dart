@@ -21,6 +21,8 @@ class Product {
   final double? rating;
   final int? soldCount;
   final int? totalReviews;
+  final int? representativeAssignmentId;
+  final String? representativeCommissionPercentage;
 
   Product({
     required this.id,
@@ -42,7 +44,15 @@ class Product {
     this.rating,
     this.soldCount,
     this.totalReviews,
+    this.representativeAssignmentId,
+    this.representativeCommissionPercentage,
   });
+
+  /// True when this listing reached the store through a representative
+  /// (sales agent) assignment rather than the store owner's own item —
+  /// reservations must route through [representativeAssignmentId] for the
+  /// commission to be attributed.
+  bool get isViaRepresentative => representativeAssignmentId != null;
 
   bool get isUsed => condition != 'new';
 
@@ -66,6 +76,8 @@ class Product {
         : rawCategory is int
             ? rawCategory
             : null;
+    final representativeInfo =
+        json['representative_info'] as Map<String, dynamic>?;
     return Product(
       id: json['id'] as int,
       title: json['title'] as String? ?? '',
@@ -87,6 +99,10 @@ class Product {
       rating: double.tryParse(json['rating']?.toString() ?? ''),
       soldCount: json['sold_count'] as int?,
       totalReviews: json['total_reviews'] as int?,
+      representativeAssignmentId:
+          representativeInfo?['representative_assignment_id'] as int?,
+      representativeCommissionPercentage:
+          representativeInfo?['commission_percentage'] as String?,
     );
   }
 }

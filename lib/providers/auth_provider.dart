@@ -158,7 +158,9 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _errorMessage = 'فشل تسجيل الدخول، تحقّق من بياناتك';
+      _errorMessage = e is NoConnectionException
+          ? e.toString()
+          : 'فشل تسجيل الدخول، تحقّق من بياناتك';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -257,7 +259,9 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _errorMessage = 'فشل تسجيل الدخول، حاول مرة أخرى';
+      _errorMessage = e is NoConnectionException
+          ? e.toString()
+          : 'فشل تسجيل الدخول، حاول مرة أخرى';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -266,6 +270,8 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> register({
     required String username,
+    required String firstName,
+    required String lastName,
     required String email,
     required String phone,
     required String password,
@@ -279,6 +285,8 @@ class AuthProvider extends ChangeNotifier {
     try {
       final result = await _authService.register(
         username: username,
+        firstName: firstName,
+        lastName: lastName,
         email: email,
         phone: phone,
         password: password,

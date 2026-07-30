@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/chats_provider.dart';
+import '../providers/representative_requests_provider.dart';
+import '../providers/transfers_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/refreshable_tab.dart';
 import 'home_screen.dart';
 import 'auctions_screen.dart';
 import 'my_store_screen.dart';
@@ -38,22 +41,69 @@ class MainShell extends StatefulWidget {
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
+  // مفاتيح لكل تبويب من التبويبات الخمسة التي تحمّل بيانات — تُستخدم في
+  // _refreshTabAt للوصول إلى State الخاص بالتبويب (الذي يبقى حياً طوال
+  // الجلسة بفضل IndexedStack أدناه) واستدعاء RefreshableTab.refreshTab عليه
+  // كلّما أصبح هذا التبويب هو المختار، تماماً كما لو كانت شاشة مدفوعة حديثاً.
+  final _homeKey = GlobalKey();
+  final _auctionsKey = GlobalKey();
+  final _liveKey = GlobalKey();
+  final _chatsKey = GlobalKey();
+  final _reservationsKey = GlobalKey();
+
   void jumpToTab(int index) {
     setState(() => _currentIndex = index);
+    _refreshTabAt(index);
   }
 
-  final _tabs = const [
-    HomeScreen(),
-    AuctionsListView(),
-    LiveSessionsScreen(),
-    ChatsListScreen(),
-    ReservationsScreen(),
-    _AccountTab(),
+  void _refreshTabAt(int index) {
+    final key = switch (index) {
+      0 => _homeKey,
+      1 => _auctionsKey,
+      2 => _liveKey,
+      3 => _chatsKey,
+      4 => _reservationsKey,
+      _ => null,
+    };
+    final state = key?.currentState;
+    if (state is RefreshableTab) (state as RefreshableTab).refreshTab();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Fire-and-forget, mirrors ChatsProvider's load-on-shell-mount pattern:
+    // populates the "incoming requests" badges (representative + resale)
+    // as soon as the shell appears, without waiting for the user to open
+    // either screen first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final token = context.read<AuthProvider>().accessToken;
+      if (token == null) return;
+      context
+          .read<RepresentativeRequestsProvider>()
+          .loadReceivedRequests(accessToken: token);
+      context
+          .read<TransfersProvider>()
+          .loadTab(TransferTab.received, token: token);
+    });
+  }
+
+  late final _tabs = [
+    HomeScreen(key: _homeKey),
+    AuctionsListView(key: _auctionsKey),
+    LiveSessionsScreen(key: _liveKey),
+    ChatsListScreen(key: _chatsKey),
+    ReservationsScreen(key: _reservationsKey),
+    const _AccountTab(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final unread = context.watch<ChatsProvider>().unreadMessagesCount;
+    final pendingRequests =
+        context.watch<RepresentativeRequestsProvider>().pendingReceivedCount +
+        context.watch<TransfersProvider>().pendingReceivedCount;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _tabs),
@@ -74,6 +124,7 @@ class MainShellState extends State<MainShell> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
           setState(() => _currentIndex = i);
+          _refreshTabAt(i);
         },
         backgroundColor: AppColors.surfaceContainerLowest,
         indicatorColor: AppColors.primaryContainer.withValues(alpha: 0.2),
@@ -115,9 +166,21 @@ class MainShellState extends State<MainShell> {
             selectedIcon: Icon(Icons.bookmark, color: AppColors.primary),
             label: 'حجوزاتي',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: AppColors.primary),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: pendingRequests > 0,
+              label: Text('$pendingRequests'),
+              backgroundColor: AppColors.error,
+              textColor: Colors.white,
+              child: const Icon(Icons.person_outline),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: pendingRequests > 0,
+              label: Text('$pendingRequests'),
+              backgroundColor: AppColors.error,
+              textColor: Colors.white,
+              child: const Icon(Icons.person, color: AppColors.primary),
+            ),
             label: 'الحساب',
           ),
         ],
@@ -133,6 +196,10 @@ class _AccountTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final repPending =
+        context.watch<RepresentativeRequestsProvider>().pendingReceivedCount;
+    final resalePending =
+        context.watch<TransfersProvider>().pendingReceivedCount;
 
     // التبويب مبنيّ داخل MainShell (الذي يُبنى بدون Directionality صريح، أي
     // LTR افتراضيًا) — لذا نغلّفه بـ RTL هنا صراحةً ليتطابق ترتيب العناصر
@@ -184,20 +251,25 @@ class _AccountTab extends StatelessWidget {
               child: CircleAvatar(
                 radius: 40,
                 backgroundColor: AppColors.primaryContainer,
-                child: Text(
-                  (auth.user?.username ?? '?').characters.first.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage: auth.user?.fullAvatarUrl != null
+                    ? NetworkImage(auth.user!.fullAvatarUrl!)
+                    : null,
+                child: auth.user?.fullAvatarUrl == null
+                    ? Text(
+                        (auth.user?.displayName ?? '?').characters.first.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
             const SizedBox(height: 12),
             Center(
               child: Text(
-                auth.user?.username ?? 'مستخدم',
+                auth.user?.displayName ?? 'مستخدم',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -259,6 +331,7 @@ class _AccountTab extends StatelessWidget {
             _AccountTile(
               icon: Icons.inbox_outlined,
               label: 'الطلبات الواردة',
+              badgeCount: repPending,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -298,6 +371,7 @@ class _AccountTab extends StatelessWidget {
             _AccountTile(
               icon: Icons.swap_horiz_rounded,
               label: 'اتفاقيات الإعادة',
+              badgeCount: resalePending,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -356,34 +430,74 @@ class _AccountTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final int badgeCount;
 
   const _AccountTile({
     required this.icon,
     required this.label,
     required this.onTap,
     this.color,
+    this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasBadge = badgeCount > 0;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       color: AppColors.surfaceContainerLowest,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.surfaceContainer),
+        side: BorderSide(
+          color: hasBadge
+              ? AppColors.error.withValues(alpha: 0.35)
+              : AppColors.surfaceContainer,
+        ),
       ),
       child: ListTile(
-        leading: Icon(icon, color: color ?? AppColors.primary),
+        leading: Badge(
+          isLabelVisible: hasBadge,
+          label: Text('$badgeCount'),
+          backgroundColor: AppColors.error,
+          textColor: Colors.white,
+          child: Icon(icon, color: color ?? AppColors.primary),
+        ),
         title: Text(
           label,
           style: TextStyle(color: color ?? AppColors.onSurface),
         ),
-        trailing: const Icon(
-          Icons.chevron_left,
-          color: AppColors.onSurfaceVariant,
-        ),
+        trailing: hasBadge
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      badgeCount == 1 ? 'طلب جديد' : '$badgeCount طلبات جديدة',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.chevron_left,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ],
+              )
+            : const Icon(
+                Icons.chevron_left,
+                color: AppColors.onSurfaceVariant,
+              ),
         onTap: onTap,
       ),
     );

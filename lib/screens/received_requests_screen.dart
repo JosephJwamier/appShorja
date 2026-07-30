@@ -94,6 +94,7 @@ class _ReceivedRequestsScreenState extends State<ReceivedRequestsScreen> {
           return RefreshIndicator(
             onRefresh: _load,
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: provider.received.length,
               // ↓↓↓ تعديل ١: استخراج متغيّر r وإضافة مفتاح للبطاقة

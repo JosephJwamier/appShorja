@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../models/live_session.dart';
 import '../models/live_comment.dart';
+import '../models/live_session_viewer.dart';
 import '../config/api_config.dart';
 import 'api_client.dart';
 
@@ -351,6 +352,83 @@ class LiveSessionService {
     required int commentId,
   }) async {
     final response = await _client.delete('/live-sessions/$sessionId/comments/$commentId/');
+    return _parseSuccessMessage(response);
+  }
+
+  /// Paginated, searchable list of signed-in users who have watched this
+  /// session — store owner or a session moderator only.
+  Future<({List<LiveSessionViewer> viewers, bool hasMore})> fetchViewers({
+    required String accessToken,
+    required int sessionId,
+    String search = '',
+    bool activeOnly = false,
+    int page = 1,
+  }) async {
+    final queryParams = <String, String>{'page': page.toString()};
+    if (search.isNotEmpty) queryParams['search'] = search;
+    if (activeOnly) queryParams['active_only'] = 'true';
+
+    final response = await _client.get(
+      '/live-sessions/$sessionId/viewers/?${Uri(queryParameters: queryParams).query}',
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final results = data['results'] as List<dynamic>;
+      return (
+        viewers: results
+            .map((e) => LiveSessionViewer.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        hasMore: data['next'] != null,
+      );
+    }
+    throw Exception('فشل جلب قائمة المشاهدين');
+  }
+
+  /// Bans a viewer from this session only (see backend LiveSessionBan
+  /// docstring) — they can no longer comment here or reconnect to its
+  /// WebSocket room. Store owner or a session moderator.
+  Future<({bool success, String message})> banViewer({
+    required String accessToken,
+    required int sessionId,
+    required int userId,
+    String reason = '',
+  }) async {
+    final response = await _client.post(
+      '/live-sessions/$sessionId/bans/',
+      body: {'user_id': userId, 'reason': reason},
+    );
+    return _parseSuccessMessage(response);
+  }
+
+  Future<({bool success, String message})> unbanViewer({
+    required String accessToken,
+    required int sessionId,
+    required int userId,
+  }) async {
+    final response = await _client.delete('/live-sessions/$sessionId/bans/$userId/');
+    return _parseSuccessMessage(response);
+  }
+
+  /// Grants moderator powers (delete comments, ban/unban viewers) for this
+  /// session only — store owner only.
+  Future<({bool success, String message})> addModerator({
+    required String accessToken,
+    required int sessionId,
+    required int userId,
+  }) async {
+    final response = await _client.post(
+      '/live-sessions/$sessionId/moderators/',
+      body: {'user_id': userId},
+    );
+    return _parseSuccessMessage(response);
+  }
+
+  Future<({bool success, String message})> removeModerator({
+    required String accessToken,
+    required int sessionId,
+    required int userId,
+  }) async {
+    final response = await _client.delete('/live-sessions/$sessionId/moderators/$userId/');
     return _parseSuccessMessage(response);
   }
 

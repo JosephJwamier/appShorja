@@ -139,6 +139,7 @@ class _CategoryAuctionsScreenState extends State<CategoryAuctionsScreen> {
           color: AppColors.primary,
           child: CustomScrollView(
             controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: _buildBody(),
           ),
         ),

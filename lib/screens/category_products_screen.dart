@@ -131,6 +131,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           color: AppColors.primary,
           child: CustomScrollView(
             controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: _buildBody(),
           ),
         ),

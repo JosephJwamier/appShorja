@@ -13,6 +13,7 @@ class AuctionService {
     String? search,
     String? status,
     bool activeOnly = false,
+    DateTime? endsBefore,
     FilterParams filters = FilterParams.empty,
   }) async {
     final queryParams = <String, String>{'page': page.toString()};
@@ -20,6 +21,9 @@ class AuctionService {
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
     if (status != null && status.isNotEmpty) queryParams['status'] = status;
     if (activeOnly) queryParams['active_only'] = 'true';
+    if (endsBefore != null) {
+      queryParams['ends_before'] = endsBefore.toUtc().toIso8601String();
+    }
 
     final response = await _client
         .get('/auctions/?${Uri(queryParameters: queryParams).query}');

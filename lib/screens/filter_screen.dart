@@ -158,17 +158,51 @@ class _FilterScreenState extends State<FilterScreen> {
       setState(() {
         _rootCategories = roots;
         _loadingRoots = false;
-        // Try to pre-select the category from initialFilters
-        final initId = widget.initialFilters.categoryId;
-        if (initId != null) {
-          final match = roots.where((c) => c.id == initId).toList();
-          if (match.isNotEmpty) {
-            _selectedRootId = match.first.id;
-          }
-        }
       });
+      await _preselectCategory(roots);
     } catch (_) {
       if (mounted) setState(() => _loadingRoots = false);
+    }
+  }
+
+  /// Matches [initialFilters.categoryId] against the loaded root categories.
+  /// If it isn't a root, it must be a sub-category — resolve which root owns
+  /// it and load that root's sub-categories so a previously-applied
+  /// sub-category filter still shows as selected instead of looking cleared.
+  Future<void> _preselectCategory(List<Category> roots) async {
+    final initId = widget.initialFilters.categoryId;
+    if (initId == null) return;
+
+    final rootMatch = roots.where((c) => c.id == initId).toList();
+    if (rootMatch.isNotEmpty) {
+      if (mounted) setState(() => _selectedRootId = rootMatch.first.id);
+      return;
+    }
+
+    try {
+      final all = await _categoryService.fetchCategories(
+        accessToken: widget.accessToken,
+      );
+      final subMatch = all.where((c) => c.id == initId).toList();
+      final parentId = subMatch.isNotEmpty ? subMatch.first.parentId : null;
+      if (parentId == null || !mounted) return;
+
+      setState(() {
+        _selectedRootId = parentId;
+        _loadingSubs = true;
+      });
+      final subs = await _categoryService.fetchSubCategories(
+        accessToken: widget.accessToken,
+        parentId: parentId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _subCategories = subs;
+        _selectedSubId = initId;
+        _loadingSubs = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingSubs = false);
     }
   }
 
@@ -914,14 +948,51 @@ class _AuctionFilterScreenState extends State<AuctionFilterScreen> {
       setState(() {
         _rootCategories = roots;
         _loadingRoots = false;
-        final initId = widget.initialFilters.categoryId;
-        if (initId != null) {
-          final match = roots.where((c) => c.id == initId).toList();
-          if (match.isNotEmpty) _selectedRootId = match.first.id;
-        }
       });
+      await _preselectCategory(roots);
     } catch (_) {
       if (mounted) setState(() => _loadingRoots = false);
+    }
+  }
+
+  /// Matches [initialFilters.categoryId] against the loaded root categories.
+  /// If it isn't a root, it must be a sub-category — resolve which root owns
+  /// it and load that root's sub-categories so a previously-applied
+  /// sub-category filter still shows as selected instead of looking cleared.
+  Future<void> _preselectCategory(List<Category> roots) async {
+    final initId = widget.initialFilters.categoryId;
+    if (initId == null) return;
+
+    final rootMatch = roots.where((c) => c.id == initId).toList();
+    if (rootMatch.isNotEmpty) {
+      if (mounted) setState(() => _selectedRootId = rootMatch.first.id);
+      return;
+    }
+
+    try {
+      final all = await _categoryService.fetchCategories(
+        accessToken: widget.accessToken,
+      );
+      final subMatch = all.where((c) => c.id == initId).toList();
+      final parentId = subMatch.isNotEmpty ? subMatch.first.parentId : null;
+      if (parentId == null || !mounted) return;
+
+      setState(() {
+        _selectedRootId = parentId;
+        _loadingSubs = true;
+      });
+      final subs = await _categoryService.fetchSubCategories(
+        accessToken: widget.accessToken,
+        parentId: parentId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _subCategories = subs;
+        _selectedSubId = initId;
+        _loadingSubs = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingSubs = false);
     }
   }
 

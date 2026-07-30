@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../features/location/models/location_model.dart';
 import '../features/location/screens/widgets/delivery_location_widget.dart';
 import '../models/reservation.dart';
@@ -6,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'disputes_screen.dart';
 import 'file_dispute_screen.dart';
+import 'print_delivery_label_screen.dart';
 
 const _months = [
   'يناير',
@@ -210,7 +212,12 @@ class ReservationDetailScreen extends StatelessWidget {
     final isBuyer = r.buyer.id == currentUserId;
     final isSeller = r.item.owner.id == currentUserId;
     final canComplete = isBuyer && r.status == 'pending';
-    final canRequestPaymentRelease = r.canRequestPaymentRelease;
+    // The backend flag alone doesn't check delivery-company progress — gate
+    // it further here so the seller can only nudge the buyer once the item
+    // has actually reached them (deliveryOrder.deliveredAt set), not while
+    // it's still assigned/picked-up/in transit.
+    final canRequestPaymentRelease = r.canRequestPaymentRelease &&
+        (r.deliveryOrder == null || r.deliveryOrder!.deliveredAt != null);
     final awaitingCod = r.status == 'completed' &&
         r.isDepositOnly &&
         r.remainingCashOnDelivery > 0;
@@ -256,7 +263,7 @@ class ReservationDetailScreen extends StatelessWidget {
                 ],
                 if (r.deliveryOrder != null) ...[
                   const SizedBox(height: 14),
-                  _buildDeliveryOrderCard(),
+                  _buildDeliveryOrderCard(context),
                 ],
                 if (r.hasDispute) ...[
                   const SizedBox(height: 14),
@@ -855,9 +862,68 @@ class ReservationDetailScreen extends StatelessWidget {
   }
 
   // ── بطاقة طلب التوصيل ────────────────────────────────────────────────────
-  Widget _buildDeliveryOrderCard() {
+  Future<void> _openMaps(BuildContext context, String? url) async {
+    if (url == null) return;
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر فتح تطبيق الخرائط')),
+      );
+    }
+  }
+
+  Widget _addressRow(BuildContext context, String label, String name, String? mapsUrl) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+          ),
+          Row(
+            children: [
+              Text(
+                name,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              if (mapsUrl != null) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => _openMaps(context, mapsUrl),
+                  borderRadius: BorderRadius.circular(20),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.location_on_outlined,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _printDeliveryLabel(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PrintDeliveryLabelScreen(order: reservation.deliveryOrder!),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryOrderCard(BuildContext context) {
     final order = reservation.deliveryOrder!;
     final isReturn = order.direction == 'return';
+    final isSeller = reservation.item.owner.id == currentUserId;
     final statusLabels = {
       'assigned': 'بانتظار استلام الشركة',
       'picked_up': isReturn ? 'استلمت الشركة المنتج منك' : 'استلمت الشركة المنتج من البائع',
@@ -891,9 +957,46 @@ class ReservationDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (order.isMerged) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.tertiaryContainer.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.merge_type, size: 14, color: AppColors.tertiary),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'مدموج مع حجوزات أخرى بنفس الرحلة — رسم توصيل واحد للجميع',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.tertiary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
-          _infoRow(isReturn ? 'من (أنت)' : 'من (البائع)', order.fromName),
-          _infoRow(isReturn ? 'إلى (البائع)' : 'إلى (أنت)', order.toName),
+          _addressRow(
+            context,
+            isReturn ? 'من (أنت)' : 'من (البائع)',
+            order.fromName,
+            order.fromMapsUrl,
+          ),
+          _addressRow(
+            context,
+            isReturn ? 'إلى (البائع)' : 'إلى (أنت)',
+            order.toName,
+            order.toMapsUrl,
+          ),
           if (order.cashToCollect > 0)
             _infoRow(
               order.cashCollected ? 'كاش حصّلته الشركة ✓' : 'كاش تحصّله الشركة',
@@ -902,6 +1005,27 @@ class ReservationDetailScreen extends StatelessWidget {
             ),
           if (order.failureReason.isNotEmpty)
             _infoRow('السبب', order.failureReason),
+          if (isSeller && !isReturn && order.status == 'assigned') ...[
+            const Divider(height: 22),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => _printDeliveryLabel(context),
+                icon: const Icon(Icons.print_outlined, size: 17),
+                label: const Text(
+                  'طباعة ملصق التوصيل',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

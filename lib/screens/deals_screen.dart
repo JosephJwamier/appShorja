@@ -111,6 +111,7 @@ class _DealsScreenState extends State<DealsScreen> {
           color: AppColors.primary,
           child: CustomScrollView(
             controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _buildHeader(),
               ..._buildBody(),

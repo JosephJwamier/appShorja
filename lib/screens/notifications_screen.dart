@@ -27,6 +27,17 @@ class NotificationsScreen extends StatelessWidget {
       case 'delivery_refused':
       case 'delivery_return_scheduled': return Icons.assignment_return_outlined;
       case 'refund_processed': return Icons.replay_outlined;
+      case 'representative_request':
+      case 'representative_accepted':
+      case 'representative_rejected':
+      case 'representative_cancelled':
+      case 'representative_permissions_updated': return Icons.badge_outlined;
+      case 'representative_sale':
+      case 'representative_commission_paid': return Icons.payments_outlined;
+      case 'resale_agreement_request':
+      case 'resale_agreement_approved':
+      case 'resale_agreement_rejected':
+      case 'resale_agreement_cancelled': return Icons.swap_horiz_rounded;
       default: return Icons.notifications_outlined;
     }
   }
@@ -283,6 +294,7 @@ class NotificationsScreen extends StatelessWidget {
                                               fontSize: 14,
                                             ),
                                             textAlign: TextAlign.right,
+                                            textDirection: TextDirection.rtl,
                                           ),
                                         ),
                                       ],
@@ -295,6 +307,7 @@ class NotificationsScreen extends StatelessWidget {
                                         fontSize: 13,
                                       ),
                                       textAlign: TextAlign.right,
+                                      textDirection: TextDirection.rtl,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),

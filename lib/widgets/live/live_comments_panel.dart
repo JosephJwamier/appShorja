@@ -17,6 +17,7 @@ class LiveCommentsPanel extends StatefulWidget {
   final bool isModerator;
   final ValueChanged<String> onSend;
   final ValueChanged<LiveComment>? onDelete;
+  final ValueChanged<LiveComment>? onBan;
   final bool canComment;
 
   const LiveCommentsPanel({
@@ -26,6 +27,7 @@ class LiveCommentsPanel extends StatefulWidget {
     this.isModerator = false,
     required this.onSend,
     this.onDelete,
+    this.onBan,
     this.canComment = true,
   });
 
@@ -122,6 +124,9 @@ class _LiveCommentsPanelState extends State<LiveCommentsPanel> {
   Widget _buildItem(LiveComment comment, Animation<double> animation) {
     final canDelete = widget.onDelete != null &&
         (widget.isModerator || comment.userId == widget.currentUserId);
+    final canBan = widget.onBan != null &&
+        widget.isModerator &&
+        comment.userId != widget.currentUserId;
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
     return SizeTransition(
       sizeFactor: curved,
@@ -162,6 +167,14 @@ class _LiveCommentsPanelState extends State<LiveCommentsPanel> {
                     ),
                   ),
                 ),
+                if (canBan)
+                  IconButton(
+                    icon: const Icon(Icons.block, size: 16, color: Colors.white70),
+                    tooltip: 'حظر ${comment.username}',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => widget.onBan!(comment),
+                  ),
                 if (canDelete)
                   IconButton(
                     icon: const Icon(Icons.close, size: 16, color: Colors.white70),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../services/auth_service.dart';
+import '../services/legal_service.dart';
 import '../theme/app_colors.dart';
 import 'change_password_screen.dart';
 import 'verify_code_sheet.dart';
@@ -16,9 +18,14 @@ class AccountSettingsScreen extends StatefulWidget {
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   final _service = AuthService();
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   late final TextEditingController _usernameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _bioController;
+  DateTime? _dateOfBirth;
+  XFile? _avatarFile;
   bool _saving = false;
   bool _deleting = false;
   String? _error;
@@ -27,17 +34,40 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().user;
+    _firstNameController = TextEditingController(text: user?.firstName ?? '');
+    _lastNameController = TextEditingController(text: user?.lastName ?? '');
     _usernameController = TextEditingController(text: user?.username ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
+    _dateOfBirth = user?.dateOfBirth;
   }
 
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _bioController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAvatar() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) setState(() => _avatarFile = picked);
+  }
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(now.year - 100),
+      lastDate: DateTime(now.year - 13, now.month, now.day),
+    );
+    if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
   Future<void> _save() async {
@@ -46,13 +76,21 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final user = auth.user;
     if (token == null || user == null) return;
 
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
+    final bio = _bioController.text.trim();
 
-    if (username == user.username &&
+    if (firstName == user.firstName &&
+        lastName == user.lastName &&
+        username == user.username &&
         email == user.email &&
-        phone == user.phone) {
+        phone == user.phone &&
+        bio == user.bio &&
+        _dateOfBirth == user.dateOfBirth &&
+        _avatarFile == null) {
       return;
     }
 
@@ -65,12 +103,20 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final result = await _service.updateProfile(
       accessToken: token,
       username: username != user.username ? username : null,
+      firstName: firstName != user.firstName ? firstName : null,
+      lastName: lastName != user.lastName ? lastName : null,
       email: email != user.email ? email : null,
       phone: phone != user.phone ? phone : null,
+      bio: bio != user.bio ? bio : null,
+      dateOfBirth: _dateOfBirth != user.dateOfBirth ? _dateOfBirth : null,
+      avatar: _avatarFile,
     );
 
     if (!mounted) return;
-    setState(() => _saving = false);
+    setState(() {
+      _saving = false;
+      if (result.success) _avatarFile = null;
+    });
 
     if (!result.success) {
       setState(() => _error = result.message);
@@ -210,19 +256,62 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: CircleAvatar(
-                  radius: 38,
-                  backgroundColor: AppColors.primaryContainer,
-                  child: Text(
-                    (user?.username ?? '?').characters.first.toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold),
+                child: GestureDetector(
+                  onTap: _pickAvatar,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 38,
+                        backgroundColor: AppColors.primaryContainer,
+                        backgroundImage: _avatarFile != null
+                            ? NetworkImage(_avatarFile!.path)
+                            : (user?.fullAvatarUrl != null
+                                ? NetworkImage(user!.fullAvatarUrl!)
+                                : null),
+                        child: (_avatarFile == null && user?.fullAvatarUrl == null)
+                            ? Text(
+                                (user?.displayName ?? '?').characters.first.toUpperCase(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.camera_alt_outlined,
+                              size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(height: 24),
+              const _SectionLabel('الاسم الأول'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _firstNameController,
+                textAlign: TextAlign.right,
+                decoration: _fieldDecoration(),
+              ),
+              const SizedBox(height: 20),
+              const _SectionLabel('الاسم الثاني'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _lastNameController,
+                textAlign: TextAlign.right,
+                decoration: _fieldDecoration(),
+              ),
+              const SizedBox(height: 20),
               const _SectionLabel('اسم المستخدم'),
               const SizedBox(height: 8),
               TextField(
@@ -262,6 +351,38 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 actionLabel: 'تفعيل الهاتف',
                 onVerify: _verifyPhone,
               ),
+              const SizedBox(height: 20),
+              const _SectionLabel('نبذة تعريفية'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _bioController,
+                textAlign: TextAlign.right,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: _fieldDecoration(),
+              ),
+              const SizedBox(height: 12),
+              const _SectionLabel('تاريخ الميلاد'),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _pickDateOfBirth,
+                child: InputDecorator(
+                  decoration: _fieldDecoration(),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      _dateOfBirth != null
+                          ? '${_dateOfBirth!.year}/${_dateOfBirth!.month}/${_dateOfBirth!.day}'
+                          : 'غير محدد',
+                      style: TextStyle(
+                        color: _dateOfBirth != null
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
                 Text(_error!, style: const TextStyle(color: AppColors.error)),
@@ -299,6 +420,32 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 trailing: const Icon(Icons.chevron_left, color: AppColors.onSurfaceVariant),
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              // سياسة الخصوصية
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined,
+                    color: AppColors.primary),
+                title: const Text('سياسة الخصوصية'),
+                trailing: const Icon(Icons.open_in_new,
+                    size: 18, color: AppColors.onSurfaceVariant),
+                onTap: () => LegalService().openPage('privacy'),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              // شروط الاستخدام
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined,
+                    color: AppColors.primary),
+                title: const Text('شروط الاستخدام'),
+                trailing: const Icon(Icons.open_in_new,
+                    size: 18, color: AppColors.onSurfaceVariant),
+                onTap: () => LegalService().openPage('terms'),
               ),
               const SizedBox(height: 12),
               const Divider(height: 1),

@@ -13,6 +13,7 @@ import '../services/store_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
+import '../widgets/live/live_store_avatar.dart';
 import 'auction_details_screen.dart';
 import 'product_details_screen.dart';
 import 'store_chat_screen.dart';
@@ -334,7 +335,7 @@ class _CoverHeader extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _logoCircle(logo),
+                  LiveStoreAvatar(store: store, size: 64, avatar: _logoCircle(logo)),
                   const SizedBox(width: 12),
                   Expanded(child: _nameAndBadge()),
                   if (showActions) ...[
@@ -977,7 +978,12 @@ class _DesignProductCard extends StatelessWidget {
       navigator.pop();
       if (listing != null) {
         navigator.push(
-          MaterialPageRoute(builder: (_) => ProductDetailsScreen(listing: listing)),
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(
+              listing: listing,
+              representativeAssignmentId: product.representativeAssignmentId,
+            ),
+          ),
         );
       } else {
         messenger.showSnackBar(const SnackBar(

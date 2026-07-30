@@ -19,6 +19,11 @@ class TransfersProvider extends ChangeNotifier {
 
   TabState stateOf(TransferTab tab) => _states[tab]!;
 
+  /// Resale agreements sent to this user (as item owner) still awaiting
+  /// their approve/reject decision — drives the "incoming requests" badge.
+  int get pendingReceivedCount =>
+      _states[TransferTab.received]!.items.where((a) => a.isPending).length;
+
   Future<void> loadTab(TransferTab tab, {required String token}) async {
     final s = _states[tab]!;
     if (s.isLoading) return;

@@ -124,6 +124,7 @@ class _TabContentState extends State<_TabContent>
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 10, bottom: 32),
             itemCount: state.items.length,
             itemBuilder: (context, index) => _AgreementCard(

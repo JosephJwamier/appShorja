@@ -21,17 +21,23 @@ class DailyDealsSection extends StatelessWidget {
         .toList();
     final deals = (discounted.isNotEmpty ? discounted : listings).take(8).toList();
 
-    // "View all" must match what's actually on screen: if none of the
-    // shown cards genuinely carry a deal flag (the block above silently
-    // fell back to "any listing"), filtering strictly by that flag would
-    // return zero results from the backend. Prefer the flag most of the
-    // shown deals actually have; fall back to no filter (shows everything,
-    // same as what's already displayed here).
+    // "View all" must match what's actually on screen: every card shown in
+    // `deals` has to still appear in the "view all" results. The backend
+    // only supports is_daily_deal and has_discount as separate AND-only
+    // filters (no OR between them), so a single flag can only be used when
+    // it's true for *every* shown card (`every`, not `any` — picking a flag
+    // most cards share would silently drop the rest). If the preview is a
+    // genuine mix of daily deals and plain discounts, or fell back to "any
+    // listing" because nothing qualified, there's no single flag that keeps
+    // every shown card — fall back to no filter (shows everything, which
+    // still satisfies the invariant).
     final FilterParams? viewAllFilter = discounted.isEmpty
         ? null
-        : discounted.any((l) => l.item.isDailyDeal)
+        : deals.every((l) => l.item.isDailyDeal)
             ? const FilterParams(isDailyDeal: true)
-            : const FilterParams(hasDiscount: true);
+            : deals.every((l) => (l.discountPercentage ?? 0) > 0)
+                ? const FilterParams(hasDiscount: true)
+                : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),

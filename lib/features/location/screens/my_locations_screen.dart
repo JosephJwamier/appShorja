@@ -172,6 +172,7 @@ class _MyLocationsScreenState extends State<MyLocationsScreen> {
           return RefreshIndicator(
             onRefresh: () async => _load(),
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 8, bottom: 100),
               itemCount: provider.myLocations.length,
               itemBuilder: (context, index) {

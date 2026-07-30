@@ -80,6 +80,9 @@ class FilterParams {
     return p;
   }
 
+  // Sort order (`ordering`) is deliberately excluded here — changing how
+  // results are sorted doesn't narrow them, so it shouldn't light up a
+  // "filters active" badge.
   bool get hasActiveFilters =>
       categoryId != null ||
       condition != null ||
@@ -89,16 +92,14 @@ class FilterParams {
       maxDeposit < maxDepositBound ||
       (city?.trim().isNotEmpty ?? false) ||
       isDailyDeal ||
-      hasDiscount ||
-      ordering != '-created_at';
+      hasDiscount;
 
   bool get hasActiveAuctionFilters =>
       categoryId != null ||
       condition != null ||
       minPrice > minBound ||
       maxPrice < maxBound ||
-      (city?.trim().isNotEmpty ?? false) ||
-      ordering != '-created_at';
+      (city?.trim().isNotEmpty ?? false);
 
   FilterParams copyWith({
     Object? categoryId = _sentinel,

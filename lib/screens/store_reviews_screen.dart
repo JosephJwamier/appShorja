@@ -160,6 +160,7 @@ class _StoreReviewsBodyState extends State<_StoreReviewsBody> {
                 onRefresh: provider.loadReviews,
                 child: ListView(
                   controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
                     if (auth.isLoggedIn && !isOwnStore)

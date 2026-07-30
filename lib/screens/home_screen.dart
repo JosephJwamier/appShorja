@@ -7,6 +7,7 @@ import '../providers/notifications_provider.dart';
 import '../providers/following_provider.dart';
 import '../providers/recommended_items_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/refreshable_tab.dart';
 import '../widgets/home/home_search_bar.dart';
 import '../widgets/home/categories_row.dart';
 import '../widgets/home/categories_bottom_sheet.dart';
@@ -30,7 +31,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
 
@@ -122,6 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  @override
+  Future<void> refreshTab() => _onRefresh();
+
   Future<void> _onRefresh() async {
     final token = context.read<AuthProvider>().accessToken;
     if (token == null) return;
@@ -173,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.primary,
             child: CustomScrollView(
               controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // AppBar: لوگو + سلة + إشعارات
                 SliverToBoxAdapter(child: _buildAppBar()),

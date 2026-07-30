@@ -32,6 +32,7 @@ import 'services/notification_navigator.dart';
 import 'services/deep_link_service.dart';
 import 'services/analytics_service.dart';
 import 'screens/onboarding_screen.dart';
+import 'widgets/legal/consent_gate.dart';
 import 'firebase_options.dart';
 
 final _notificationsProvider = NotificationsProvider();
@@ -246,7 +247,9 @@ class _AuthGateState extends State<AuthGate> {
                 navigateForNotificationTap(context, pendingType, pendingData);
               });
             }
-            return MainShell(key: mainShellKey);
+            // بوابة الموافقة: تُلزم المستخدم بالموافقة على أي شروط/سياسة
+            // محدّثة قبل استخدام التطبيق (إعادة الموافقة عند التحديث).
+            return ConsentGate(child: MainShell(key: mainShellKey));
           },
         );
       },

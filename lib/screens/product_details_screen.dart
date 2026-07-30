@@ -1081,7 +1081,7 @@ class _BottomBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     _SquareAction(
-                      icon: Icons.local_shipping_outlined,
+                      icon: Icons.badge_outlined,
                       label: 'مندوب',
                       color: AppColors.secondary,
                       onTap: () {

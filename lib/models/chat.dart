@@ -126,6 +126,7 @@ class ChatSummary {
   final int id;
   final int? otherUserId;
   final String otherUserName;
+  final String? otherUserAvatarUrl;
   final int? storeId;
   final String? storeName;
   final String? storeLogoUrl;
@@ -144,6 +145,7 @@ class ChatSummary {
     required this.id,
     required this.otherUserId,
     required this.otherUserName,
+    this.otherUserAvatarUrl,
     required this.storeId,
     required this.storeName,
     required this.storeLogoUrl,
@@ -171,12 +173,12 @@ class ChatSummary {
     return storeName ?? otherUserName;
   }
 
-  /// Store logo for a store chat viewed as the customer, else the item's
-  /// thumbnail (there is no per-user profile photo in this system), else
-  /// null (falls back to an initial-letter/icon avatar in the UI).
+  /// Store logo for a store chat viewed as the customer, else the other
+  /// participant's own avatar, else the item's thumbnail, else null (falls
+  /// back to an initial-letter/icon avatar in the UI).
   String? get displayAvatarUrl {
     if (isSupport || isOwnStore) return null;
-    return storeLogoUrl ?? itemThumbnailUrl;
+    return storeLogoUrl ?? otherUserAvatarUrl ?? itemThumbnailUrl;
   }
 
   /// Used by [ChatsProvider] to patch a tile in place from an FCM push
@@ -193,6 +195,7 @@ class ChatSummary {
         id: id,
         otherUserId: otherUserId,
         otherUserName: otherUserName,
+        otherUserAvatarUrl: otherUserAvatarUrl,
         storeId: storeId,
         storeName: storeName,
         storeLogoUrl: storeLogoUrl,
@@ -224,6 +227,7 @@ class ChatSummary {
       id: json['id'] as int,
       otherUserId: other is Map ? other['id'] as int? : null,
       otherUserName: other is Map ? (other['username'] as String? ?? '') : '',
+      otherUserAvatarUrl: other is Map ? other['avatar_url'] as String? : null,
       storeId: store is Map ? store['id'] as int? : null,
       storeName: store is Map ? store['name'] as String? : null,
       storeLogoUrl: store is Map ? store['logo_url'] as String? : null,
@@ -248,6 +252,8 @@ class ChatConversation {
   final int id;
   final int? otherUserId;
   final String otherUserName;
+  final String? otherUserAvatarUrl;
+  final bool otherUserOnline;
   final List<ChatMessage> messages;
   final Product? item;
   final bool hasMoreMessages;
@@ -260,6 +266,8 @@ class ChatConversation {
     required this.id,
     required this.otherUserId,
     required this.otherUserName,
+    this.otherUserAvatarUrl,
+    this.otherUserOnline = false,
     required this.messages,
     this.item,
     this.hasMoreMessages = false,
@@ -281,7 +289,7 @@ class ChatConversation {
 
   String? get displayAvatarUrl {
     if (isSupport || isOwnStore) return null;
-    return storeLogoUrl ?? item?.firstImage;
+    return storeLogoUrl ?? otherUserAvatarUrl ?? item?.firstImage;
   }
 
   factory ChatConversation.fromJson(Map<String, dynamic> json) {
@@ -293,6 +301,8 @@ class ChatConversation {
       id: json['id'] as int,
       otherUserId: other is Map ? other['id'] as int? : null,
       otherUserName: other is Map ? (other['username'] as String? ?? '') : '',
+      otherUserAvatarUrl: other is Map ? other['avatar_url'] as String? : null,
+      otherUserOnline: json['other_user_online'] as bool? ?? false,
       messages: rawMessages
           .cast<Map<String, dynamic>>()
           .map((e) => ChatMessage.fromJson(e))

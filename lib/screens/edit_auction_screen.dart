@@ -166,7 +166,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                   controller: _startingPriceController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'السعر الافتتاحي (\$)',
+                    labelText: 'السعر الافتتاحي (IQD)',
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
@@ -183,7 +183,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                   controller: _incrementController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'الحدّ الأدنى للزيادة (\$)',
+                    labelText: 'الحدّ الأدنى للزيادة (IQD)',
                     border: OutlineInputBorder(),
                     helperText: 'الفارق المطلوب بين كلّ مزايدة وما قبلها',
                   ),
@@ -201,7 +201,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                   controller: _bidDepositController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'عربون المزايدة (\$)',
+                    labelText: 'عربون المزايدة (IQD)',
                     border: OutlineInputBorder(),
                     helperText: 'مبلغ يُجمَّد من كلّ مزايد لجدّيّة العرض',
                   ),

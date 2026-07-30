@@ -16,7 +16,12 @@ class AuctionsProvider extends ChangeNotifier {
   String _searchQuery = '';
   String? _status;
   bool _activeOnly = false;
+  DateTime? _endsBefore;
   FilterParams _filters = FilterParams.empty;
+
+  // Incremented on every loadAuctions() call so a page load superseded by a
+  // newer filter/search change is silently discarded when it arrives late.
+  int _generation = 0;
 
   List<Auction> get auctions => _auctions;
   bool get isLoading => _isLoading;
@@ -31,15 +36,20 @@ class AuctionsProvider extends ChangeNotifier {
     String? search,
     String? status,
     bool activeOnly = false,
+    DateTime? endsBefore,
     FilterParams? filters,
   }) async {
     _isLoading = true;
+    _isLoadingMore = false;
     _errorMessage = null;
     _currentPage = 1;
     _searchQuery = search ?? '';
     _status = status;
     _activeOnly = activeOnly;
+    _endsBefore = endsBefore;
     if (filters != null) _filters = filters;
+
+    final gen = ++_generation;
     notifyListeners();
 
     try {
@@ -49,23 +59,29 @@ class AuctionsProvider extends ChangeNotifier {
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
         status: _status,
         activeOnly: _activeOnly,
+        endsBefore: _endsBefore,
         filters: _filters,
       );
+      if (gen != _generation) return; // superseded by a newer loadAuctions()
       _auctions = result.auctions;
       _hasMore = result.hasMore;
     } catch (e) {
+      if (gen != _generation) return;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (gen == _generation) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> loadMore({required String accessToken}) async {
-    if (_isLoadingMore || !_hasMore) return;
+    if (_isLoadingMore || !_hasMore || _isLoading) return;
     _isLoadingMore = true;
     notifyListeners();
 
+    final gen = _generation; // this page belongs to the current filter/search
     try {
       final result = await _auctionService.fetchAuctions(
         accessToken: accessToken,
@@ -73,8 +89,10 @@ class AuctionsProvider extends ChangeNotifier {
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
         status: _status,
         activeOnly: _activeOnly,
+        endsBefore: _endsBefore,
         filters: _filters,
       );
+      if (gen != _generation) return; // filters/search changed while this page was in flight
       _currentPage++;
       _auctions = [..._auctions, ...result.auctions];
       _hasMore = result.hasMore;

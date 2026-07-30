@@ -8,6 +8,7 @@ import '../services/item_service.dart';
 import '../services/store_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../widgets/live/live_store_avatar.dart';
 import 'product_details_screen.dart';
 import 'store_profile_screen.dart';
 
@@ -86,6 +87,7 @@ class _FollowingStoresScreenState extends State<FollowingStoresScreen> {
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 itemCount: groups.length,
                 separatorBuilder: (_, __) => const Padding(
@@ -226,25 +228,29 @@ class _StoreAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logo = store.fullLogoUrl;
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.surfaceContainer,
-        border: Border.all(color: AppColors.surfaceContainerHigh, width: 1.5),
+    return LiveStoreAvatar(
+      store: store,
+      size: 56,
+      avatar: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.surfaceContainer,
+          border: Border.all(color: AppColors.surfaceContainerHigh, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: logo != null
+            ? Image.network(
+                logo,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.storefront,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              )
+            : const Icon(Icons.storefront, color: AppColors.onSurfaceVariant),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: logo != null
-          ? Image.network(
-              logo,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.storefront,
-                color: AppColors.onSurfaceVariant,
-              ),
-            )
-          : const Icon(Icons.storefront, color: AppColors.onSurfaceVariant),
     );
   }
 }
@@ -395,6 +401,7 @@ class _EmptyState extends StatelessWidget {
       builder: (context, constraints) => RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             SizedBox(
               height: constraints.maxHeight,

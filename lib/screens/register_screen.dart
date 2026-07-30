@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
+import '../services/legal_service.dart';
 import 'interests_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -14,14 +15,22 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _password2Controller = TextEditingController();
+  final _legal = LegalService();
+
+  // الموافقة الإلزامية على الشروط وسياسة الخصوصية قبل إنشاء الحساب.
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -33,16 +42,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // بوابة قانونية: لا يُنشأ الحساب دون موافقة صريحة.
+    if (!_acceptedTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية'),
+        ),
+      );
+      return;
+    }
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final chatsProvider = Provider.of<ChatsProvider>(context, listen: false);
     final success = await auth.register(
       username: _usernameController.text.trim(),
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
       password: _passwordController.text,
       password2: _password2Controller.text,
       chatsProvider: chatsProvider,
     );
+
+    if (success && mounted) {
+      // تسجيل الموافقة على الوثائق الحالية (أفضل جهد — بوابة ConsentGate
+      // تلتقط أي إخفاق لاحقاً على أي حال).
+      await _legal.accept(lang: 'ar');
+    }
 
     if (success && mounted) {
       // Replace (not push) so popping the interests screen lands back on
@@ -113,6 +140,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // الاسم الأول
+                          TextFormField(
+                            controller: _firstNameController,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(color: AppColors.onSurface),
+                            decoration: _fieldDecoration('الاسم الأول'),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'الاسم الأول مطلوب';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // الاسم الثاني
+                          TextFormField(
+                            controller: _lastNameController,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(color: AppColors.onSurface),
+                            decoration: _fieldDecoration('الاسم الثاني'),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'الاسم الثاني مطلوب';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
                           // اسم المستخدم
                           TextFormField(
                             controller: _usernameController,
@@ -202,6 +259,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               }
                               return null;
                             },
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // خانة الموافقة الإلزامية مع روابط للوثائق
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Checkbox(
+                                value: _acceptedTerms,
+                                onChanged: (v) =>
+                                    setState(() => _acceptedTerms = v ?? false),
+                                activeColor: AppColors.primary,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              Expanded(
+                                child: Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'أوافق على ',
+                                      style: TextStyle(
+                                        color: AppColors.onSurfaceVariant,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _legal.openPage('terms'),
+                                      child: const Text(
+                                        'شروط الاستخدام',
+                                        style: TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    const Text(
+                                      ' و',
+                                      style: TextStyle(
+                                        color: AppColors.onSurfaceVariant,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _legal.openPage('privacy'),
+                                      child: const Text(
+                                        'سياسة الخصوصية',
+                                        style: TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
 
                           // رسالة الخطأ من الخادم

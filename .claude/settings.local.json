@@ -24,7 +24,22 @@
       "Bash(dart analyze *)",
       "Bash(adb devices *)",
       "Bash(adb shell *)",
-      "PowerShell(try { & \"$env:LOCALAPPDATA\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" devices -l } catch { \"adb not found\" })"
+      "PowerShell(try { & \"$env:LOCALAPPDATA\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" devices -l } catch { \"adb not found\" })",
+      "Bash(dart format *)",
+      "PowerShell(adb devices -l)",
+      "PowerShell($adb = \"C:\\\\Users\\\\Eng_Joseph\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\"; if \\(Test-Path $adb\\) { & $adb devices -l } else { \"adb not found at $adb\" })",
+      "Bash(curl -sI --max-time 8 https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf)",
+      "Bash(flutter pub *)",
+      "Bash(mkdir -p assets/fonts)",
+      "Bash(curl -sL --max-time 20 -o assets/fonts/Amiri-Regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf)",
+      "Bash(curl -sL --max-time 20 -o assets/fonts/Amiri-Bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Bold.ttf)",
+      "Bash(curl -sL --max-time 20 -o assets/fonts/OFL.txt https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/OFL.txt)",
+      "Bash(find /c/Users/Eng_Joseph/AppData/Local/Pub/Cache/hosted/pub.dev -maxdepth 1 -iname printing-*)",
+      "Bash(find /c/Users/Eng_Joseph/AppData/Local/Pub/Cache/hosted/pub.dev/printing-5.14.3 -iname *.dart)",
+      "Bash(xargs grep -ln \"class PdfPreview\")",
+      "Bash(xargs grep -ln \"enum FontWeight\\\\|class FontWeight\")",
+      "Bash(perl -0pi -e 's/style: const pw\\\\.TextStyle\\\\\\(\\\\s*\\\\n\\(\\\\s*\\)fontSize: \\(\\\\d+\\),\\\\s*\\\\n\\\\s*fontWeight: pw\\\\.FontWeight\\\\.bold,\\\\s*\\\\n\\(\\\\s*\\)\\\\\\),/style: pw.TextStyle\\(\\\\n${1}fontSize: $2,\\\\n${1}fontWeight: pw.FontWeight.bold,\\\\n${3}\\),/g' lib/utils/delivery_label_pdf.dart)",
+      "Bash(python -m py_compile core/models.py core/serializers.py)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Eng_Joseph\\PycharmProjects\\balla\\balla\\core"

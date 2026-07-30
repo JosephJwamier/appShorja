@@ -6,6 +6,7 @@ import '../../providers/live_sessions_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../services/live_session_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/refreshable_tab.dart';
 import '../../widgets/live/live_session_card.dart';
 import 'create_live_session_screen.dart';
 import 'live_broadcast_screen.dart';
@@ -18,7 +19,8 @@ class LiveSessionsScreen extends StatefulWidget {
   State<LiveSessionsScreen> createState() => _LiveSessionsScreenState();
 }
 
-class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
+class _LiveSessionsScreenState extends State<LiveSessionsScreen>
+    implements RefreshableTab {
   static const _sortOptions = [
     ('-current_viewer_count', 'الأكثر مشاهدة'),
     ('-likes_count', 'الأكثر إعجاباً'),
@@ -33,6 +35,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
+
+  @override
+  Future<void> refreshTab() async => _load();
 
   void _load() {
     final auth = context.read<AuthProvider>();
@@ -174,6 +179,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => _load(),
                   child: GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(12),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,

@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../utils/refreshable_tab.dart';
 import 'store_chat_screen.dart';
 
 /// Conversations inbox (المحادثات) — list of all the user's chats
@@ -22,7 +23,8 @@ class ChatsListScreen extends StatefulWidget {
   State<ChatsListScreen> createState() => _ChatsListScreenState();
 }
 
-class _ChatsListScreenState extends State<ChatsListScreen> {
+class _ChatsListScreenState extends State<ChatsListScreen>
+    implements RefreshableTab {
   final _scrollController = ScrollController();
 
   @override
@@ -50,6 +52,9 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
       context.read<ChatsProvider>().loadMore();
     }
   }
+
+  @override
+  Future<void> refreshTab() => _refresh();
 
   Future<void> _refresh() async {
     final token = context.read<AuthProvider>().accessToken;
@@ -129,6 +134,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
                     onRefresh: _refresh,
                     child: provider.chats.isEmpty
                         ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             children: [
                               const SizedBox(height: 120),
                               Center(
@@ -156,6 +162,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
                           )
                         : ListView.separated(
                             controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.all(12),
                             itemCount: provider.chats.length +
                                 (provider.hasMore ? 1 : 0),

@@ -14,6 +14,7 @@ import '../../services/live_session_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/live/live_comments_panel.dart';
+import '../../widgets/live/live_viewers_sheet.dart';
 
 /// Store owner's live-broadcast control screen: publishes the camera feed
 /// to Agora, and controls the session (catalog picker / quick-show /
@@ -272,6 +273,47 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     setState(() => _comments.removeWhere((c) => c.id == comment.id));
   }
 
+  /// Bans the comment's author from this session only (see backend
+  /// LiveSessionBan docstring), then removes the offending comment too.
+  Future<void> _banCommentAuthor(LiveComment comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حظر المستخدم؟'),
+        content: Text('لن يستطيع ${comment.username} التعليق أو مشاهدة هذا البث بعد الآن.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('تراجع')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حظر', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final result = await _service.banViewer(
+      accessToken: _accessToken,
+      sessionId: widget.sessionId,
+      userId: comment.userId,
+    );
+    if (!mounted) return;
+    if (result.success) {
+      await _deleteComment(comment);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    }
+  }
+
+  void _openViewersSheet() {
+    showLiveViewersSheet(
+      context,
+      sessionId: widget.sessionId,
+      accessToken: _accessToken,
+      currentUserId: _currentUserId,
+    );
+  }
+
   Future<void> _openCatalogSheet() async {
     await showModalBottomSheet(
       context: context,
@@ -430,6 +472,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
                       isModerator: true,
                       onSend: _sendComment,
                       onDelete: _deleteComment,
+                      onBan: _banCommentAuthor,
                     ),
                     _buildBottomControls(),
                   ],
@@ -498,7 +541,10 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
           const Spacer(),
           _StatChip(icon: Icons.favorite, label: '${session.likesCount}'),
           const SizedBox(width: 6),
-          _StatChip(icon: Icons.visibility, label: '${session.currentViewerCount}'),
+          GestureDetector(
+            onTap: _openViewersSheet,
+            child: _StatChip(icon: Icons.visibility, label: '${session.currentViewerCount}'),
+          ),
           const SizedBox(width: 6),
           const _LiveDot(),
         ],

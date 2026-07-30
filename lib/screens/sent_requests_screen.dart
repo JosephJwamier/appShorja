@@ -98,6 +98,7 @@ class _SentRequestsScreenState extends State<SentRequestsScreen> {
           return RefreshIndicator(
             onRefresh: _load,
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: provider.sent.length,
               itemBuilder: (context, index) {
