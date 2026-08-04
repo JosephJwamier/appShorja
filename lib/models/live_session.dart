@@ -169,6 +169,7 @@ class LiveSession {
   final List<LiveSessionItem> queueItems;
   final LiveSessionItem? currentNowShowing;
   final LiveAuction? currentLiveAuction;
+  final bool isModerator;
 
   LiveSession({
     required this.id,
@@ -188,6 +189,7 @@ class LiveSession {
     this.queueItems = const [],
     this.currentNowShowing,
     this.currentLiveAuction,
+    this.isModerator = false,
   });
 
   bool get isLive => status == 'live';
@@ -221,6 +223,7 @@ class LiveSession {
       currentNowShowing: currentNowShowing ?? this.currentNowShowing,
       currentLiveAuction:
           clearLiveAuction ? null : (currentLiveAuction ?? this.currentLiveAuction),
+      isModerator: isModerator,
     );
   }
 
@@ -259,6 +262,7 @@ class LiveSession {
       currentLiveAuction: liveAuctionJson != null
           ? LiveAuction.fromJson(liveAuctionJson)
           : null,
+      isModerator: json['is_moderator'] as bool? ?? false,
     );
   }
 }
