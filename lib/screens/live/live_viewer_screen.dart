@@ -19,6 +19,8 @@ import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../utils/share_helper.dart';
 import '../../widgets/live/live_comments_panel.dart';
+import '../../widgets/live/live_product_control_sheets.dart';
+import '../../widgets/live/live_viewers_sheet.dart';
 import '../reservations_screen.dart';
 import '../../features/location/providers/location_provider.dart';
 import '../../features/location/screens/location_picker_sheet.dart';
@@ -337,6 +339,115 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     setState(() => _comments.removeWhere((c) => c.id == comment.id));
   }
 
+  /// Bans the comment's author from this session only (see backend
+  /// LiveSessionBan docstring), then removes the offending comment too —
+  /// mirrors LiveBroadcastScreen._banCommentAuthor exactly, only reachable
+  /// here when session.isModerator is true.
+  Future<void> _banCommentAuthor(LiveComment comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حظر المستخدم؟'),
+        content: Text('لن يستطيع ${comment.username} التعليق أو مشاهدة هذا البث بعد الآن.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('تراجع')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حظر', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final result = await _service.banViewer(
+      accessToken: _accessToken,
+      sessionId: widget.sessionId,
+      userId: comment.userId,
+    );
+    if (!mounted) return;
+    if (result.success) {
+      await _deleteComment(comment);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    }
+  }
+
+  void _openViewersSheet() {
+    showLiveViewersSheet(
+      context,
+      sessionId: widget.sessionId,
+      accessToken: _accessToken,
+      currentUserId: _currentUserId,
+    );
+  }
+
+  // Product-control actions below are only reachable when session.isModerator
+  // is true (see _buildModeratorControls) — the backend grants the exact
+  // same powers to a session moderator as to the store owner (see
+  // LiveSessionViewSet.catalog/show_item/quick_show/quick_auction, all
+  // gated by _can_moderate_live_session), so these mirror
+  // LiveBroadcastScreen's versions exactly via the shared sheets/dialogs.
+
+  Future<void> _openCatalogSheet() async {
+    await showLiveCatalogSheet(
+      context,
+      sessionId: widget.sessionId,
+      accessToken: _accessToken,
+      service: _service,
+      onShown: (item) => setState(() => _nowShowing = item),
+    );
+  }
+
+  Future<void> _openQuickShowDialog() async {
+    final result = await showLiveQuickShowDialog(context);
+    if (result == null) return;
+
+    final response = await _service.quickShow(
+      accessToken: _accessToken,
+      sessionId: widget.sessionId,
+      title: result.title,
+      price: result.price,
+      depositAmount: result.deposit,
+      quantity: result.quantity,
+    );
+    if (!mounted) return;
+    if (response.success) {
+      final session = await _service.fetchLiveSessionDetail(
+        accessToken: _accessToken,
+        sessionId: widget.sessionId,
+      );
+      setState(() => _nowShowing = session.currentNowShowing);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message)));
+    }
+  }
+
+  Future<void> _openQuickAuctionDialog() async {
+    final result = await showLiveQuickAuctionDialog(context);
+    if (result == null) return;
+
+    final response = await _service.quickAuction(
+      accessToken: _accessToken,
+      sessionId: widget.sessionId,
+      title: result.title,
+      startingPrice: result.startingPrice,
+      minimumIncrement: result.minimumIncrement,
+      bidDeposit: result.bidDeposit,
+      quantity: result.quantity,
+    );
+    if (!mounted) return;
+    if (response.success && response.auction != null) {
+      setState(() {
+        _nowShowing = null;
+        _liveAuction = response.auction;
+      });
+      _startAuctionTicker();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message)));
+    }
+  }
+
   Future<void> _toggleLike() async {
     if (_session == null) return;
     final wasLiked = _session!.isLikedByMe;
@@ -549,9 +660,12 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
                   LiveCommentsPanel(
                     comments: _comments,
                     currentUserId: _currentUserId,
+                    isModerator: session.isModerator,
                     onSend: _sendComment,
                     onDelete: _deleteComment,
+                    onBan: _banCommentAuthor,
                   ),
+                  if (session.isModerator) _buildModeratorControls(),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -623,7 +737,12 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
               subject: session.title,
             ),
           ),
-          _StatChip(icon: Icons.visibility, label: '${session.currentViewerCount}'),
+          session.isModerator
+              ? GestureDetector(
+                  onTap: _openViewersSheet,
+                  child: _StatChip(icon: Icons.visibility, label: '${session.currentViewerCount}'),
+                )
+              : _StatChip(icon: Icons.visibility, label: '${session.currentViewerCount}'),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: _toggleLike,
@@ -744,6 +863,52 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.gold,
               foregroundColor: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Only rendered when session.isModerator is true — same three "show a
+  /// product" actions as LiveBroadcastScreen's bottom controls, granted to
+  /// this viewer because the store owner made them a session moderator.
+  Widget _buildModeratorControls() {
+    final auctionActive = _liveAuction != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: auctionActive ? null : _openCatalogSheet,
+                  icon: const Icon(Icons.storefront),
+                  label: const Text('اعرض من المنتجات'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: auctionActive ? null : _openQuickShowDialog,
+                  icon: const Icon(Icons.flash_on),
+                  label: const Text('عرض سريع'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: auctionActive ? null : _openQuickAuctionDialog,
+              icon: const Icon(Icons.gavel),
+              label: const Text('مزاد سريع (دقيقتان)'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: Colors.black87),
             ),
           ),
         ],
