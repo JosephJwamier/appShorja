@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../features/location/models/location_model.dart';
@@ -378,7 +379,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       return Image.file(File(_newLogo!.path), fit: BoxFit.cover);
     }
     if (widget.store.fullLogoUrl != null) {
-      return Image.network(
+      return AppNetworkImage(
         widget.store.fullLogoUrl!,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _logoFallback(),
@@ -402,7 +403,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     }
     final url = widget.store.fullCoverUrl;
     if (url != null) {
-      return Image.network(
+      return AppNetworkImage(
         url,
         fit: BoxFit.cover,
         width: double.infinity,

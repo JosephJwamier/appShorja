@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -497,7 +499,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
           appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
           body: Center(
             child: InteractiveViewer(
-              child: Image.network(url),
+              child: AppNetworkImage(url),
             ),
           ),
         ),
@@ -566,7 +568,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
                     radius: 16,
                     backgroundColor: AppColors.surfaceContainer,
                     backgroundImage: _avatarUrl != null
-                        ? NetworkImage(_avatarUrl!)
+                        ? CachedNetworkImageProvider(_avatarUrl!)
                         : null,
                     child: _avatarUrl == null
                         ? Icon(
@@ -767,7 +769,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
                     child: SizedBox(
                       width: 200,
                       height: 200,
-                      child: Image.network(
+                      child: AppNetworkImage(
                         m.attachmentUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
@@ -949,7 +951,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
                       width: 36,
                       height: 36,
                       child: _item!.firstImage != null
-                          ? Image.network(_item!.firstImage!,
+                          ? AppNetworkImage(_item!.firstImage!,
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => Container(
                                   color: AppColors.surfaceContainer))

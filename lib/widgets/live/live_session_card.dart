@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/live_session.dart';
 import '../../theme/app_colors.dart';
 
@@ -36,7 +37,7 @@ class LiveSessionCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   session.thumbnailUrl != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           session.thumbnailUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _placeholder(),

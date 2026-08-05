@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -266,7 +267,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         backgroundImage: _avatarFile != null
                             ? NetworkImage(_avatarFile!.path)
                             : (user?.fullAvatarUrl != null
-                                ? NetworkImage(user!.fullAvatarUrl!)
+                                ? CachedNetworkImageProvider(user!.fullAvatarUrl!)
                                 : null),
                         child: (_avatarFile == null && user?.fullAvatarUrl == null)
                             ? Text(

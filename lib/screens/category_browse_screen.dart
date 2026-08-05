@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/category.dart';
 import '../providers/auth_provider.dart';
@@ -330,7 +331,7 @@ class _CategoryIcon extends StatelessWidget {
         isSelected ? AppColors.primary : AppColors.onSurfaceVariant;
     if (category.iconUrl != null) {
       return ClipOval(
-        child: Image.network(
+        child: AppNetworkImage(
           category.iconUrl!,
           width: 28,
           height: 28,
@@ -375,7 +376,7 @@ class _SubCategoryTile extends StatelessWidget {
               child: category.iconUrl != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
+                      child: AppNetworkImage(
                         category.iconUrl!,
                         fit: BoxFit.contain,
                         errorBuilder: (_, _, _) => const Icon(

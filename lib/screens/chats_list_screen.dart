@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/chat.dart';
 import '../providers/auth_provider.dart';
@@ -289,7 +290,7 @@ class _ChatTile extends StatelessWidget {
               radius: 22,
               backgroundColor: AppColors.surfaceContainer,
               backgroundImage: chat.displayAvatarUrl != null
-                  ? NetworkImage(chat.displayAvatarUrl!)
+                  ? CachedNetworkImageProvider(chat.displayAvatarUrl!)
                   : null,
               child: chat.displayAvatarUrl == null
                   ? (chat.isSupport

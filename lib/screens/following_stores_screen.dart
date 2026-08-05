@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/followed_store_group.dart';
 import '../models/product.dart';
@@ -241,7 +242,7 @@ class _StoreAvatar extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: logo != null
-            ? Image.network(
+            ? AppNetworkImage(
                 logo,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Icon(
@@ -342,7 +343,7 @@ class _ProductMiniCard extends StatelessWidget {
             AspectRatio(
               aspectRatio: 1,
               child: img != null
-                  ? Image.network(
+                  ? AppNetworkImage(
                       img,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _fallback(),

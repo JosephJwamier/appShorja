@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config/api_config.dart';
@@ -1075,7 +1076,7 @@ class _ImageGallery extends StatelessWidget {
                 controller: controller,
                 onPageChanged: onChanged,
                 itemCount: images.length,
-                itemBuilder: (_, i) => Image.network(
+                itemBuilder: (_, i) => AppNetworkImage(
                   images[i],
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(

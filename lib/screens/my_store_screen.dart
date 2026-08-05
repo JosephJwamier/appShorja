@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
@@ -897,7 +898,7 @@ class _StoreAuctionCard extends StatelessWidget {
                     width: 100,
                     height: 100,
                     child: auction.item.firstImage != null
-                        ? Image.network(
+                        ? AppNetworkImage(
                             auction.item.firstImage!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
@@ -1134,7 +1135,7 @@ class _CoverHeader extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   cover != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           cover,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _gradientBg(),
@@ -1191,7 +1192,7 @@ class _CoverHeader extends StatelessWidget {
               ),
               child: ClipOval(
                 child: store.fullLogoUrl != null
-                    ? Image.network(
+                    ? AppNetworkImage(
                         store.fullLogoUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => _logoFallback(),
@@ -1362,7 +1363,7 @@ class _StoreProductCard extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: imageUrl != null
-                        ? Image.network(
+                        ? AppNetworkImage(
                             imageUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(

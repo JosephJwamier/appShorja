@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../config/deep_link_config.dart';
 import '../models/listing.dart';
@@ -16,6 +17,7 @@ import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/product_card.dart';
+import '../widgets/report_bottom_sheet.dart';
 import '../widgets/reviews/review_list_section.dart';
 import 'representative_request_screen.dart';
 import 'reservations_screen.dart';
@@ -566,6 +568,9 @@ class _ProductDetailsBody extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                         ],
+                        // بطاقة الضمان
+                        _WarrantyCard(warrantyDays: item.warrantyDays),
+                        const SizedBox(height: 16),
                         // بطاقة العربون
                         if (listing.depositAmount > 0) ...[
                           _DepositCard(
@@ -707,6 +712,18 @@ class _ProductDetailsBody extends StatelessWidget {
                           subject: item.title,
                         ),
                       ),
+                      if (!isOwner) ...[
+                        const SizedBox(width: 8),
+                        CircleIconButton(
+                          icon: Icons.flag_outlined,
+                          onTap: () => showReportSheet(
+                            context,
+                            targetType: 'item',
+                            targetId: item.id,
+                            targetLabel: item.title,
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 8),
                       CircleIconButton(
                         icon: isFavorite
@@ -1248,7 +1265,84 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ===== شارة ثقة =====
+// ===== بطاقة الضمان =====
+class _WarrantyCard extends StatelessWidget {
+  final int warrantyDays;
+  const _WarrantyCard({required this.warrantyDays});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [
+            AppColors.secondaryContainer.withValues(alpha: 0.55),
+            AppColors.surfaceContainerLowest,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.secondaryContainer.withValues(alpha: 0.8),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.secondaryContainer.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.verified_user_rounded,
+                color: AppColors.secondary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    text: 'ضمان ',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurface,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: formatDaysAr(warrantyDays),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'مبلغك محفوظ بأمان حتى تتأكد من المنتج، ويُحرَّر للبائع '
+                  'تلقائياً إن لم تُبلغ عن مشكلة خلال هذه المدة.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ===== بطاقة العربون =====
 class _DepositCard extends StatelessWidget {
@@ -1450,7 +1544,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
             itemCount: widget.images.length,
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (context, index) {
-              return Image.network(
+              return AppNetworkImage(
                 widget.images[index],
                 fit: BoxFit.cover,
                 width: double.infinity,

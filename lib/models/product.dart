@@ -10,6 +10,7 @@ class Product {
   final String status;
   final int quantity;
   final String packageSize;
+  final int warrantyDays;
   final User owner;
   final List<String> imageUrls;
   final List<int> imageIds;
@@ -33,6 +34,7 @@ class Product {
     required this.status,
     required this.quantity,
     this.packageSize = 'medium',
+    this.warrantyDays = 7,
     required this.owner,
     required this.imageUrls,
     this.imageIds = const [],
@@ -87,6 +89,7 @@ class Product {
       status: json['status'] as String? ?? 'active',
       quantity: json['quantity'] as int? ?? 0,
       packageSize: json['package_size'] as String? ?? 'medium',
+      warrantyDays: json['warranty_days'] as int? ?? 7,
       owner: User.fromJson(json['owner'] as Map<String, dynamic>? ?? {}),
       imageUrls: imageUrls,
       imageIds: imageIds,

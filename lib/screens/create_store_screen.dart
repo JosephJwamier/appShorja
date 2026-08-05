@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../features/location/models/location_model.dart';
@@ -152,7 +153,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                         ),
                         child: _logo != null
                             ? ClipOval(
-                                child: Image.network(
+                                child: AppNetworkImage(
                                   _logo!.path,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) =>

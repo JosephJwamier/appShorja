@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/resale_agreement.dart';
 import '../providers/auth_provider.dart';
@@ -387,7 +388,7 @@ class _AgreementCardState extends State<_AgreementCard> {
                   width: 68,
                   height: 68,
                   child: a.item.image != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           fixMediaUrl(a.item.image),
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _placeholder(),

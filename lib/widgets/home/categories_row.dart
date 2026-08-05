@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/category.dart';
 import '../../theme/app_colors.dart';
 
@@ -156,7 +157,7 @@ class _CategoryCircle extends StatelessWidget {
 
   Widget _buildIcon() {
     if (iconUrl != null) {
-      return Image.network(
+      return AppNetworkImage(
         iconUrl!,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _fallbackIcon(),

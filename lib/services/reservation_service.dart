@@ -92,7 +92,8 @@ class ReservationService {
   }
 
   /// Buyer confirms receipt of the item, releasing the held payment to the
-  /// seller immediately (instead of waiting for the automatic 7-day release).
+  /// seller immediately (instead of waiting for the automatic release once
+  /// the item's warranty period elapses).
   Future<void> approveAndReleasePayment({
     required String accessToken,
     required int reservationId,

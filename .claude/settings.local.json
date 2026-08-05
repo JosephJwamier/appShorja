@@ -39,7 +39,10 @@
       "Bash(xargs grep -ln \"class PdfPreview\")",
       "Bash(xargs grep -ln \"enum FontWeight\\\\|class FontWeight\")",
       "Bash(perl -0pi -e 's/style: const pw\\\\.TextStyle\\\\\\(\\\\s*\\\\n\\(\\\\s*\\)fontSize: \\(\\\\d+\\),\\\\s*\\\\n\\\\s*fontWeight: pw\\\\.FontWeight\\\\.bold,\\\\s*\\\\n\\(\\\\s*\\)\\\\\\),/style: pw.TextStyle\\(\\\\n${1}fontSize: $2,\\\\n${1}fontWeight: pw.FontWeight.bold,\\\\n${3}\\),/g' lib/utils/delivery_label_pdf.dart)",
-      "Bash(python -m py_compile core/models.py core/serializers.py)"
+      "Bash(python -m py_compile core/models.py core/serializers.py)",
+      "WebSearch",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Eng_Joseph\\\\Desktop\\\\marketplace_app\\\\assets\\\\fonts\" | Select-Object Name, @{n='KB';e={[math]::Round\\($_.Length/1KB,1\\)}})",
+      "Bash(git status *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Eng_Joseph\\PycharmProjects\\balla\\balla\\core"

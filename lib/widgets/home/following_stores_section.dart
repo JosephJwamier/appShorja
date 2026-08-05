@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/store.dart';
@@ -159,7 +160,7 @@ class _StoreAvatarItem extends StatelessWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: logo != null
-                    ? Image.network(
+                    ? AppNetworkImage(
                         logo,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => const Icon(
@@ -254,7 +255,7 @@ class _FollowingProductCard extends StatelessWidget {
                   height: 120,
                   width: double.infinity,
                   child: image != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           image,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _placeholder(),

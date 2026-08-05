@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../models/product_review.dart';
 import '../../providers/auth_provider.dart';
@@ -436,7 +437,7 @@ class _BuyerPhotosSection extends StatelessWidget {
                 onTap: () => showImageFullScreen(context, url),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
+                  child: AppNetworkImage(
                     url,
                     width: 86,
                     height: 86,

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../features/location/models/location_model.dart';
@@ -27,6 +28,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _quantityController;
+  late final TextEditingController _warrantyDaysController;
 
   late String _condition;
   late String _packageSize;
@@ -65,6 +67,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
     _titleController = TextEditingController(text: p.title);
     _descriptionController = TextEditingController(text: p.description);
     _quantityController = TextEditingController(text: p.quantity.toString());
+    _warrantyDaysController =
+        TextEditingController(text: p.warrantyDays.toString());
     _condition = _conditions.any((c) => c['value'] == p.condition)
         ? p.condition
         : 'new';
@@ -88,6 +92,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
+    _warrantyDaysController.dispose();
     super.dispose();
   }
 
@@ -157,6 +162,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
         condition: _condition,
         quantity: int.parse(_quantityController.text),
         packageSize: _packageSize,
+        warrantyDays: int.parse(_warrantyDaysController.text),
         locationId: _selectedLocationId,
         newImages: _newImages,
         removeImageIds: _removeImageIds.toList(),
@@ -303,6 +309,23 @@ class _EditItemScreenState extends State<EditItemScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _warrantyDaysController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'مدة الضمان (بالأيام)',
+                    helperText:
+                        'المدة قبل تحرير المبلغ للبائع تلقائياً إن لم يوافق المشتري (الحد الأدنى يوم واحد)',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'مدة الضمان مطلوبة';
+                    final n = int.tryParse(v);
+                    if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً 1 أو أكثر';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _quantityController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
@@ -332,7 +355,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
                                 ? () => setState(() =>
                                     _removeImageIds.add(_existingImageIds[i]))
                                 : null,
-                            child: Image.network(
+                            child: AppNetworkImage(
                               _existingImageUrls[i],
                               width: 100,
                               height: 100,

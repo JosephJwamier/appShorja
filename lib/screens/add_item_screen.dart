@@ -24,6 +24,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController(text: '1');
+  final _warrantyDaysController = TextEditingController(text: '7');
 
   String _condition = 'new';
   String _packageSize = 'medium';
@@ -73,6 +74,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
+    _warrantyDaysController.dispose();
     super.dispose();
   }
 
@@ -258,6 +260,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         quantity: int.parse(_quantityController.text),
         images: _images,
         packageSize: _packageSize,
+        warrantyDays: int.parse(_warrantyDaysController.text),
         locationId: _selectedLocationId,
       );
 
@@ -360,6 +363,23 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => _packageSize = value);
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _warrantyDaysController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'مدة الضمان (بالأيام)',
+                  helperText:
+                      'المدة قبل تحرير المبلغ للبائع تلقائياً إن لم يوافق المشتري (الحد الأدنى يوم واحد)',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'مدة الضمان مطلوبة';
+                  final n = int.tryParse(v);
+                  if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً 1 أو أكثر';
+                  return null;
                 },
               ),
               const SizedBox(height: 16),

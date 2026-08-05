@@ -35,6 +35,7 @@ class Reservation {
   final bool canSendToDelivery;
   final bool canRequestPaymentRelease;
   final double deliveryFee;
+  final int warrantyDays;
   final int? auctionId;
 
   /// True if this reservation settles an auction win — deposit_amount here
@@ -72,6 +73,7 @@ class Reservation {
     this.canSendToDelivery = false,
     this.canRequestPaymentRelease = false,
     this.deliveryFee = 0,
+    this.warrantyDays = 7,
     this.auctionId,
   });
 
@@ -137,6 +139,7 @@ class Reservation {
       canRequestPaymentRelease:
           json['can_request_payment_release'] as bool? ?? false,
       deliveryFee: _toDouble(json['delivery_fee']),
+      warrantyDays: json['warranty_days'] as int? ?? 7,
       auctionId: json['auction'] as int?,
     );
   }

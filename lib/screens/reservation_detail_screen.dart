@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../features/location/models/location_model.dart';
 import '../features/location/screens/widgets/delivery_location_widget.dart';
@@ -310,7 +311,7 @@ class ReservationDetailScreen extends StatelessWidget {
                 height: 180,
                 width: double.infinity,
                 child: image != null
-                    ? Image.network(
+                    ? AppNetworkImage(
                         image,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => _placeholder(),
@@ -416,7 +417,7 @@ class ReservationDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Hero(
                 tag: heroTag,
-                child: Image.network(
+                child: AppNetworkImage(
                   r.proofScreenshotUrl!,
                   width: double.infinity,
                   height: 190,
@@ -651,7 +652,7 @@ class ReservationDetailScreen extends StatelessWidget {
     final settledLabel = r.buyerApprovedAt != null
         ? 'أكّد المشتري استلام المنتج'
         : r.paymentReleasedAt != null
-        ? 'تحرير تلقائي للدفعة بعد 7 أيام بلا شكوى'
+        ? 'تحرير تلقائي للدفعة بعد ${formatDaysAr(r.warrantyDays)} بلا شكوى'
         : 'بانتظار تأكيد الاستلام';
 
     return _section(
@@ -1296,7 +1297,7 @@ class _ScreenshotViewer extends StatelessWidget {
                 child: InteractiveViewer(
                   minScale: 0.8,
                   maxScale: 5,
-                  child: Image.network(url, fit: BoxFit.contain),
+                  child: AppNetworkImage(url, fit: BoxFit.contain),
                 ),
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/reservation.dart';
@@ -209,7 +210,8 @@ class _ReservationsScreenState extends State<ReservationsScreen>
             Text(
               'بكلا الحالتين، المبلغ المدفوع بالتطبيق يبقى محفوظًا بأمان ولا '
               'يصل للبائع إلا بعد تأكيدك استلام المنتج بحالة جيدة (أو تلقائيًا '
-              'خلال 7 أيام إن لم يكن هناك أي مشكلة).',
+              'خلال مدة الضمان التي يحددها البائع لكل منتج إن لم يكن هناك أي '
+              'مشكلة).',
               style: TextStyle(
                 fontSize: 12.5,
                 color: AppColors.onSurfaceVariant,
@@ -561,7 +563,9 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       builder: (_) => AlertDialog(
         title: const Text('تأكيد استلام المنتج'),
         content: Text(
-          'بتأكيدك استلام "${r.item.title}"، سيبقى المبلغ محجوزاً ويُحرَّر للبائع تلقائياً خلال 7 أيام — أو يمكنك تحريره الآن بنفسك إن لم تكن لديك أي مشكلة.',
+          'بتأكيدك استلام "${r.item.title}"، سيبقى المبلغ محجوزاً ويُحرَّر للبائع '
+          'تلقائياً خلال ${formatDaysAr(r.warrantyDays)} — أو يمكنك تحريره الآن '
+          'بنفسك إن لم تكن لديك أي مشكلة.',
         ),
         actions: [
           TextButton(
@@ -586,9 +590,9 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       );
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'تم تأكيد الاستلام — سيُحرَّر المبلغ للبائع خلال 7 أيام أو عند موافقتك',
+            'تم تأكيد الاستلام — سيُحرَّر المبلغ للبائع خلال ${formatDaysAr(r.warrantyDays)} أو عند موافقتك',
           ),
           backgroundColor: AppColors.success,
         ),
@@ -869,8 +873,8 @@ class _ReservationsListState extends State<_ReservationsList> {
     if (_filter == 'all') return widget.reservations;
     if (_filter == 'completed') {
       // 'confirmed' is the final settled state a 'completed' (paid) order
-      // reaches once the buyer confirms receipt or 7 days pass — group both
-      // under the same "مكتملة" tab.
+      // reaches once the buyer confirms receipt or the warranty period
+      // passes — group both under the same "مكتملة" tab.
       return widget.reservations
           .where((r) => r.status == 'completed' || r.status == 'confirmed')
           .toList();
@@ -1314,7 +1318,7 @@ class _ReservationCard extends StatelessWidget {
                       width: 100,
                       height: 100,
                       child: image != null
-                          ? Image.network(
+                          ? AppNetworkImage(
                               image,
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => _placeholder(),
@@ -1577,7 +1581,8 @@ class _ReservationCard extends StatelessWidget {
                     ] else ...[
                       // Only the buyer may confirm receipt — this is what
                       // releases the held payment to the seller (or it releases
-                      // automatically after 7 days with no dispute).
+                      // automatically after the item's warranty period with no
+                      // dispute).
                       if (r.canApprove) ...[
                         const SizedBox(height: 8),
                         SizedBox(

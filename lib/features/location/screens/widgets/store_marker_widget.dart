@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/nearby_store_model.dart';
 import '../../../../theme/app_colors.dart';
 
@@ -108,7 +109,7 @@ class StoreMarkerSheet extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: store.fullLogoUrl != null
-                    ? Image.network(
+                    ? AppNetworkImage(
                         store.fullLogoUrl!,
                         width: 60,
                         height: 60,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
@@ -252,7 +253,7 @@ class _AccountTab extends StatelessWidget {
                 radius: 40,
                 backgroundColor: AppColors.primaryContainer,
                 backgroundImage: auth.user?.fullAvatarUrl != null
-                    ? NetworkImage(auth.user!.fullAvatarUrl!)
+                    ? CachedNetworkImageProvider(auth.user!.fullAvatarUrl!)
                     : null,
                 child: auth.user?.fullAvatarUrl == null
                     ? Text(

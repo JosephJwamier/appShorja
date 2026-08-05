@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../models/listing.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
@@ -61,7 +62,7 @@ class ProductCard extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: item.firstImage != null
-                        ? Image.network(
+                        ? AppNetworkImage(
                             item.firstImage!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(

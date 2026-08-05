@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/dispute.dart';
 import '../providers/auth_provider.dart';
@@ -211,7 +212,7 @@ class _DisputesScreenState extends State<DisputesScreen> {
                   width: 40,
                   height: 40,
                   child: d.item.firstImage != null
-                      ? Image.network(d.item.firstImage!,
+                      ? AppNetworkImage(d.item.firstImage!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _thumbFallback())
                       : _thumbFallback(),

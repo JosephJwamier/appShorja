@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/filter_params.dart';
 import '../../models/listing.dart';
 import '../../screens/product_details_screen.dart';
@@ -224,7 +225,7 @@ class _DealCard extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: item.firstImage != null
-                        ? Image.network(
+                        ? AppNetworkImage(
                             item.firstImage!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => _placeholder(),

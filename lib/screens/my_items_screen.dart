@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../services/item_service.dart';
@@ -194,7 +195,7 @@ class _MyItemsScreenState extends State<MyItemsScreen> {
                               width: 70,
                               height: 70,
                               child: item.firstImage != null
-                                  ? Image.network(
+                                  ? AppNetworkImage(
                                       item.firstImage!,
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, _, _) => Container(

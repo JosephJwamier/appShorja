@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/product_review.dart';
 import '../../theme/app_colors.dart';
 import 'star_rating_widget.dart';
@@ -164,7 +165,7 @@ class _ReviewCardState extends State<ReviewCard> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
+                    child: AppNetworkImage(
                       r.imageUrl!,
                       height: 110,
                       width: 110,
@@ -207,7 +208,7 @@ void showImageFullScreen(BuildContext context, String url) {
             children: [
               Center(
                 child: InteractiveViewer(
-                  child: Image.network(url, fit: BoxFit.contain),
+                  child: AppNetworkImage(url, fit: BoxFit.contain),
                 ),
               ),
               Positioned(

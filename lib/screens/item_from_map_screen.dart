@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../features/location/models/nearby_item_model.dart';
 import '../models/listing.dart';
@@ -549,7 +550,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
             controller: _controller,
             itemCount: widget.images.length,
             onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, i) => Image.network(
+            itemBuilder: (_, i) => AppNetworkImage(
               widget.images[i],
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Container(

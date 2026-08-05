@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/nearby_item_model.dart';
 import '../../../../theme/app_colors.dart';
 
@@ -70,7 +71,7 @@ class ItemMarkerWidget extends StatelessWidget {
             ),
             child: ClipOval(
               child: imageUrl != null
-                  ? Image.network(
+                  ? AppNetworkImage(
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, e, s) => _iconPlaceholder(),
@@ -326,7 +327,7 @@ class _ItemRow extends StatelessWidget {
                 width: 72,
                 height: 72,
                 child: imageUrl != null
-                    ? Image.network(imageUrl,
+                    ? AppNetworkImage(imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, e, s) => _imgPlaceholder())
                     : _imgPlaceholder(),

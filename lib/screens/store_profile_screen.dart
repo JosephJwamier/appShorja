@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/deep_link_config.dart';
@@ -14,6 +16,7 @@ import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
 import '../widgets/live/live_store_avatar.dart';
+import '../widgets/report_bottom_sheet.dart';
 import 'auction_details_screen.dart';
 import 'product_details_screen.dart';
 import 'store_chat_screen.dart';
@@ -289,7 +292,7 @@ class _CoverHeader extends StatelessWidget {
         children: [
           // خلفية الغلاف: صورة الغلاف إن وُجدت، وإلّا تدرّج أنيق
           if (cover != null)
-            Image.network(cover, fit: BoxFit.cover,
+            AppNetworkImage(cover, fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _gradientBg())
           else
             _gradientBg(),
@@ -322,6 +325,18 @@ class _CoverHeader extends StatelessWidget {
                     subject: store.name,
                   ),
                 ),
+                if (showActions) ...[
+                  const SizedBox(width: 10),
+                  _glassCircle(
+                    Icons.flag_outlined,
+                    () => showReportSheet(
+                      context,
+                      targetType: 'store',
+                      targetId: store.id,
+                      targetLabel: store.name,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -413,7 +428,7 @@ class _CoverHeader extends StatelessWidget {
         color: Colors.white,
         border: Border.all(color: Colors.white, width: 2),
         image: logo != null
-            ? DecorationImage(image: NetworkImage(logo), fit: BoxFit.cover)
+            ? DecorationImage(image: CachedNetworkImageProvider(logo), fit: BoxFit.cover)
             : null,
       ),
       child: logo == null
@@ -1023,7 +1038,7 @@ class _DesignProductCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (img != null)
-                    Image.network(img, fit: BoxFit.cover,
+                    AppNetworkImage(img, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _imgFallback())
                   else
                     _imgFallback(),
@@ -1227,7 +1242,7 @@ class _AuctionRow extends StatelessWidget {
               width: 96,
               height: 96,
               child: img != null
-                  ? Image.network(img, fit: BoxFit.cover,
+                  ? AppNetworkImage(img, fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _ph())
                   : _ph(),
             ),

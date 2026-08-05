@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/representative_request.dart';
 import '../providers/auth_provider.dart';
@@ -290,7 +291,7 @@ class _SentRequestCardState extends State<_SentRequestCard> {
                   width: 60,
                   height: 60,
                   child: image != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           image,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(

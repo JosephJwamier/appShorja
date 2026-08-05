@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/listing.dart';
 import '../models/store.dart';
@@ -332,7 +333,7 @@ class _StoreCard extends StatelessWidget {
               ),
               child: ClipOval(
                 child: store.fullLogoUrl != null
-                    ? Image.network(store.fullLogoUrl!,
+                    ? AppNetworkImage(store.fullLogoUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => const Icon(
                             Icons.storefront,

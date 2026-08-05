@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../models/auction.dart';
@@ -717,7 +718,7 @@ class AuctionCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   item.firstImage != null
-                      ? Image.network(
+                      ? AppNetworkImage(
                           item.firstImage!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(

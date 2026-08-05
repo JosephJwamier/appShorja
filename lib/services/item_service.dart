@@ -133,6 +133,7 @@ class ItemService {
     required int quantity,
     required List<XFile> images,
     String packageSize = 'medium',
+    int warrantyDays = 7,
     int? locationId,
   }) async {
     final uri = Uri.parse('$baseUrl/items/');
@@ -146,6 +147,7 @@ class ItemService {
     request.fields['condition'] = condition;
     request.fields['quantity'] = quantity.toString();
     request.fields['package_size'] = packageSize;
+    request.fields['warranty_days'] = warrantyDays.toString();
     if (locationId != null) {
       request.fields['current_location_id'] = locationId.toString();
     }
@@ -389,6 +391,7 @@ class ItemService {
     required String condition,
     required int quantity,
     String packageSize = 'medium',
+    int warrantyDays = 7,
     int? locationId,
     List<XFile> newImages = const [],
     List<int> removeImageIds = const [],
@@ -404,6 +407,7 @@ class ItemService {
     request.fields['condition'] = condition;
     request.fields['quantity'] = quantity.toString();
     request.fields['package_size'] = packageSize;
+    request.fields['warranty_days'] = warrantyDays.toString();
     if (locationId != null) {
       request.fields['current_location_id'] = locationId.toString();
     }

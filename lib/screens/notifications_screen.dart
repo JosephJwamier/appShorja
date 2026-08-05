@@ -71,14 +71,12 @@ class NotificationsScreen extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await DeliveryService().confirmReceipt(
+      final message = await DeliveryService().confirmReceipt(
         accessToken: auth.accessToken!,
         deliveryOrderId: deliveryOrderId,
       );
-      messenger.showSnackBar(const SnackBar(
-          content: Text(
-              'تم تأكيد الاستلام — سيُحرَّر المبلغ للبائع خلال 7 أيام أو عند موافقتك'),
-          backgroundColor: AppColors.success));
+      messenger.showSnackBar(SnackBar(
+          content: Text(message), backgroundColor: AppColors.success));
       await provider.markRead(n.id);
     } catch (e) {
       messenger.showSnackBar(SnackBar(

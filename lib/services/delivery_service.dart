@@ -60,20 +60,22 @@ class DeliveryService {
 
   /// Buyer presses "received" once the item has physically arrived. This
   /// only confirms physical receipt — it does NOT release the held payment.
-  /// The payment is released automatically after 7 days with no dispute, or
-  /// earlier if the buyer explicitly approves via
-  /// ReservationService.approveAndReleasePayment.
-  Future<void> confirmReceipt({
+  /// The payment is released automatically once the item's warranty period
+  /// passes with no dispute, or earlier if the buyer explicitly approves via
+  /// ReservationService.approveAndReleasePayment. Returns the backend's
+  /// message, which already reflects the item's actual warranty length.
+  Future<String> confirmReceipt({
     required String accessToken,
     required int deliveryOrderId,
   }) async {
     final response =
         await _client.post('/delivery-orders/$deliveryOrderId/confirm-receipt/');
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode != 200 && response.statusCode != 204) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
       throw Exception(data['message'] ?? 'فشل تأكيد الاستلام');
     }
     AppAnalytics.deliveryConfirmed(deliveryOrderId: deliveryOrderId.toString());
+    return data['message'] as String? ?? 'تم تأكيد الاستلام';
   }
 
   /// Buyer refuses the item at the door. With a `reason`, this opens a
