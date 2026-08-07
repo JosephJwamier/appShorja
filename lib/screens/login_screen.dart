@@ -414,7 +414,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// الشعار المربّع البرتقاليّ + اسم شورجة + الترحيب
+// الشعار المربّع البرتقاليّ + اسم الشورجة + الترحيب
 class _BrandHeader extends StatelessWidget {
   const _BrandHeader();
 
@@ -440,7 +440,7 @@ class _BrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text(
-          'شورجة',
+          'الشورجة',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,

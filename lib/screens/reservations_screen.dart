@@ -871,14 +871,9 @@ class _ReservationsListState extends State<_ReservationsList> {
 
   List<Reservation> get _filtered {
     if (_filter == 'all') return widget.reservations;
-    if (_filter == 'completed') {
-      // 'confirmed' is the final settled state a 'completed' (paid) order
-      // reaches once the buyer confirms receipt or the warranty period
-      // passes — group both under the same "مكتملة" tab.
-      return widget.reservations
-          .where((r) => r.status == 'completed' || r.status == 'confirmed')
-          .toList();
-    }
+    // 'confirmed' is its own tab now — 'completed' (paid, awaiting delivery
+    // or buyer confirmation) and 'confirmed' (settled) are distinct stages,
+    // so they no longer get merged into one tab.
     return widget.reservations.where((r) => r.status == _filter).toList();
   }
 
@@ -939,14 +934,6 @@ class _ReservationsListState extends State<_ReservationsList> {
               final (key, label) = f;
               final count = key == 'all'
                   ? widget.reservations.length
-                  : key == 'completed'
-                  ? widget.reservations
-                        .where(
-                          (r) =>
-                              r.status == 'completed' ||
-                              r.status == 'confirmed',
-                        )
-                        .length
                   : widget.reservations.where((r) => r.status == key).length;
               final selected = _filter == key;
               return Padding(

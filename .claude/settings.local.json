@@ -42,7 +42,13 @@
       "Bash(python -m py_compile core/models.py core/serializers.py)",
       "WebSearch",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Eng_Joseph\\\\Desktop\\\\marketplace_app\\\\assets\\\\fonts\" | Select-Object Name, @{n='KB';e={[math]::Round\\($_.Length/1KB,1\\)}})",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(git commit -m ' *)",
+      "mcp__visualize__read_me",
+      "Bash(python scripts/search.py \"bottom nav limit tab hierarchy back behavior deep link\" --domain ux -n 8)",
+      "Bash(python scripts/search.py \"IndexedStack video lifecycle dispose state preserve\" --stack flutter -n 6)",
+      "mcp__visualize__show_widget",
+      "Bash(Out-String -Width 200)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Eng_Joseph\\PycharmProjects\\balla\\balla\\core"

@@ -380,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
           const Spacer(),
           // لوگو
           const Text(
-            'شورجة',
+            'الشورجة',
             style: TextStyle(
               color: AppColors.primary,
               fontSize: 26,

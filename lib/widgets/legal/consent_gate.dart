@@ -115,7 +115,7 @@ class _ConsentGateState extends State<ConsentGate> {
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'لمواصلة استخدام شورجة، يرجى الاطلاع والموافقة على المستندات التالية:',
+                        'لمواصلة استخدام الشورجة، يرجى الاطلاع والموافقة على المستندات التالية:',
                         style: TextStyle(color: AppColors.onSurfaceVariant),
                       ),
                       const SizedBox(height: 12),

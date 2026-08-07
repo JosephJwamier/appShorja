@@ -67,6 +67,11 @@ dependencies:
   pdf: ^3.12.0
   printing: ^5.14.3
 
+  # Reels (short vertical video)
+  video_player: ^2.9.5
+  v_video_compressor: ^1.0.9
+  video_thumbnail: ^0.5.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

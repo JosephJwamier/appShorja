@@ -1314,7 +1314,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// بطاقة منتج بنظام "شورجة"
+// بطاقة منتج بنظام "الشورجة"
 class _StoreProductCard extends StatelessWidget {
   final String title;
   final int quantity;

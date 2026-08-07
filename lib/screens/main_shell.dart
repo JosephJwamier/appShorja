@@ -8,10 +8,11 @@ import '../providers/representative_requests_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/refreshable_tab.dart';
+import '../utils/visibility_aware_tab.dart';
 import 'home_screen.dart';
 import 'auctions_screen.dart';
 import 'my_store_screen.dart';
-import 'live/live_sessions_screen.dart';
+import 'media/media_hub_screen.dart';
 import 'add_item_screen.dart';
 import 'my_items_screen.dart';
 import 'received_requests_screen.dart';
@@ -32,6 +33,21 @@ import '../features/location/screens/my_locations_screen.dart';
 /// (مثلاً عند الضغط على شريط تنقّل مطابق ظاهر أسفل شاشة فرعية).
 final GlobalKey<MainShellState> mainShellKey = GlobalKey<MainShellState>();
 
+/// فهارس تبويبات [MainShell]. مجمّعة هنا بدل أرقام صريحة متناثرة، حتى تتم أي
+/// إعادة ترتيب مستقبلية في مكان واحد ولا تنكسر [MainShellState.jumpToTab]
+/// بصمت (تستدعيها الإشعارات والروابط العميقة).
+abstract final class ShellTab {
+  static const home = 0;
+  static const auctions = 1;
+
+  /// التبويب الموحّد: الريلز أولاً، والبث المباشر خلف مبدّل أعلى الشاشة.
+  static const media = 2;
+
+  static const chats = 3;
+  static const reservations = 4;
+  static const account = 5;
+}
+
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -40,34 +56,55 @@ class MainShell extends StatefulWidget {
 }
 
 class MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
+  int _currentIndex = ShellTab.home;
 
-  // مفاتيح لكل تبويب من التبويبات الخمسة التي تحمّل بيانات — تُستخدم في
-  // _refreshTabAt للوصول إلى State الخاص بالتبويب (الذي يبقى حياً طوال
-  // الجلسة بفضل IndexedStack أدناه) واستدعاء RefreshableTab.refreshTab عليه
-  // كلّما أصبح هذا التبويب هو المختار، تماماً كما لو كانت شاشة مدفوعة حديثاً.
+  // مفاتيح لكل تبويب يحمّل بيانات — تُستخدم للوصول إلى State الخاص بالتبويب
+  // (الذي يبقى حياً طوال الجلسة بفضل IndexedStack أدناه) واستدعاء
+  // RefreshableTab.refreshTab عليه كلّما أصبح هذا التبويب هو المختار، تماماً
+  // كما لو كانت شاشة مدفوعة حديثاً، إضافةً إلى إشارات VisibilityAwareTab.
   final _homeKey = GlobalKey();
   final _auctionsKey = GlobalKey();
-  final _liveKey = GlobalKey();
+  final _mediaKey = GlobalKey();
   final _chatsKey = GlobalKey();
   final _reservationsKey = GlobalKey();
 
-  void jumpToTab(int index) {
+  GlobalKey? _keyForTab(int index) => switch (index) {
+        ShellTab.home => _homeKey,
+        ShellTab.auctions => _auctionsKey,
+        ShellTab.media => _mediaKey,
+        ShellTab.chats => _chatsKey,
+        ShellTab.reservations => _reservationsKey,
+        _ => null,
+      };
+
+  void jumpToTab(int index) => _selectTab(index);
+
+  void _selectTab(int index) {
+    if (index != _currentIndex) {
+      _notifyVisibility(_currentIndex, visible: false);
+    }
     setState(() => _currentIndex = index);
+    _notifyVisibility(index, visible: true);
     _refreshTabAt(index);
   }
 
   void _refreshTabAt(int index) {
-    final key = switch (index) {
-      0 => _homeKey,
-      1 => _auctionsKey,
-      2 => _liveKey,
-      3 => _chatsKey,
-      4 => _reservationsKey,
-      _ => null,
-    };
-    final state = key?.currentState;
+    final state = _keyForTab(index)?.currentState;
     if (state is RefreshableTab) (state as RefreshableTab).refreshTab();
+  }
+
+  /// IndexedStack يُبقي كل تبويب حياً، فالتبويب المُغادَر لا يعرف أنه اختفى.
+  /// بدون هذه الإشارة يظلّ فيديو الريل يعمل — وصوته مسموعاً — خلف أي تبويب
+  /// ينتقل إليه المستخدم.
+  void _notifyVisibility(int index, {required bool visible}) {
+    final state = _keyForTab(index)?.currentState;
+    if (state is! VisibilityAwareTab) return;
+    final aware = state as VisibilityAwareTab;
+    if (visible) {
+      aware.onTabVisible();
+    } else {
+      aware.onTabHidden();
+    }
   }
 
   @override
@@ -93,7 +130,7 @@ class MainShellState extends State<MainShell> {
   late final _tabs = [
     HomeScreen(key: _homeKey),
     AuctionsListView(key: _auctionsKey),
-    LiveSessionsScreen(key: _liveKey),
+    MediaHubScreen(key: _mediaKey),
     ChatsListScreen(key: _chatsKey),
     ReservationsScreen(key: _reservationsKey),
     const _AccountTab(),
@@ -108,7 +145,7 @@ class MainShellState extends State<MainShell> {
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _tabs),
-      floatingActionButton: _currentIndex == 0
+      floatingActionButton: _currentIndex == ShellTab.home
           ? FloatingActionButton(
               heroTag: 'mainShellAddItemFab',
               backgroundColor: AppColors.primary,
@@ -123,10 +160,7 @@ class MainShellState extends State<MainShell> {
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (i) {
-          setState(() => _currentIndex = i);
-          _refreshTabAt(i);
-        },
+        onDestinationSelected: _selectTab,
         backgroundColor: AppColors.surfaceContainerLowest,
         indicatorColor: AppColors.primaryContainer.withValues(alpha: 0.2),
         destinations: [
@@ -140,10 +174,12 @@ class MainShellState extends State<MainShell> {
             selectedIcon: Icon(Icons.gavel, color: AppColors.primary),
             label: 'المزادات',
           ),
+          // تبويب واحد للريلز والبث المباشر معاً — التبديل بينهما من المبدّل
+          // أعلى الشاشة داخل MediaHubScreen.
           const NavigationDestination(
             icon: Icon(Icons.live_tv_outlined),
             selectedIcon: Icon(Icons.live_tv, color: AppColors.primary),
-            label: 'البث المباشر',
+            label: 'ميديا',
           ),
           NavigationDestination(
             icon: Badge(

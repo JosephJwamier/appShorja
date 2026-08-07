@@ -642,7 +642,7 @@ class _ProductDetailsBody extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 2),
                                     const Text(
-                                      'بائع موثّق على شورجة',
+                                      'بائع موثّق على الشورجة',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: AppColors.onSurfaceVariant,

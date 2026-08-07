@@ -22,6 +22,7 @@ import 'providers/auctions_provider.dart';
 import 'providers/representative_requests_provider.dart';
 import 'providers/store_provider.dart';
 import 'providers/live_sessions_provider.dart';
+import 'providers/reels_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/transfers_provider.dart';
 import 'features/location/providers/location_provider.dart';
@@ -108,6 +109,7 @@ Future<void> main() async {
               create: (_) => RepresentativeRequestsProvider()),
           ChangeNotifierProvider(create: (_) => StoreProvider()),
           ChangeNotifierProvider(create: (_) => LiveSessionsProvider()),
+          ChangeNotifierProvider(create: (_) => ReelsProvider()),
           ChangeNotifierProvider(create: (_) => WalletProvider()),
           ChangeNotifierProvider(create: (_) => TransfersProvider()),
           ChangeNotifierProvider(create: (_) => LocationProvider()),
@@ -138,7 +140,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'شورجة',
+      title: 'الشورجة',
       debugShowCheckedModeBanner: false,
       // Firebase isn't initialized on web (see main()), so the observer
       // would crash trying to reach an app that was never set up.

@@ -28,7 +28,7 @@ class NotificationService {
 
   static const _channelId = 'high_importance_channel';
   static const _channelName = 'الإشعارات المهمة';
-  static const _channelDesc = 'إشعارات تطبيق شورجة';
+  static const _channelDesc = 'إشعارات تطبيق الشورجة';
 
   static const AndroidNotificationChannel _androidChannel =
       AndroidNotificationChannel(
