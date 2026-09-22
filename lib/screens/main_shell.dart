@@ -6,6 +6,7 @@ import '../providers/notifications_provider.dart';
 import '../providers/chats_provider.dart';
 import '../providers/representative_requests_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../providers/reservations_badge_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/refreshable_tab.dart';
 import '../utils/visibility_aware_tab.dart';
@@ -22,6 +23,7 @@ import 'reservations_screen.dart';
 import 'disputes_screen.dart';
 import 'account_settings_screen.dart';
 import 'my_coupons_screen.dart';
+import 'favorites_screen.dart';
 import 'wallet_screen.dart';
 import 'chats_list_screen.dart';
 import 'store_chat_screen.dart';
@@ -116,7 +118,8 @@ class MainShellState extends State<MainShell> {
     // either screen first.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final token = context.read<AuthProvider>().accessToken;
+      final auth = context.read<AuthProvider>();
+      final token = auth.accessToken;
       if (token == null) return;
       context
           .read<RepresentativeRequestsProvider>()
@@ -124,6 +127,12 @@ class MainShellState extends State<MainShell> {
       context
           .read<TransfersProvider>()
           .loadTab(TransferTab.received, token: token);
+      final userId = auth.user?.id;
+      if (userId != null) {
+        context
+            .read<ReservationsBadgeProvider>()
+            .load(accessToken: token, currentUserId: userId);
+      }
     });
   }
 
@@ -142,6 +151,8 @@ class MainShellState extends State<MainShell> {
     final pendingRequests =
         context.watch<RepresentativeRequestsProvider>().pendingReceivedCount +
         context.watch<TransfersProvider>().pendingReceivedCount;
+    final reservationsNeedingAction =
+        context.watch<ReservationsBadgeProvider>().pendingActionCount;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _tabs),
@@ -198,9 +209,21 @@ class MainShellState extends State<MainShell> {
             ),
             label: 'المحادثات',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.bookmark_outline),
-            selectedIcon: Icon(Icons.bookmark, color: AppColors.primary),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: reservationsNeedingAction > 0,
+              label: Text('$reservationsNeedingAction'),
+              backgroundColor: AppColors.error,
+              textColor: Colors.white,
+              child: const Icon(Icons.bookmark_outline),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: reservationsNeedingAction > 0,
+              label: Text('$reservationsNeedingAction'),
+              backgroundColor: AppColors.error,
+              textColor: Colors.white,
+              child: const Icon(Icons.bookmark, color: AppColors.primary),
+            ),
             label: 'حجوزاتي',
           ),
           NavigationDestination(
@@ -352,6 +375,14 @@ class _AccountTab extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const MyCouponsScreen()),
+              ),
+            ),
+            _AccountTile(
+              icon: Icons.favorite_border_rounded,
+              label: 'المنتجات المفضلة',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FavoritesScreen()),
               ),
             ),
             const Divider(height: 32),

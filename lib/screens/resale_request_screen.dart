@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 
@@ -104,6 +105,9 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
       setState(() => _isSubmitting = false);
 
       if (result.success) {
+        // أول طلب إعادة بيع/نقل ملكية ناجح هو أول لحظة يصبح فيها إشعار الرد
+        // مفيدًا فعليًا — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+        NotificationService.requestPermissionIfNeeded();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),

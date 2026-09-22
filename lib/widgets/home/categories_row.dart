@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/category.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/category_icons.dart';
 
 class CategoriesRow extends StatelessWidget {
   final List<Category> categories;
@@ -163,9 +164,10 @@ class _CategoryCircle extends StatelessWidget {
         errorBuilder: (_, _, _) => _fallbackIcon(),
       );
     }
-    if (iconCode != null) {
+    final data = categoryIconFor(iconCode);
+    if (data != null) {
       return Icon(
-        IconData(iconCode!, fontFamily: 'MaterialIcons'),
+        data,
         color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
         size: 26,
       );

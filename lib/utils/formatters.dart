@@ -66,6 +66,11 @@ String toWhatsappDigits(String phone) {
   return '964$digits';
 }
 
+/// نفس التطبيع أعلاه لكن بصيغة E.164 الكاملة (بعلامة '+')، وهي ما تشترطه
+/// Firebase Phone Auth في `verifyPhoneNumber`. مفصولة عن [toWhatsappDigits]
+/// لأن رابط wa.me هو الوحيد الذي يريد الأرقام بلا '+'.
+String toE164(String phone) => '+${toWhatsappDigits(phone)}';
+
 String formatIqd(double amount) {
   final intPart = amount.truncate().abs();
   final intStr = intPart.toString();

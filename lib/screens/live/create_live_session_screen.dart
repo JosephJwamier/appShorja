@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/live_session_service.dart';
+import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
 import 'live_broadcast_screen.dart';
 
@@ -46,6 +47,9 @@ class _CreateLiveSessionScreenState extends State<CreateLiveSessionScreen> {
     setState(() => _isStarting = false);
 
     if (result.success && result.session != null) {
+      // أول بث ناجح هو أول لحظة يصبح فيها إشعار المزايدات/التعليقات أثناء
+      // البث مفيدًا للبائع — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

@@ -24,7 +24,7 @@ class DefaultFirebaseOptions {
   // Values extracted from google-services.json
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCtFH_IZ_EfFIj9zrr8bs8oFbn12GTKotA',
-    appId: '1:78176989926:android:ef1ebda235775acf36c127',
+    appId: '1:78176989926:android:ea5a5f9512e0c21036c127',
     messagingSenderId: '78176989926',
     projectId: 'balla-c917b',
     storageBucket: 'balla-c917b.firebasestorage.app',

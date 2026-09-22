@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/listing.dart';
+import '../models/product.dart';
 import '../providers/auth_provider.dart';
 import '../services/analytics_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../features/location/screens/location_picker_sheet.dart';
+import '../services/reservation_service.dart';
 
 /// An accepted chat offer being redeemed — locks the sheet's quantity and
 /// replaces the listing price with the negotiated total.
@@ -38,12 +40,14 @@ Future<ReservationSheetResult?> showReservationSheet(
   BuildContext context, {
   required FixedListing listing,
   required int initialQuantity,
+  ProductVariant? variant,
   LocationPickerResult? initialDelivery,
   AcceptedOffer? acceptedOffer,
 }) {
+  final unitPrice = variant?.effectivePrice ?? listing.price;
   AppAnalytics.beginCheckout(
     itemId: listing.item.id.toString(),
-    value: acceptedOffer?.amount ?? listing.price * initialQuantity,
+    value: acceptedOffer?.amount ?? unitPrice * initialQuantity,
   );
   return showModalBottomSheet<ReservationSheetResult>(
     context: context,
@@ -53,6 +57,7 @@ Future<ReservationSheetResult?> showReservationSheet(
     enableDrag: acceptedOffer == null,
     builder: (_) => _ReservationSheet(
       listing: listing,
+      variant: variant,
       initialQuantity: initialQuantity,
       initialDelivery: initialDelivery,
       acceptedOffer: acceptedOffer,
@@ -62,12 +67,16 @@ Future<ReservationSheetResult?> showReservationSheet(
 
 class _ReservationSheet extends StatefulWidget {
   final FixedListing listing;
+  /// The chosen combination for an item with options: it, not the item,
+  /// owns the stock cap and may carry its own price.
+  final ProductVariant? variant;
   final int initialQuantity;
   final LocationPickerResult? initialDelivery;
   final AcceptedOffer? acceptedOffer;
 
   const _ReservationSheet({
     required this.listing,
+    required this.variant,
     required this.initialQuantity,
     this.initialDelivery,
     this.acceptedOffer,
@@ -82,10 +91,17 @@ class _ReservationSheetState extends State<_ReservationSheet> {
   LocationPickerResult? _delivery;
   bool _pickingLocation = false;
 
+  // Delivery fee for the chosen address, fetched from the server so the
+  // sheet shows the same number the reservation will charge. Null until a
+  // location is picked or while the quote is loading.
+  DeliveryQuote? _quote;
+  bool _quoting = false;
+
   bool get _isOffer => widget.acceptedOffer != null;
-  int get _maxQty => widget.listing.item.quantity;
-  double get _total =>
-      widget.acceptedOffer?.amount ?? widget.listing.price * _quantity;
+  int get _maxQty => widget.variant?.quantity ?? widget.listing.item.quantity;
+  double get _unitPrice =>
+      widget.variant?.effectivePrice ?? widget.listing.price;
+  double get _total => widget.acceptedOffer?.amount ?? _unitPrice * _quantity;
 
   @override
   void initState() {
@@ -94,6 +110,27 @@ class _ReservationSheetState extends State<_ReservationSheet> {
         ? widget.acceptedOffer!.quantity
         : widget.initialQuantity.clamp(1, _maxQty < 1 ? 1 : _maxQty);
     _delivery = widget.initialDelivery;
+    if (_delivery != null) _loadQuote();
+  }
+
+  Future<void> _loadQuote() async {
+    final delivery = _delivery;
+    if (delivery == null) return;
+    setState(() { _quoting = true; _quote = null; });
+    try {
+      final quote = await ReservationService().fetchDeliveryQuote(
+        itemId: widget.listing.item.id,
+        locationId: delivery.locationId,
+      );
+      if (mounted && _delivery?.locationId == delivery.locationId) {
+        setState(() => _quote = quote);
+      }
+    } catch (_) {
+      // The fee is informational here; the server charges the right one
+      // regardless. Leave the line out rather than show a wrong number.
+    } finally {
+      if (mounted) setState(() => _quoting = false);
+    }
   }
 
   void _inc() {
@@ -118,6 +155,7 @@ class _ReservationSheetState extends State<_ReservationSheet> {
       _pickingLocation = false;
       if (loc != null) _delivery = LocationPickerResult.fromLocation(loc);
     });
+    if (loc != null) _loadQuote();
   }
 
   void _confirm() {
@@ -204,6 +242,18 @@ class _ReservationSheetState extends State<_ReservationSheet> {
                               color: AppColors.onSurfaceVariant,
                             ),
                           ),
+                          // The exact combination being reserved (اللون / المقاس)
+                          if (widget.variant != null && widget.variant!.label.isNotEmpty)
+                            Text(
+                              item.variantLabel(widget.variant!),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -276,7 +326,7 @@ class _ReservationSheetState extends State<_ReservationSheet> {
                       Text(
                         _isOffer
                             ? 'عرض لـ $_quantity قطعة'
-                            : '$_quantity × ${formatNum(widget.listing.price)}',
+                            : '$_quantity × ${formatNum(_unitPrice)}',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.onSurfaceVariant),
                       ),
@@ -292,6 +342,10 @@ class _ReservationSheetState extends State<_ReservationSheet> {
                     ],
                   ),
                 ),
+                if (_delivery != null) ...[
+                  const SizedBox(height: 8),
+                  _deliveryFeeLine(),
+                ],
                 const SizedBox(height: 18),
                 SizedBox(
                   height: 52,
@@ -334,6 +388,38 @@ class _ReservationSheetState extends State<_ReservationSheet> {
         color: AppColors.surfaceContainer,
         child: const Icon(Icons.image, color: AppColors.onSurfaceVariant),
       );
+
+  /// «أجرة التوصيل» under the total. Charged now for a full payment, or
+  /// collected in cash at the door for a deposit-only one — either way the
+  /// buyer should see it before pressing confirm.
+  Widget _deliveryFeeLine() {
+    final String text;
+    if (_quoting) {
+      text = 'جارٍ حساب أجرة التوصيل…';
+    } else if (_quote == null) {
+      return const SizedBox.shrink();
+    } else if (_quote!.fee <= 0) {
+      text = 'التوصيل: بلا أجرة';
+    } else {
+      final route = (_quote!.fromGovernorate != null && _quote!.toGovernorate != null)
+          ? ' (${_quote!.fromGovernorate} ← ${_quote!.toGovernorate})'
+          : '';
+      text = 'أجرة التوصيل$route: ${formatNum(_quote!.fee)} IQD — تُضاف عند الدفع';
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.local_shipping_outlined, size: 15, color: AppColors.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _stepper() {
     final canInc = !_isOffer && _quantity < _maxQty;

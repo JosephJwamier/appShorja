@@ -4,6 +4,7 @@ import '../models/listing.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../screens/product_details_screen.dart';
+import 'store/store_badges.dart';
 
 class ProductCard extends StatelessWidget {
   final FixedListing listing;
@@ -124,6 +125,15 @@ class ProductCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // 16 px seals: the smallest size the set was drawn for.
+                      if (item.owner.storeBadges.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        StoreBadgesRow(
+                          kinds: item.owner.storeBadges,
+                          compact: true,
+                          size: 16,
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

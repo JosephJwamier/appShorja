@@ -126,6 +126,9 @@ class ReservationService {
     required String accessToken,
     required int itemId,
     required int quantity,
+    /// Which combination (colour/size) is being bought. Required by the
+    /// server when the item has options; ignored for plain items.
+    int? variantId,
     int? couponCollectionId,
     int? deliveryLocationId,
     int? offerMessageId,
@@ -134,6 +137,7 @@ class ReservationService {
       '/reservations/create_reservation/',
       body: {
         'item_id': itemId,
+        'variant_id': ?variantId,
         'quantity': quantity,
         'delivery_location_id': ?deliveryLocationId,
         'coupon_collection_id': ?couponCollectionId,
@@ -156,5 +160,39 @@ class ReservationService {
     } else {
       throw Exception(data['message'] ?? 'فشل إنشاء الحجز');
     }
+  }
+}
+
+/// What delivery will cost for one item to one saved address — the same
+/// rule the server applies when charging, so the sheet never shows a
+/// number the reservation then contradicts.
+class DeliveryQuote {
+  final double fee;
+  final String? company;
+  final String? fromGovernorate;
+  final String? toGovernorate;
+  const DeliveryQuote({required this.fee, this.company, this.fromGovernorate, this.toGovernorate});
+
+  factory DeliveryQuote.fromJson(Map<String, dynamic> json) => DeliveryQuote(
+        fee: double.tryParse(json['fee']?.toString() ?? '') ?? 0,
+        company: json['company']?.toString(),
+        fromGovernorate: json['from_governorate']?.toString(),
+        toGovernorate: json['to_governorate']?.toString(),
+      );
+}
+
+extension DeliveryQuoteApi on ReservationService {
+  Future<DeliveryQuote> fetchDeliveryQuote({
+    required int itemId,
+    required int locationId,
+  }) async {
+    final response = await _client.get(
+      '/reservations/delivery-quote/?item_id=$itemId&location_id=$locationId',
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return DeliveryQuote.fromJson(body['data'] as Map<String, dynamic>);
+    }
+    throw Exception('تعذّر حساب أجرة التوصيل');
   }
 }

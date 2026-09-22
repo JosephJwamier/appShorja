@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="bronze badge">
+  <circle cx="512" cy="512" r="440" fill="#A8652A"/>
+  <circle cx="512" cy="512" r="472" fill="none" stroke="#7A4519" stroke-width="34"/>
+  <polygon points="884.0,512.0 738.2,738.2 512.0,884.0 285.8,738.2 140.0,512.0 285.8,285.8 512.0,140.0 738.2,285.8" fill="none" stroke="#7A4519" stroke-width="10" stroke-linejoin="round" opacity="0.35"/>
+  <g><polygon points="512.0,342.0 562.3,462.8 692.7,473.3 593.3,558.4 623.7,685.7 512.0,617.5 400.3,685.7 430.7,558.4 331.3,473.3 461.7,462.8" fill="#FFDBD0"/></g>
+</svg>

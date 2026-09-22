@@ -4,11 +4,16 @@ import '../../models/listing.dart';
 import '../../screens/product_details_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
+import '../store/store_badges.dart';
 
 class HomeProductCard extends StatelessWidget {
   final FixedListing listing;
+  /// When set, shows a filled-heart button over the image that calls this
+  /// instead of navigating — used by the favorites screen to remove an item
+  /// without opening its details first. Null everywhere else.
+  final VoidCallback? onRemoveFavorite;
 
-  const HomeProductCard({super.key, required this.listing});
+  const HomeProductCard({super.key, required this.listing, this.onRemoveFavorite});
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +68,23 @@ class HomeProductCard extends StatelessWidget {
                           '-${listing.discountPercentage!.toStringAsFixed(0)}%',
                     ),
                   ),
+                if (onRemoveFavorite != null)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: GestureDetector(
+                      onTap: onRemoveFavorite,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.favorite,
+                            size: 16, color: AppColors.error),
+                      ),
+                    ),
+                  ),
               ],
             ),
             // تفاصيل المنتج
@@ -72,6 +94,15 @@ class HomeProductCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // شارات المتجر — قبل الاسم كي تُقرأ مع نظرة واحدة
+                  if (item.owner.storeBadges.isNotEmpty) ...[
+                    StoreBadgesRow(
+                      kinds: item.owner.storeBadges,
+                      compact: true,
+                      size: 16,
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   // الاسم
                   Text(
                     item.title,
@@ -102,7 +133,7 @@ class HomeProductCard extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          '${listing.item.soldCount ?? 0} مبيع',
+                          '${listing.item.soldCount ?? 0} مباع',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -111,16 +142,18 @@ class HomeProductCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.star_rounded,
-                          size: 13, color: Color(0xFFF7C948)),
-                      Text(
-                        ' ${listing.item.rating?.toStringAsFixed(1) ?? "—"}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.onSurfaceVariant,
+                      if ((listing.item.totalReviews ?? 0) > 0) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.star_rounded,
+                            size: 13, color: Color(0xFFF7C948)),
+                        Text(
+                          ' ${(listing.item.rating ?? 0).toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 8),

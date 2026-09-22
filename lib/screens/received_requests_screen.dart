@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/representative_request.dart';
 import '../providers/auth_provider.dart';
 import '../providers/representative_requests_provider.dart';
+import '../services/notification_service.dart';
 
 class ReceivedRequestsScreen extends StatefulWidget {
   const ReceivedRequestsScreen({super.key});
@@ -207,6 +208,13 @@ class _RequestCardState extends State<_RequestCard> {
 
     if (!mounted) return;
     setState(() => _isProcessing = false);
+
+    if (result.success) {
+      // أول قبول ناجح لطلب مندوبية هو أول لحظة يصبح فيها إشعار "بيع
+      // بواسطة مندوب/دفع عمولة" مفيدًا — نطلب إذن الإشعارات هنا بدل أول
+      // فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -6,7 +6,9 @@ import '../models/reservation.dart';
 import '../models/delivery_order.dart';
 import '../models/dispute.dart';
 import '../providers/auth_provider.dart';
+import '../providers/reservations_badge_provider.dart';
 import '../services/delivery_service.dart';
+import '../services/item_service.dart';
 import '../services/reservation_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
@@ -17,6 +19,7 @@ import '../features/location/screens/location_picker_sheet.dart';
 import 'file_dispute_screen.dart';
 import 'disputes_screen.dart';
 import 'print_delivery_label_screen.dart';
+import 'product_details_screen.dart';
 import 'reservation_detail_screen.dart';
 
 class ReservationsScreen extends StatefulWidget {
@@ -63,6 +66,12 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         accessToken: auth.accessToken!,
       );
       if (mounted) setState(() => _all = list);
+      if (mounted) {
+        context.read<ReservationsBadgeProvider>().applyReservations(
+              list,
+              currentUserId: _currentUserId,
+            );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -929,7 +938,9 @@ class _ReservationsListState extends State<_ReservationsList> {
           child: Row(
             children: [
               Expanded(
-                child: Row(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
                   children: _filters.map((f) {
               final (key, label) = f;
               final count = key == 'all'
@@ -966,6 +977,7 @@ class _ReservationsListState extends State<_ReservationsList> {
                 ),
               );
                   }).toList(),
+                  ),
                 ),
               ),
               if (widget.allowCombine)
@@ -1113,6 +1125,43 @@ class _ReservationCard extends StatelessWidget {
       MaterialPageRoute(builder: (_) => FileDisputeScreen(reservation: r)),
     );
     if (result == true) await onRefresh();
+  }
+
+  /// One-tap re-order: opens the same item's current listing straight on
+  /// product details, ready to reserve again — shortens the gap between a
+  /// buyer's first and second order on something they already trust.
+  Future<void> _orderAgain(BuildContext context) async {
+    final token = context.read<AuthProvider>().accessToken ?? '';
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final listing = await ItemService().fetchListingByItemId(
+        accessToken: token,
+        itemId: r.item.id,
+      );
+      navigator.pop();
+      if (listing != null) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(listing: listing),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('هذا المنتج لم يعد متوفراً')),
+        );
+      }
+    } catch (_) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('تعذّر فتح تفاصيل المنتج')),
+      );
+    }
   }
 
   void _openDetail(BuildContext context) {
@@ -1365,17 +1414,27 @@ class _ReservationCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
                             children: [
                               _PriceChip(
                                 label: 'عربون',
                                 value: formatIqd(r.depositAmount),
                               ),
-                              const SizedBox(width: 8),
                               _PriceChip(
                                 label: 'إجمالي',
                                 value: formatIqd(r.totalPrice),
                               ),
+                              // The seller's own line: what reaches their
+                              // wallet after the platform's cut (and the
+                              // representative's, if any). Buyers don't
+                              // need it — they pay the total.
+                              if (!isBuyer && r.platformCommissionAmount > 0)
+                                _PriceChip(
+                                  label: 'صافيك بعد العمولة ${r.platformCommissionPercent.toStringAsFixed(r.platformCommissionPercent % 1 == 0 ? 0 : 1)}%',
+                                  value: formatIqd(r.sellerNet),
+                                ),
                             ],
                           ),
                         ],
@@ -1566,6 +1625,27 @@ class _ReservationCard extends StatelessWidget {
                         ),
                       ),
                     ] else ...[
+                      // Buyer: the sale is fully settled — one-tap re-order
+                      // straight onto product details, ready to reserve again.
+                      if (isBuyer && r.status == 'confirmed') ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _orderAgain(context),
+                            icon: const Icon(Icons.replay_rounded, size: 16),
+                            label: const Text('اطلبه مرة ثانية'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       // Only the buyer may confirm receipt — this is what
                       // releases the held payment to the seller (or it releases
                       // automatically after the item's warranty period with no

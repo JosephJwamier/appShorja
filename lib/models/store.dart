@@ -25,6 +25,11 @@ class Store {
   final double positiveReviewPercent;
   final double communicationRating;
   final int totalSold;
+
+  /// Performance level ('' | bronze | silver | gold | diamond) and the full
+  /// ordered badge list the server wants shown next to the name.
+  final String level;
+  final List<String> badges;
   // معرّف جلسة البث المباشر الحالية لهذا المتجر، أو null إن لم يكن يبثّ الآن.
   final int? liveSessionId;
 
@@ -51,6 +56,8 @@ class Store {
     this.positiveReviewPercent = 0,
     this.communicationRating = 0,
     this.totalSold = 0,
+    this.level = '',
+    this.badges = const [],
     this.liveSessionId,
   });
 
@@ -128,6 +135,8 @@ class Store {
       positiveReviewPercent: _toDouble(json['positive_review_percent']),
       communicationRating: _toDouble(json['communication_rating']),
       totalSold: json['total_sold'] as int? ?? 0,
+      level: json['level']?.toString() ?? '',
+      badges: (json['badges'] as List<dynamic>? ?? const []).map((e) => e.toString()).toList(),
       liveSessionId: json['live_session_id'] as int?,
     );
   }

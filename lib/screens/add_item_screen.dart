@@ -11,6 +11,7 @@ import '../features/location/models/location_model.dart';
 import '../features/location/providers/location_provider.dart';
 import '../features/location/screens/add_edit_location_screen.dart';
 import '../theme/app_colors.dart';
+import '../widgets/product/variant_builder.dart';
 
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({super.key});
@@ -29,6 +30,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String _condition = 'new';
   String _packageSize = 'medium';
   final List<XFile> _images = [];
+
+  // Options (colour, size…). When on, stock is entered per combination and
+  // the plain quantity field is replaced — the server derives the total.
+  bool _hasOptions = false;
+  final _variantDraft = VariantDraft();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -241,6 +247,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
       setState(() => _errorMessage = 'يرجى اختيار فئة للمنتج');
       return;
     }
+    if (_hasOptions) {
+      final problem = _variantDraft.validate();
+      if (problem != null) {
+        setState(() => _errorMessage = problem);
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -257,11 +270,15 @@ class _AddItemScreenState extends State<AddItemScreen> {
         description: _descriptionController.text.trim(),
         categoryId: _selectedCategoryId!,
         condition: _condition,
-        quantity: int.parse(_quantityController.text),
+        quantity: _hasOptions
+            ? _variantDraft.totalQuantity
+            : int.parse(_quantityController.text),
         images: _images,
         packageSize: _packageSize,
         warrantyDays: int.parse(_warrantyDaysController.text),
         locationId: _selectedLocationId,
+        options: _hasOptions ? _variantDraft.optionsJson() : null,
+        variants: _hasOptions ? _variantDraft.variantsJson() : null,
       );
 
       if (!mounted) return;
@@ -383,20 +400,39 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'الكمية',
-                  border: OutlineInputBorder(),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'هل للمنتج خيارات؟',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'الكمية مطلوبة';
-                  final n = int.tryParse(v);
-                  if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً';
-                  return null;
-                },
+                subtitle: const Text(
+                  'لون، مقاس، سعة… يختار المشتري منها قبل الحجز',
+                  style: TextStyle(fontSize: 12),
+                ),
+                value: _hasOptions,
+                onChanged: (v) => setState(() => _hasOptions = v),
               ),
+              if (_hasOptions)
+                VariantBuilder(
+                  draft: _variantDraft,
+                  onChanged: () => setState(() {}),
+                )
+              else
+                TextFormField(
+                  controller: _quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'الكمية',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'الكمية مطلوبة';
+                    final n = int.tryParse(v);
+                    if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً';
+                    return null;
+                  },
+                ),
               const SizedBox(height: 16),
               const Text(
                 'الصور',

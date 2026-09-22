@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="pioneer badge">
+  <circle cx="512" cy="512" r="440" fill="#4E6073"/>
+  <circle cx="512" cy="512" r="472" fill="none" stroke="#FFDBD0" stroke-width="34"/>
+  <polygon points="884.0,512.0 738.2,738.2 512.0,884.0 285.8,738.2 140.0,512.0 285.8,285.8 512.0,140.0 738.2,285.8" fill="none" stroke="#FFDBD0" stroke-width="10" stroke-linejoin="round" opacity="0.35"/>
+  <g><line x1="392" y1="632" x2="612" y2="412" stroke="#FFDBD0" stroke-width="58" stroke-linecap="round"/><polygon points="660,364 520,392 632,504" fill="#FFDBD0" stroke="#FFDBD0" stroke-width="16" stroke-linejoin="round"/></g>
+</svg>

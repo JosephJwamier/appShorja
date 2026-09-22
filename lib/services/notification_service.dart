@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 typedef OnNotificationReceived = void Function(
     String title, String body, String type, Map<String, dynamic> data);
@@ -59,8 +60,6 @@ class NotificationService {
 
     FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
 
-    await _requestPermission();
-
     await _localNotifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -90,6 +89,21 @@ class NotificationService {
       pendingTapType = initial.data['type'] as String? ?? 'general';
       pendingTapData = initial.data;
     }
+  }
+
+  static const _permissionRequestedKey = 'notification_permission_requested';
+
+  /// Requests the OS notification permission the first time the user does
+  /// something that actually benefits from it (e.g. follows a store or
+  /// places their first bid) instead of at cold start, before they have any
+  /// context for why the app wants it. Asking in-context roughly doubles
+  /// opt-in rates, so this must be called from those moments rather than
+  /// from [initialize]. Only fires once per install.
+  static Future<void> requestPermissionIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_permissionRequestedKey) ?? false) return;
+    await prefs.setBool(_permissionRequestedKey, true);
+    await _requestPermission();
   }
 
   static Future<void> _requestPermission() async {

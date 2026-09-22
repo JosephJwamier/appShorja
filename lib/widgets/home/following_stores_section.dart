@@ -108,7 +108,7 @@ class FollowingStoresSection extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                height: 190,
+                height: 210,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),

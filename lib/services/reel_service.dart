@@ -7,8 +7,9 @@ import 'api_client.dart';
 
 /// Talks to the Django backend's Reels endpoints (/api/reels/...) — see the
 /// "Reels" plan for the full contract. Two calls in this file deliberately
-/// bypass [ApiClient]: the S3 PUTs in [uploadBytesToS3]. Those are direct
-/// uploads to a presigned S3 URL, not requests to our own backend at all,
+/// bypass [ApiClient]: the object-storage PUTs in [uploadBytesToS3]. Those
+/// are direct uploads to a presigned URL (Cloudflare R2, S3-compatible —
+/// hence the method name), not requests to our own backend at all,
 /// and ApiClient's silent-refresh-and-retry only knows how to replay a
 /// plain JSON body — it can't resend bytes that already streamed out over
 /// the wire (same reasoning documented in item_service.dart for multipart
@@ -106,7 +107,7 @@ class ReelService {
 
   /// Step 3 — confirms the upload landed, moves it from `incoming/` to
   /// `reels/` server-side, and publishes it. Returns the full [Reel] with
-  /// complete BunnyCDN video_url/thumbnail_url.
+  /// complete public video_url/thumbnail_url (Cloudflare R2 custom domain).
   Future<Reel> finalizeReel({
     required int reelId,
     required String caption,

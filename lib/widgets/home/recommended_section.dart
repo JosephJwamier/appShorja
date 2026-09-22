@@ -69,7 +69,7 @@ class RecommendedSection extends StatelessWidget {
               ),
             ),
             SizedBox(
-              height: 260,
+              height: 288,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),

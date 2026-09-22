@@ -26,24 +26,25 @@ class WalletService {
     }
     throw Exception('فشل جلب سجل الإيداعات');
   }
-
-  Future<({Wallet wallet, Deposit deposit})> deposit({
-    required String accessToken,
-    required String amount,
-    required String cardLast4,
-  }) async {
-    final response = await _client.post(
-      '/wallet/deposit/',
-      body: {'amount': amount, 'card_last4': cardLast4},
-    );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final d = body['data'] as Map<String, dynamic>;
-      return (
-        wallet: Wallet.fromJson(d['wallet'] as Map<String, dynamic>),
-        deposit: Deposit.fromJson(d['deposit'] as Map<String, dynamic>),
-      );
+}
+extension WalletActivityApi on WalletService {
+  Future<WalletActivity> fetchActivity({required String accessToken}) async {
+    final response = await _client.get('/wallet/activity/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return WalletActivity.fromJson(data['data'] as Map<String, dynamic>);
     }
-    throw Exception(body['message'] ?? 'فشل الإيداع');
+    throw Exception('فشل جلب حركة الأموال');
+  }
+
+  /// Re-asks the gateway about unfinished card top-ups. Manual on purpose —
+  /// see payment_views.sync_pending_payments.
+  Future<SyncResult> syncPendingPayments({required String accessToken}) async {
+    final response = await _client.post('/payments/sync-pending/', body: const {});
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return SyncResult.fromJson(data['data'] as Map<String, dynamic>);
+    }
+    throw Exception('تعذّرت المزامنة');
   }
 }

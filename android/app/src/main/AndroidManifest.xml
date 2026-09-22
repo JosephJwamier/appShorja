@@ -40,6 +40,17 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
+            <!-- عودة المتصفّح إلى التطبيق بعد الدفع. مخطّط خاص لا App Link:
+                 صفحة العودة تُستضاف على نطاق البوابة/الـ API لا على نطاقنا،
+                 فلا يمكن التحقّق منها عبر assetlinks. الرابط لا يحمل أي نتيجة
+                 دفع — التطبيق يستعلم عن الحالة من الخادم بنفسه. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="balla" android:host="payment-return"/>
+            </intent-filter>
+
             <!-- App Links لروابط المشاركة (منتج/متجر/مزاد/بث).
                  TODO: بدّل android:host بالدومين الفعلي بعد شرائه، ويجب أن
                  يطابق kWebDomain في lib/config/deep_link_config.dart. لن

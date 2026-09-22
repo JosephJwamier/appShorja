@@ -11,6 +11,7 @@ import '../models/store_coupon.dart';
 import '../providers/auth_provider.dart';
 import '../services/auction_service.dart';
 import '../services/item_service.dart';
+import '../services/notification_service.dart';
 import '../services/store_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
@@ -21,6 +22,7 @@ import 'auction_details_screen.dart';
 import 'product_details_screen.dart';
 import 'store_chat_screen.dart';
 import 'store_reviews_screen.dart';
+import '../widgets/store/store_badges.dart';
 
 // ملاحظة: أُعيد بناء هذه الشاشة لتطابق تصميم e-Shorja (رأس بصورة غلاف + بطاقة
 // إحصاءات + كوبونات + شبكة منتجات). لم يُضَف تبويب «توفير الصيف» ولا قسم
@@ -134,6 +136,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         _followersCount = r.followersCount;
       }
     });
+    // أول متابعة فعلية هي أول لحظة يصبح فيها الإشعار مفيدًا للمستخدم —
+    // نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+    if (r.success && r.isFollowing && !wasFollowing) {
+      NotificationService.requestPermissionIfNeeded();
+    }
     if (!r.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -438,7 +445,6 @@ class _CoverHeader extends StatelessWidget {
   }
 
   Widget _nameAndBadge() {
-    final tier = _tierLabel(store.totalSold);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -450,24 +456,15 @@ class _CoverHeader extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.tertiaryContainer,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                tier,
-                style: const TextStyle(
-                    color: AppColors.onTertiaryContainer,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 8),
+            // The server decides the badges (granted by the admin, or earned
+            // by performance); the app only draws them.
+            if (store.badges.isNotEmpty) ...[
+              StoreBadgesRow(kinds: store.badges, compact: true, size: 22),
+              const SizedBox(width: 8),
+            ],
             if (store.totalSold > 0)
               Flexible(
                 child: Text(
@@ -1614,10 +1611,4 @@ String _priceStr(double v) {
   final frac =
       ((v - v.truncateToDouble()) * 100).round().toString().padLeft(2, '0');
   return '$whole.$frac';
-}
-
-String _tierLabel(int sold) {
-  if (sold >= 1000) return 'ذهبي Gold';
-  if (sold >= 100) return 'فضي Silver';
-  return 'برونزي Bronze';
 }

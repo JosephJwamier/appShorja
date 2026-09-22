@@ -16,12 +16,14 @@ import '../services/item_service.dart';
 import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
 import '../theme/app_colors.dart';
+import 'ledger/dashboard_tab.dart';
 import 'auction_details_screen.dart';
 import 'create_store_screen.dart';
 import 'edit_auction_screen.dart';
 import 'edit_store_screen.dart';
 import 'manage_coupons_screen.dart';
 import 'product_details_screen.dart';
+import '../widgets/store/store_badges.dart';
 
 class MyStoreScreen extends StatefulWidget {
   const MyStoreScreen({super.key});
@@ -38,17 +40,22 @@ class _MyStoreScreenState extends State<MyStoreScreen> {
   }
 
   Future<void> _load() async {
+    // All providers resolved up front — the screen may be popped while
+    // loadMyStore is in flight, after which `context` is unusable.
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final provider = Provider.of<StoreProvider>(context, listen: false);
+    final myItems = Provider.of<MyItemsProvider>(context, listen: false);
+    final representatives =
+        Provider.of<RepresentativeRequestsProvider>(context, listen: false);
     await provider.loadMyStore(accessToken: auth.accessToken!);
 
     if (auth.user != null) {
-      await Provider.of<MyItemsProvider>(context, listen: false).loadMyItems(
+      await myItems.loadMyItems(
         accessToken: auth.accessToken!,
         ownerId: auth.user!.id,
       );
-      await Provider.of<RepresentativeRequestsProvider>(context, listen: false)
-          .loadActiveRepresentatives(accessToken: auth.accessToken!);
+      await representatives.loadActiveRepresentatives(
+          accessToken: auth.accessToken!);
     }
   }
 
@@ -162,7 +169,7 @@ class _CreateStorePrompt extends StatelessWidget {
   }
 }
 
-// العرض الرئيسيّ — رأس قابل للطيّ + تبويبات ثلاثة
+// العرض الرئيسيّ — رأس قابل للطيّ + تبويبات أربعة
 class _StoreView extends StatelessWidget {
   final Store store;
   final String Function(DateTime) dateFormatter;
@@ -176,7 +183,7 @@ class _StoreView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: RefreshIndicator(
         onRefresh: onRefresh,
         child: NestedScrollView(
@@ -195,6 +202,7 @@ class _StoreView extends StatelessWidget {
                   labelStyle:
                       TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   tabs: [
+                    Tab(text: 'لوحة'),
                     Tab(text: 'المنتجات'),
                     Tab(text: 'المزادات'),
                     Tab(text: 'عن المتجر'),
@@ -205,6 +213,7 @@ class _StoreView extends StatelessWidget {
           ],
           body: TabBarView(
             children: [
+              const StoreDashboardTab(),
               _ProductsTab(),
               const _AuctionsTab(),
               _AboutTab(store: store, dateFormatter: dateFormatter),
@@ -278,6 +287,10 @@ class _StoreInfoHeader extends StatelessWidget {
                   color: AppColors.onSurface,
                 ),
               ),
+              if (store.badges.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                StoreBadgesRow(kinds: store.badges, size: 26),
+              ],
               const SizedBox(height: 8),
               InkWell(
                 borderRadius: BorderRadius.circular(20),

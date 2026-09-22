@@ -218,9 +218,14 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
                         }
                         // البنر يعرض التصنيفات الرئيسية فقط (وليس كل
                         // التصنيفات الفرعية المسطّحة) — الضغط على أيّ منها
-                        // يفتح شاشة تصفّح التصنيفات.
-                        final rootCategories =
-                            catProv.categories.where((c) => c.isRoot).toList();
+                        // يفتح شاشة تصفّح التصنيفات. كما نخفي أيّ تصنيف
+                        // رئيسي لا يحمل هو أو أحد تصنيفاته الفرعية أي منتج
+                        // منشور بعد (hasProducts == false من الخادم)؛
+                        // نُبقي التصنيف ظاهراً إن كانت القيمة غير معروفة
+                        // (null) بدل إخفائه خطأً.
+                        final rootCategories = catProv.categories
+                            .where((c) => c.isRoot && c.hasProducts != false)
+                            .toList();
                         if (rootCategories.isEmpty) {
                           return const SizedBox.shrink();
                         }

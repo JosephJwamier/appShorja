@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -7,8 +10,24 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
+// مفتاح توقيع الإصدار. القيم تُقرأ من android/key.properties (خارج git —
+// انظر key.properties.example) أو، في CI، من متغيّرات البيئة بالأسماء نفسها.
+// إن غاب الملف والمتغيّرات معًا فلا يُعرَّف signingConfigs.release أصلًا،
+// فيفشل بناء الإصدار برسالة واضحة بدل أن يُوقَّع بمفتاح debug بصمت —
+// حزمة كهذه يرفضها Google Play، والأسوأ أنها لا يمكن تحديثها لاحقًا.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        FileInputStream(file).use { load(it) }
+    }
+}
+fun signingValue(name: String): String? =
+    keystoreProperties.getProperty(name) ?: System.getenv(name)
+val hasReleaseSigning = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { signingValue(it) != null }
+
 android {
-    namespace = "com.example.marketplace_app"
+    namespace = "com.balla.balla"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,18 +42,41 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.marketplace_app"
+        // مطابق لمُعرّف حزمة iOS (com.balla.balla). الاسم السابق
+        // com.example.marketplace_app كان الاسم الافتراضي الذي يولّده Flutter،
+        // ومتجر Google Play يرفض أي حزمة تبدأ بـ com.example.
+        applicationId = "com.balla.balla"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(signingValue("storeFile")!!)
+                storePassword = signingValue("storePassword")
+                keyAlias = signingValue("keyAlias")
+                keyPassword = signingValue("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                // بلا مفتاح إصدار لا نوقّع بمفتاح debug بصمت. البناء يفشل
+                // هنا عمدًا؛ لبناء نسخة تجريبية غير موقّعة استعمل
+                // `flutter build apk --debug` أو أنشئ key.properties.
+                throw GradleException(
+                    "Release signing is not configured: create android/key.properties " +
+                    "(see android/key.properties.example) or set storeFile/storePassword/" +
+                    "keyAlias/keyPassword in the environment."
+                )
+            }
         }
     }
 }

@@ -74,6 +74,7 @@ class NearbyItem {
   final double? distanceKm;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isFavorited;
 
   const NearbyItem({
     required this.id,
@@ -90,6 +91,7 @@ class NearbyItem {
     this.distanceKm,
     required this.createdAt,
     required this.updatedAt,
+    this.isFavorited = false,
   });
 
   String? get firstImageUrl => images.isNotEmpty ? images.first.image : null;
@@ -136,6 +138,7 @@ class NearbyItem {
       distanceKm: (json['distance_km'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      isFavorited: json['is_favorited'] as bool? ?? false,
     );
   }
 }

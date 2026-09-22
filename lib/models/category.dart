@@ -6,6 +6,11 @@ class Category {
   final int? iconCode;
   final int? parentId;
 
+  /// true إن كان للتصنيف (أو لأحد تصنيفاته الفرعية إن كان رئيسياً) منتج
+  /// واحد منشور فعلاً على الأقل. null عندما لا يحمله رد الخادم (مثلاً
+  /// تصنيف مضمّن داخل عنصر) — في هذه الحالة لا نخفي شيئاً بالاعتماد عليه.
+  final bool? hasProducts;
+
   const Category({
     required this.id,
     required this.name,
@@ -13,6 +18,7 @@ class Category {
     this.iconUrl,
     this.iconCode,
     this.parentId,
+    this.hasProducts,
   });
 
   String get displayName {
@@ -59,6 +65,7 @@ class Category {
       iconUrl: imageUrl ?? legacyIconUrl,
       iconCode: iconCode,
       parentId: parentId,
+      hasProducts: json['has_products'] as bool?,
     );
   }
 }

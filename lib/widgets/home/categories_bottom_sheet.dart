@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/category.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/category_icons.dart';
 
 class CategoriesBottomSheet extends StatelessWidget {
   final List<Category> categories;
@@ -160,9 +161,8 @@ class _CategoryTile extends StatelessWidget {
         backgroundColor: AppColors.surfaceContainerLow,
       );
     }
-    final data = iconCode != null
-        ? IconData(iconCode!, fontFamily: 'MaterialIcons')
-        : (icon ?? Icons.category_outlined);
+    final data =
+        categoryIconFor(iconCode) ?? icon ?? Icons.category_outlined;
     return CircleAvatar(
       radius: 18,
       backgroundColor: isSelected

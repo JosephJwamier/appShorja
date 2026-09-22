@@ -1,0 +1,11 @@
+# انسخ هذا الملف إلى android/key.properties واملأه. الملف الحقيقي في .gitignore.
+#
+# توليد مفتاح الرفع (مرة واحدة، واحفظ نسخة احتياطية منه ومن كلمتي السر خارج
+# هذا الجهاز — فقدانه يعني استحالة تحديث التطبيق على Google Play):
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 #           -validity 10000 -alias upload
+#
+# storeFile نسبي إلى مجلد android/ (أو مسار مطلق).
+storeFile=upload-keystore.jks
+storePassword=CHANGE_ME
+keyAlias=upload
+keyPassword=CHANGE_ME

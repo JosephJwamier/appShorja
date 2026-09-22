@@ -7,17 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:78176989926:android:ef1ebda235775acf36c127",
+        "mobilesdk_app_id": "1:78176989926:android:ea5a5f9512e0c21036c127",
         "android_client_info": {
-          "package_name": "com.example.marketplace_app"
+          "package_name": "com.balla.balla"
         }
       },
       "oauth_client": [
         {
-          "client_id": "78176989926-2ovl8s1sreurgdps9k6mfdo809ciq4j8.apps.googleusercontent.com",
+          "client_id": "78176989926-doei06uhdmqmd5b1f8pvp7e7op442rgk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.marketplace_app",
+            "package_name": "com.balla.balla",
             "certificate_hash": "df67e989e45762655530a9fdba5ea87c8b7c896a"
           }
         },
@@ -37,6 +37,13 @@
             {
               "client_id": "78176989926-uoq73g7huevsghb109o1eitn28h1nd9n.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "78176989926-9bo83u0cjuv3jilhhpbohs4kq997q7hv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.balla.balla"
+              }
             }
           ]
         }

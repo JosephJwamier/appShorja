@@ -21,10 +21,12 @@ import 'providers/my_items_provider.dart';
 import 'providers/auctions_provider.dart';
 import 'providers/representative_requests_provider.dart';
 import 'providers/store_provider.dart';
+import 'providers/ledger_provider.dart';
 import 'providers/live_sessions_provider.dart';
 import 'providers/reels_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/transfers_provider.dart';
+import 'providers/reservations_badge_provider.dart';
 import 'features/location/providers/location_provider.dart';
 import 'theme/app_colors.dart';
 import 'screens/main_shell.dart';
@@ -108,10 +110,12 @@ Future<void> main() async {
           ChangeNotifierProvider(
               create: (_) => RepresentativeRequestsProvider()),
           ChangeNotifierProvider(create: (_) => StoreProvider()),
+          ChangeNotifierProvider(create: (_) => LedgerProvider()),
           ChangeNotifierProvider(create: (_) => LiveSessionsProvider()),
           ChangeNotifierProvider(create: (_) => ReelsProvider()),
           ChangeNotifierProvider(create: (_) => WalletProvider()),
           ChangeNotifierProvider(create: (_) => TransfersProvider()),
+          ChangeNotifierProvider(create: (_) => ReservationsBadgeProvider()),
           ChangeNotifierProvider(create: (_) => LocationProvider()),
           ChangeNotifierProvider(create: (_) => CategoryProvider()),
           ChangeNotifierProvider(create: (_) => HomeItemsProvider()),
@@ -201,15 +205,19 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _init() async {
+    // Resolve every provider before the first await: the gate can be
+    // disposed while SharedPreferences is still loading (app backgrounded
+    // during a cold start), and a BuildContext must not be read after that.
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final notifications =
+        Provider.of<NotificationsProvider>(context, listen: false);
+    final chats = Provider.of<ChatsProvider>(context, listen: false);
+
     final prefs = await SharedPreferences.getInstance();
     _hasSeenOnboarding = prefs.getBool(_onboardingSeenKey) ?? false;
-    await Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    ).tryAutoLogin(
-      notificationsProvider:
-          Provider.of<NotificationsProvider>(context, listen: false),
-      chatsProvider: Provider.of<ChatsProvider>(context, listen: false),
+    await auth.tryAutoLogin(
+      notificationsProvider: notifications,
+      chatsProvider: chats,
     );
   }
 

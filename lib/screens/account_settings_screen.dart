@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../services/auth_service.dart';
+import '../services/firebase_phone_auth.dart';
 import '../services/legal_service.dart';
 import '../theme/app_colors.dart';
 import 'change_password_screen.dart';
@@ -166,13 +167,28 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       );
       return;
     }
+    // نسخة واحدة لكل جلسة تحقّق: هي التي تحمل verificationId بين الإرسال
+    // والتأكيد، فلا يجوز إنشاء نسخة جديدة عند كل ردّ نداء.
+    final phoneAuth = FirebasePhoneAuth();
+    final phone = auth.user!.phone;
+
     final verified = await showVerifyCodeSheet(
       context,
       title: 'تفعيل رقم الهاتف',
       subtitle: 'أرسلنا رمزاً مكوّناً من 6 أرقام برسالة نصية',
-      onSendCode: () => _service.sendPhoneVerificationCode(accessToken: token),
-      onVerifyCode: (code) =>
-          _service.verifyPhoneCode(accessToken: token, code: code),
+      onSendCode: () => phoneAuth.sendCode(phone),
+      onVerifyCode: (code) async {
+        // خطوتان: Firebase تتحقّق من الرمز وتُصدر توكناً يثبت ملكية الرقم،
+        // ثم خادمنا يتحقّق من التوكن ويعلّم الحساب بأن رقمه مفعّل.
+        final confirmed = await phoneAuth.confirmCode(code);
+        if (!confirmed.success || confirmed.idToken == null) {
+          return (success: false, message: confirmed.message);
+        }
+        return _service.verifyPhoneWithFirebase(
+          accessToken: token,
+          idToken: confirmed.idToken!,
+        );
+      },
     );
     if (verified == true && mounted) {
       await auth.updateUser(auth.user!.copyWith(phoneVerified: true));

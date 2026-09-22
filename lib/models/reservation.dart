@@ -38,9 +38,35 @@ class Reservation {
   final int warrantyDays;
   final int? auctionId;
 
+  /// Platform commission frozen on this sale (taken from the seller at
+  /// release) and what the seller actually nets after it and any
+  /// representative's cut. Both come from the server; never recomputed here.
+  final double platformCommissionPercent;
+  final double platformCommissionAmount;
+  final double sellerNet;
+
   /// True if this reservation settles an auction win — deposit_amount here
   /// is the bid deposit already paid while bidding, not a fresh charge.
   bool get isFromAuction => auctionId != null;
+
+  /// True if this reservation is sitting still, waiting on [currentUserId]
+  /// to do something about it right now — pay to complete it, confirm/refuse
+  /// a delivered item, confirm the item after receiving it, or (seller) hand
+  /// a paid order to the delivery company. Drives the "حجوزاتي" nav badge —
+  /// mirrors the same gating the action buttons on each reservation card use
+  /// (see _ReservationCard in reservations_screen.dart). canApprove and
+  /// canSendToDelivery already come from the backend scoped to the buyer/
+  /// seller respectively, so no extra role check is needed for those two.
+  bool needsAction(int currentUserId) {
+    final isBuyer = buyer.id == currentUserId;
+    if (isBuyer && status == 'pending') return true;
+    if (canApprove) return true;
+    if (canSendToDelivery) return true;
+    if (isBuyer && (deliveryOrder?.awaitingReceiptDecision ?? false)) {
+      return true;
+    }
+    return false;
+  }
 
   Reservation({
     required this.id,
@@ -75,6 +101,9 @@ class Reservation {
     this.deliveryFee = 0,
     this.warrantyDays = 7,
     this.auctionId,
+    this.platformCommissionPercent = 0,
+    this.platformCommissionAmount = 0,
+    this.sellerNet = 0,
   });
 
   /// Remaining amount to be collected in cash at delivery (only meaningful
@@ -141,6 +170,9 @@ class Reservation {
       deliveryFee: _toDouble(json['delivery_fee']),
       warrantyDays: json['warranty_days'] as int? ?? 7,
       auctionId: json['auction'] as int?,
+      platformCommissionPercent: _toDouble(json['platform_commission_percent']),
+      platformCommissionAmount: _toDouble(json['platform_commission_amount']),
+      sellerNet: _toDouble(json['seller_net']),
     );
   }
 }

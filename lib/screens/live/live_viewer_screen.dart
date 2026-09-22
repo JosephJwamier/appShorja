@@ -15,6 +15,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/live_sessions_provider.dart';
 import '../../services/auction_service.dart';
 import '../../services/live_session_service.dart';
+import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../utils/share_helper.dart';
@@ -603,6 +604,10 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     setState(() => _isBidding = false);
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    } else {
+      // أول مزايدة ناجحة هي أول لحظة يصبح فيها الإشعار مفيدًا فعليًا —
+      // نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
     }
   }
 

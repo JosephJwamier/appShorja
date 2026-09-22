@@ -13,6 +13,7 @@ import '../providers/category_provider.dart';
 import '../providers/my_items_provider.dart';
 import '../services/item_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/product/variant_builder.dart';
 
 class EditItemScreen extends StatefulWidget {
   final Product product;
@@ -40,6 +41,12 @@ class _EditItemScreenState extends State<EditItemScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
+
+  // Options (colour, size…), pre-filled from the server. Turning the
+  // switch off on an item that had options sends `options: []` so the
+  // server collapses stock back into one default variant.
+  late bool _hasOptions;
+  late final VariantDraft _variantDraft;
 
   int? _selectedLocationId;
   String? _selectedLocationAddress;
@@ -78,6 +85,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
     _categoryId = p.categoryId;
     _existingImageUrls = List.from(p.imageUrls);
     _existingImageIds = List.from(p.imageIds);
+    _hasOptions = p.hasOptions;
+    _variantDraft = VariantDraft.fromProduct(p);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final token = context.read<AuthProvider>().accessToken;
@@ -143,6 +152,13 @@ class _EditItemScreenState extends State<EditItemScreen> {
       setState(() => _errorMessage = 'يجب أن تبقى صورة واحدة على الأقل');
       return;
     }
+    if (_hasOptions) {
+      final problem = _variantDraft.validate();
+      if (problem != null) {
+        setState(() => _errorMessage = problem);
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -160,12 +176,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
         description: _descriptionController.text.trim(),
         categoryId: _categoryId!,
         condition: _condition,
-        quantity: int.parse(_quantityController.text),
+        quantity: _hasOptions
+            ? _variantDraft.totalQuantity
+            : int.parse(_quantityController.text),
         packageSize: _packageSize,
         warrantyDays: int.parse(_warrantyDaysController.text),
         locationId: _selectedLocationId,
         newImages: _newImages,
         removeImageIds: _removeImageIds.toList(),
+        // Untouched (null) unless the seller uses options now or just
+        // switched them off — then the empty list tells the server so.
+        options: _hasOptions
+            ? _variantDraft.optionsJson()
+            : (widget.product.hasOptions ? const [] : null),
+        variants: _hasOptions ? _variantDraft.variantsJson() : null,
       );
 
       if (!mounted) return;
@@ -325,20 +349,39 @@ class _EditItemScreenState extends State<EditItemScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'الكمية',
-                    border: OutlineInputBorder(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'هل للمنتج خيارات؟',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'الكمية مطلوبة';
-                    final n = int.tryParse(v);
-                    if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً';
-                    return null;
-                  },
+                  subtitle: const Text(
+                    'لون، مقاس، سعة… يختار المشتري منها قبل الحجز',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: _hasOptions,
+                  onChanged: (v) => setState(() => _hasOptions = v),
                 ),
+                if (_hasOptions)
+                  VariantBuilder(
+                    draft: _variantDraft,
+                    onChanged: () => setState(() {}),
+                  )
+                else
+                  TextFormField(
+                    controller: _quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'الكمية',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'الكمية مطلوبة';
+                      final n = int.tryParse(v);
+                      if (n == null || n < 1) return 'يجب أن تكون رقماً صحيحاً';
+                      return null;
+                    },
+                  ),
                 const SizedBox(height: 16),
                 const Text('الصور', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),

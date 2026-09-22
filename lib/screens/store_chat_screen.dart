@@ -13,6 +13,7 @@ import '../models/store.dart';
 import '../providers/auth_provider.dart';
 import '../services/chat_service.dart';
 import '../services/item_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'product_details_screen.dart';
@@ -227,6 +228,9 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
         return;
       }
       chatId = result.chat!.id;
+      // بدء محادثة فعلية هو أول لحظة يصبح فيها إشعار "رسالة جديدة" مفيدًا —
+      // نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
     }
     _chatId = chatId;
 

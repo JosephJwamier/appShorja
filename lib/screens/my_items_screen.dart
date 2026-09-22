@@ -71,7 +71,7 @@ class _MyItemsScreenState extends State<MyItemsScreen> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final service = ItemService();

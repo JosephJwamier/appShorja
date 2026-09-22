@@ -5,6 +5,7 @@ import '../features/location/models/nearby_item_model.dart';
 import '../models/listing.dart';
 import '../providers/auth_provider.dart';
 import '../services/item_service.dart';
+import '../services/notification_service.dart';
 import '../services/reservation_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
@@ -32,6 +33,7 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
   @override
   void initState() {
     super.initState();
+    _isFavorite = widget.item.isFavorited;
     _loadListing();
   }
 
@@ -65,6 +67,9 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
         deliveryLocationId: _deliveryResult?.locationId,
       );
       if (!mounted) return;
+      // أول حجز ناجح هو أول لحظة يصبح فيها إشعار الحجز مفيدًا فعليًا —
+      // نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -117,6 +122,29 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
       );
     } finally {
       if (mounted) setState(() => _isReserving = false);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final auth = context.read<AuthProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final next = !_isFavorite;
+    setState(() => _isFavorite = next);
+    try {
+      await ItemService().setFavorite(
+        accessToken: auth.accessToken!,
+        itemId: widget.item.id,
+        favorited: next,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFavorite = !next);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -410,7 +438,7 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
                       iconColor: _isFavorite
                           ? AppColors.error
                           : AppColors.onSurface,
-                      onTap: () => setState(() => _isFavorite = !_isFavorite),
+                      onTap: _toggleFavorite,
                       size: 42,
                     ),
                   ],

@@ -3,16 +3,19 @@ import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../config/deep_link_config.dart';
 import '../models/listing.dart';
+import '../models/product.dart';
 import '../models/representative_reservation.dart';
 import '../models/coupon_collection.dart';
 import '../providers/auth_provider.dart';
 import '../providers/review_provider.dart';
 import '../services/analytics_service.dart';
 import '../services/item_service.dart';
+import '../services/notification_service.dart';
 import '../services/representative_service.dart';
 import '../services/reservation_service.dart';
 import '../services/store_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/product/variant_selector.dart';
 import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
 import '../widgets/circle_icon_button.dart';
@@ -26,6 +29,7 @@ import 'store_profile_screen.dart' show VisitStoreButton;
 import '../features/location/screens/location_picker_sheet.dart';
 import 'reservation_sheet.dart';
 import 'make_offer_sheet.dart';
+import '../widgets/store/store_badges.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final FixedListing listing;
@@ -55,6 +59,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _isFavorite = false;
   bool _isReserving = false;
   int _quantity = 1;
+
+  /// The buyer's option picks so far ({'اللون': 'أحمر'}). Empty for a
+  /// plain item, which needs no picking.
+  Map<String, String> _selectedAttrs = {};
+
+  /// The exact combination those picks name, once every axis is chosen.
+  ProductVariant? get _selectedVariant =>
+      widget.listing.item.findVariant(_selectedAttrs);
+
+  /// Price the buyer will actually pay per unit — the chosen variant's own
+  /// price if it has one, otherwise the listing price.
+  double get _unitPrice =>
+      _selectedVariant?.effectivePrice ?? widget.listing.price;
+
+  void _onSelectAttrs(Map<String, String> next) {
+    setState(() {
+      _selectedAttrs = next;
+      // A new combination may hold less than the quantity already chosen.
+      final cap = _selectedVariant?.quantity;
+      if (cap != null && cap > 0 && _quantity > cap) _quantity = cap;
+    });
+  }
   LocationPickerResult? _deliveryResult;
   int? _offerMessageId;
 
@@ -69,11 +95,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return AcceptedOffer(messageId: id, quantity: qty, amount: amount);
   }
 
-  double get _currentTotal => widget.listing.price * _quantity;
+  double get _currentTotal => _unitPrice * _quantity;
 
   @override
   void initState() {
     super.initState();
+    _isFavorite = widget.listing.item.isFavorited;
     AppAnalytics.viewItem(
       itemId: widget.listing.item.id.toString(),
       itemName: widget.listing.item.title,
@@ -130,6 +157,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     setState(() => _selectedCoupon = picked is CouponCollection ? picked : null);
   }
 
+  Future<void> _toggleFavorite() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    final next = !_isFavorite;
+    setState(() => _isFavorite = next);
+    try {
+      await ItemService().setFavorite(
+        accessToken: auth.accessToken!,
+        itemId: widget.listing.item.id,
+        favorited: next,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFavorite = !next);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   void _clearCouponIfNoLongerEligible() {
     final coupon = _selectedCoupon;
     if (coupon != null && _currentTotal < coupon.coupon.minOrderAmount) {
@@ -143,6 +193,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final result = await showReservationSheet(
       context,
       listing: widget.listing,
+      variant: _selectedVariant,
       initialQuantity: _quantity,
       initialDelivery: _deliveryResult,
       acceptedOffer: _acceptedOffer,
@@ -170,6 +221,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           representativeAssignmentId: assignmentId,
           request: CreateReservationRequest(
             itemId: widget.listing.item.id,
+            variantId: _selectedVariant?.id,
             quantity: _quantity,
             deliveryLocationId: _deliveryResult?.locationId,
           ),
@@ -184,6 +236,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           );
           return;
         }
+        // أول حجز ناجح هو أول لحظة يصبح فيها إشعار الحجز مفيدًا فعليًا —
+        // نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+        NotificationService.requestPermissionIfNeeded();
         _showReservationSuccessDialog(
           deposit: result.reservation!.depositAmount.toStringAsFixed(0),
           total: result.reservation!.totalPrice.toStringAsFixed(0),
@@ -194,6 +249,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         final data = await ReservationService().createReservation(
           accessToken: auth.accessToken!,
           itemId: widget.listing.item.id,
+          variantId: _selectedVariant?.id,
           quantity: _quantity,
           couponCollectionId: _selectedCoupon?.id,
           deliveryLocationId: _deliveryResult?.locationId,
@@ -207,6 +263,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         final deposit = data['deposit_amount']?.toString() ?? '—';
         final total = data['total_price']?.toString() ?? '—';
         final expiresAt = data['expires_at'] as String?;
+        NotificationService.requestPermissionIfNeeded();
         _showReservationSuccessDialog(
           deposit: deposit,
           total: total,
@@ -316,11 +373,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       create: (_) => ReviewProvider(widget.listing.item.id),
       child: _ProductDetailsBody(
         listing: widget.listing,
+        selectedAttrs: _selectedAttrs,
+        selectedVariant: _selectedVariant,
+        onSelectAttrs: _onSelectAttrs,
         isReserving: _isReserving,
         isFavorite: _isFavorite,
         quantity: _quantity,
         onReserve: _openReservationSheet,
-        onToggleFavorite: () => setState(() => _isFavorite = !_isFavorite),
+        onToggleFavorite: _toggleFavorite,
         conditionLabel: _conditionLabel,
         eligibleCoupons: _eligibleCoupons,
         selectedCoupon: _selectedCoupon,
@@ -334,6 +394,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
 class _ProductDetailsBody extends StatelessWidget {
   final FixedListing listing;
+  final Map<String, String> selectedAttrs;
+  final ProductVariant? selectedVariant;
+  final ValueChanged<Map<String, String>> onSelectAttrs;
   final bool isReserving;
   final bool isFavorite;
   final int quantity;
@@ -346,6 +409,9 @@ class _ProductDetailsBody extends StatelessWidget {
 
   const _ProductDetailsBody({
     required this.listing,
+    required this.selectedAttrs,
+    required this.selectedVariant,
+    required this.onSelectAttrs,
     required this.isReserving,
     required this.isFavorite,
     required this.quantity,
@@ -362,9 +428,19 @@ class _ProductDetailsBody extends StatelessWidget {
     final item = listing.item;
     final images = item.imageUrls;
     final isActive = item.status == 'active';
-    final maxQty = item.quantity;
-    final inStock = isActive && maxQty > 0;
+    // With options, everything below is about the chosen combination:
+    // its stock, its price, its low-stock nudge. Until one is chosen the
+    // item counts as not-yet-reservable rather than out of stock.
+    final needsPick = item.hasOptions && selectedVariant == null;
+    final maxQty = selectedVariant?.quantity ?? item.quantity;
+    // `hasStock` is what the badge says (the item, or the chosen combination,
+    // has units); `inStock` is whether the buyer can reserve right now, which
+    // additionally needs a pick. Conflating them showed «غير متوفّر» on a
+    // fully stocked item just because nothing was chosen yet.
+    final hasStock = isActive && maxQty > 0;
+    final inStock = hasStock && !needsPick;
     final lowStock = inStock && maxQty <= 5;
+    final unitPrice = selectedVariant?.effectivePrice ?? listing.price;
     final imageHeight = MediaQuery.of(context).size.width;
     final topInset = MediaQuery.of(context).padding.top;
 
@@ -372,7 +448,11 @@ class _ProductDetailsBody extends StatelessWidget {
     final isOwner = auth.user?.id == item.owner.id;
 
     // ── Discount maths ──────────────────────────────────────────────
-    final price = listing.price;
+    // Variant price when one is chosen; before that, the cheapest
+    // in-stock combination so the headline reads as 'from …'.
+    final price = selectedVariant?.effectivePrice ??
+        (item.hasOptions ? (item.lowestVariantPrice ?? listing.price) : listing.price);
+    final showsFromPrice = item.hasOptions && selectedVariant == null;
     final double? original =
         (listing.originalPrice != null && listing.originalPrice! > price)
             ? listing.originalPrice
@@ -471,7 +551,7 @@ class _ProductDetailsBody extends StatelessWidget {
                               children: [
                                 RichText(
                                   text: TextSpan(
-                                    text: '${formatNum(price)} ',
+                                    text: '${showsFromPrice ? 'يبدأ من ' : ''}${formatNum(price)} ',
                                     style: const TextStyle(
                                       color: AppColors.primaryContainer,
                                       fontSize: 24,
@@ -508,11 +588,44 @@ class _ProductDetailsBody extends StatelessWidget {
                           item.totalReviews,
                           item.soldCount,
                           discountPct,
-                          inStock,
+                          hasStock,
                           lowStock,
                           maxQty,
                         ),
                         const SizedBox(height: 24),
+                        // اختيار اللون/المقاس — قبل أي شيء يعتمد عليه
+                        if (item.hasOptions) ...[
+                          const _SectionTitle(title: 'اختر المواصفات'),
+                          const SizedBox(height: 12),
+                          VariantSelector(
+                            product: item,
+                            selected: selectedAttrs,
+                            onChanged: onSelectAttrs,
+                          ),
+                          if (needsPick && !isOwner)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 20),
+                              child: Text(
+                                'اختر كل المواصفات لعرض السعر والكمية المتوفّرة',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          if (selectedVariant != null && !selectedVariant!.inStock)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 20),
+                              child: Text(
+                                'هذه المواصفات نفدت — جرّب خياراً آخر',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
                         // الوصف
                         if (item.description.isNotEmpty) ...[
                           const _SectionTitle(title: 'الوصف'),
@@ -635,15 +748,24 @@ class _ProductDetailsBody extends StatelessWidget {
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.verified,
-                                            size: 16, color: AppColors.primary),
+                                        if (item.owner.storeBadges.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          StoreBadgesRow(
+                                            kinds: item.owner.storeBadges,
+                                            compact: true,
+                                            size: 18,
+                                          ),
+                                        ],
                                       ],
                                     ),
                                     const SizedBox(height: 2),
-                                    const Text(
-                                      'بائع موثّق على الشورجة',
-                                      style: TextStyle(
+                                    // Say only what the badges prove. A seller
+                                    // with none is not "verified" just for listing.
+                                    Text(
+                                      item.owner.storeBadges.contains('verified')
+                                          ? 'بائع موثّق على الشورجة'
+                                          : 'بائع على الشورجة',
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.onSurfaceVariant,
                                       ),
@@ -744,9 +866,11 @@ class _ProductDetailsBody extends StatelessWidget {
         // الشريط السفليّ الثابت
         bottomNavigationBar: _BottomBar(
           listing: listing,
+          unitPrice: unitPrice,
           quantity: quantity,
           isOwner: isOwner,
           inStock: inStock,
+          needsPick: needsPick,
           isReserving: isReserving,
           onReserve: onReserve,
           eligibleCoupons: eligibleCoupons,
@@ -772,7 +896,7 @@ class _ProductDetailsBody extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (rating != null)
+        if (totalReviews != null && totalReviews > 0)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -785,23 +909,21 @@ class _ProductDetailsBody extends StatelessWidget {
                 const Icon(Icons.star_rounded, size: 16, color: AppColors.gold),
                 const SizedBox(width: 3),
                 Text(
-                  rating.toStringAsFixed(1),
+                  (rating ?? 0).toStringAsFixed(1),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: AppColors.onSurface,
                   ),
                 ),
-                if (totalReviews != null && totalReviews > 0) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    '($totalReviews)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.onSurfaceVariant,
-                    ),
+                const SizedBox(width: 4),
+                Text(
+                  '($totalReviews)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariant,
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -885,9 +1007,13 @@ class _ProductDetailsBody extends StatelessWidget {
 // ===== الشريط السفليّ =====
 class _BottomBar extends StatelessWidget {
   final FixedListing listing;
+  /// Variant price when one is chosen, else the listing price — the bar's
+  /// total must match what the reservation will actually charge.
+  final double unitPrice;
   final int quantity;
   final bool isOwner;
   final bool inStock;
+  final bool needsPick;
   final bool isReserving;
   final VoidCallback onReserve;
   final List<CouponCollection> eligibleCoupons;
@@ -896,9 +1022,11 @@ class _BottomBar extends StatelessWidget {
 
   const _BottomBar({
     required this.listing,
+    required this.unitPrice,
     required this.quantity,
     required this.isOwner,
     required this.inStock,
+    required this.needsPick,
     required this.isReserving,
     required this.onReserve,
     required this.eligibleCoupons,
@@ -908,7 +1036,7 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = listing.price * quantity;
+    final total = unitPrice * quantity;
     final canBuy = inStock && !isOwner;
     final coupon = selectedCoupon;
     final discount =
@@ -1024,7 +1152,7 @@ class _BottomBar extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      '$quantity × ${formatNum(listing.price)}',
+                      '$quantity × ${formatNum(unitPrice)}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.onSurfaceVariant,
@@ -1074,7 +1202,9 @@ class _BottomBar extends StatelessWidget {
                                     ? 'هذا منتجك'
                                     : inStock
                                         ? 'احجز المنتج'
-                                        : 'غير متوفّر حالياً',
+                                        : needsPick
+                                            ? 'اختر المواصفات أولاً'
+                                            : 'غير متوفّر حالياً',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(

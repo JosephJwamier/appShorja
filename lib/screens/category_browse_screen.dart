@@ -7,6 +7,7 @@ import '../services/category_service.dart';
 import '../theme/app_colors.dart';
 import 'category_auctions_screen.dart';
 import 'category_products_screen.dart';
+import '../utils/category_icons.dart';
 
 /// شاشة تصفّح التصنيفات: قائمة جانبيّة بالتصنيفات الرئيسية على اليمين،
 /// ومحتوى التصنيف الفرعي (شبكة) على اليسار — تُفتح عند الضغط على تصنيف في
@@ -54,16 +55,25 @@ class _CategoryBrowseScreenState extends State<CategoryBrowseScreen> {
     try {
       final roots =
           await _categoryService.fetchRootCategories(accessToken: _token);
+      // نخفي أي تصنيف رئيسي لا يحمل هو أو أحد تصنيفاته الفرعية أي منتج
+      // منشور بعد (نفس منطق بنر التصنيفات بالصفحة الرئيسية)؛ نُبقي
+      // التصنيف إن كانت القيمة غير معروفة (null) بدل إخفائه خطأً.
+      final visibleRoots =
+          roots.where((c) => c.hasProducts != false).toList();
       if (!mounted) return;
       setState(() {
-        _roots = roots;
+        _roots = visibleRoots;
         _loadingRoots = false;
       });
-      if (roots.isNotEmpty) {
+      if (visibleRoots.isNotEmpty) {
         final initial = widget.initialCategoryId != null
-            ? roots.where((c) => c.id == widget.initialCategoryId).toList()
+            ? visibleRoots
+                .where((c) => c.id == widget.initialCategoryId)
+                .toList()
             : <Category>[];
-        _selectCategory(initial.isNotEmpty ? initial.first : roots.first);
+        _selectCategory(
+          initial.isNotEmpty ? initial.first : visibleRoots.first,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -85,9 +95,11 @@ class _CategoryBrowseScreenState extends State<CategoryBrowseScreen> {
         accessToken: _token,
         parentId: category.id,
       );
+      // نخفي التصنيفات الفرعية الفارغة من المنتجات بنفس المنطق.
+      final visibleSubs = subs.where((c) => c.hasProducts != false).toList();
       if (!mounted) return;
       setState(() {
-        _subCategories = subs;
+        _subCategories = visibleSubs;
         _loadingSubs = false;
       });
     } catch (_) {
@@ -341,14 +353,11 @@ class _CategoryIcon extends StatelessWidget {
         ),
       );
     }
-    if (category.iconCode != null) {
-      return Icon(
-        IconData(category.iconCode!, fontFamily: 'MaterialIcons'),
-        color: color,
-        size: 26,
-      );
-    }
-    return Icon(Icons.category_outlined, color: color, size: 26);
+    return Icon(
+      categoryIconFor(category.iconCode) ?? Icons.category_outlined,
+      color: color,
+      size: 26,
+    );
   }
 }
 
@@ -387,10 +396,8 @@ class _SubCategoryTile extends StatelessWidget {
                       ),
                     )
                   : Icon(
-                      category.iconCode != null
-                          ? IconData(category.iconCode!,
-                              fontFamily: 'MaterialIcons')
-                          : Icons.category_outlined,
+                      categoryIconFor(category.iconCode) ??
+                          Icons.category_outlined,
                       color: AppColors.onSurfaceVariant,
                       size: 32,
                     ),

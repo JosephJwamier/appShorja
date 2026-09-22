@@ -4,8 +4,13 @@ import 'package:provider/provider.dart';
 import '../models/wallet.dart';
 import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
+import '../services/payment_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../widgets/payment/payment_method_sheet.dart';
+import '../widgets/wallet/sync_refresh_button.dart';
+import 'payment/payment_checkout_screen.dart';
+import 'wallet_activity_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -16,7 +21,7 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   final _amountController = TextEditingController();
-  final _cardController = TextEditingController();
+  final _paymentService = PaymentService();
   bool _depositing = false;
 
   @override
@@ -28,7 +33,6 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void dispose() {
     _amountController.dispose();
-    _cardController.dispose();
     super.dispose();
   }
 
@@ -38,32 +42,85 @@ class _WalletScreenState extends State<WalletScreen> {
         .loadAll(accessToken: auth.accessToken!);
   }
 
+  /// The refresh arrow: re-checks unfinished card top-ups with the gateway,
+  /// then reloads the balance and history. Manual only — no timer.
+  Future<void> _refreshAll() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.accessToken;
+    if (token == null) return;
+    final result = await Provider.of<WalletProvider>(context, listen: false)
+        .refreshAll(accessToken: token);
+    if (!mounted) return;
+    _toast(
+      result?.message ?? 'تم التحديث — تعذّر الوصول إلى بوابة الدفع',
+      result == null ? AppColors.onSurfaceVariant : AppColors.success,
+    );
+  }
+
+  /// Charges a real card through a payment gateway and credits the wallet.
+  ///
+  /// The card number is never entered here — the gateway hosts that page. This
+  /// method only picks a provider, opens the payment, and hands off to
+  /// [PaymentCheckoutScreen], which confirms the outcome with the server.
   Future<void> _deposit() async {
-    final amount = _amountController.text.trim();
-    final card = _cardController.text.trim();
-    if (amount.isEmpty || card.isEmpty) return;
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      _toast('أدخل مبلغاً صحيحاً', AppColors.error);
+      return;
+    }
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.accessToken;
+    if (token == null) return;
 
     setState(() => _depositing = true);
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final error = await Provider.of<WalletProvider>(context, listen: false)
-        .deposit(accessToken: auth.accessToken!, amount: amount, cardLast4: card);
-    if (!mounted) return;
-    setState(() => _depositing = false);
+    try {
+      final methods = await _paymentService.fetchMethods(accessToken: token);
+      if (!mounted) return;
+      if (methods.isEmpty) {
+        _toast('لا توجد طريقة دفع متاحة حالياً', AppColors.error);
+        return;
+      }
 
-    if (error == null) {
-      _amountController.clear();
-      _cardController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم الإيداع بنجاح'),
-          backgroundColor: AppColors.success,
+      final method = await showPaymentMethodSheet(context, methods: methods);
+      if (method == null || !mounted) return;
+
+      final intent = await _paymentService.createPayment(
+        accessToken: token,
+        provider: method.provider,
+        amount: amount,
+      );
+      if (!mounted) return;
+
+      final paid = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentCheckoutScreen(intent: intent),
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: AppColors.error),
-      );
+      if (!mounted) return;
+
+      if (paid == true) {
+        _amountController.clear();
+        // The server credited the wallet before returning success, so reload
+        // rather than adding the amount locally — the balance on the server is
+        // the only one that counts.
+        await _load();
+        if (mounted) _toast('تم شحن المحفظة بنجاح', AppColors.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        _toast(e.toString().replaceFirst('Exception: ', ''), AppColors.error);
+      }
+    } finally {
+      if (mounted) setState(() => _depositing = false);
     }
+  }
+
+  void _toast(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   @override
@@ -79,6 +136,12 @@ class _WalletScreenState extends State<WalletScreen> {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Consumer<WalletProvider>(
+            builder: (_, p, _) =>
+                SyncRefreshButton(busy: p.isSyncing, onPressed: _refreshAll),
+          ),
+        ],
       ),
       body: Consumer<WalletProvider>(
         builder: (context, provider, _) {
@@ -109,10 +172,16 @@ class _WalletScreenState extends State<WalletScreen> {
               children: [
                 if (provider.wallet != null)
                   _BalanceCard(wallet: provider.wallet!),
+                const SizedBox(height: 12),
+                _MoneyFlowLink(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WalletActivityScreen()),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 _DepositCard(
                   amountController: _amountController,
-                  cardController: _cardController,
                   depositing: _depositing,
                   onDeposit: _deposit,
                 ),
@@ -234,13 +303,11 @@ class _BalanceStat extends StatelessWidget {
 // ── نموذج الإيداع ─────────────────────────────────────────────────────────────
 class _DepositCard extends StatelessWidget {
   final TextEditingController amountController;
-  final TextEditingController cardController;
   final bool depositing;
   final VoidCallback onDeposit;
 
   const _DepositCard({
     required this.amountController,
-    required this.cardController,
     required this.depositing,
     required this.onDeposit,
   });
@@ -286,24 +353,18 @@ class _DepositCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          TextField(
-            controller: cardController,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              hintText: 'آخر 4 أرقام من البطاقة',
-              prefixIcon: const Icon(Icons.credit_card_outlined,
-                  color: AppColors.onSurfaceVariant),
-              counterText: '',
-              filled: true,
-              fillColor: AppColors.surfaceContainerLow,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          const Row(
+            children: [
+              Icon(Icons.lock_outline, size: 14, color: AppColors.onSurfaceVariant),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'تُدخل بيانات البطاقة في صفحة البوابة الآمنة، ولا يحفظها التطبيق.',
+                  style: TextStyle(
+                      fontSize: 11.5, color: AppColors.onSurfaceVariant),
+                ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -465,6 +526,49 @@ class _EmptyDeposits extends StatelessWidget {
               style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 14),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── رابط «حركة الأموال» ───────────────────────────────────────────────────────
+class _MoneyFlowLink extends StatelessWidget {
+  final VoidCallback onTap;
+  const _MoneyFlowLink({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.surfaceContainer),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.swap_vert_rounded, color: AppColors.primary),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('حركة الأموال',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    Text('داخلة، خارجة، محجوزة — ومن أين إلى أين',
+                        style: TextStyle(fontSize: 11.5, color: AppColors.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_left_rounded, color: AppColors.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );

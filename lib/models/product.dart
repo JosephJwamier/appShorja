@@ -24,6 +24,14 @@ class Product {
   final int? totalReviews;
   final int? representativeAssignmentId;
   final String? representativeCommissionPercentage;
+  final bool isFavorited;
+
+  /// The axes a buyer picks along (colour, size…). Empty for a plain item.
+  final List<ProductOption> options;
+
+  /// Every sellable combination. Always at least one — a plain item carries a
+  /// single variant with empty [ProductVariant.attributes] holding its stock.
+  final List<ProductVariant> variants;
 
   Product({
     required this.id,
@@ -48,7 +56,72 @@ class Product {
     this.totalReviews,
     this.representativeAssignmentId,
     this.representativeCommissionPercentage,
+    this.isFavorited = false,
+    this.options = const [],
+    this.variants = const [],
   });
+
+  bool get hasOptions => options.isNotEmpty;
+
+  /// 'أحمر / L' in the seller's option order. The server may hand the
+  /// attributes back in a different key order (MySQL normalises JSON keys),
+  /// so the variant's own [ProductVariant.label] can't be trusted for display.
+  String variantLabel(ProductVariant v) {
+    final ordered = [
+      for (final o in options)
+        if (v.attributes[o.name] != null) v.attributes[o.name]!,
+    ];
+    return ordered.isEmpty ? v.label : ordered.join(' / ');
+  }
+
+  /// The variant whose attributes equal [selection] exactly, or null.
+  ProductVariant? findVariant(Map<String, String> selection) {
+    if (selection.length != options.length) return null;
+    for (final v in variants) {
+      if (!v.isActive) continue;
+      if (v.attributes.length != selection.length) continue;
+      var match = true;
+      for (final entry in selection.entries) {
+        if (v.attributes[entry.key] != entry.value) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return v;
+    }
+    return null;
+  }
+
+  /// Whether any active variant with [name]=[value] still has stock, given
+  /// the other picks so far — lets the picker grey out "L" once every L is
+  /// gone, without greying out "L" just because red-L is.
+  bool isValueAvailable(String name, String value, Map<String, String> otherPicks) {
+    for (final v in variants) {
+      if (!v.isActive || v.quantity <= 0) continue;
+      if (v.attributes[name] != value) continue;
+      var compatible = true;
+      for (final entry in otherPicks.entries) {
+        if (entry.key == name) continue;
+        if (v.attributes[entry.key] != entry.value) {
+          compatible = false;
+          break;
+        }
+      }
+      if (compatible) return true;
+    }
+    return false;
+  }
+
+  /// Lowest price across in-stock variants — what a card shows as "يبدأ من".
+  double? get lowestVariantPrice {
+    double? best;
+    for (final v in variants) {
+      final p = v.effectivePrice;
+      if (p == null || !v.isActive) continue;
+      if (best == null || p < best) best = p;
+    }
+    return best;
+  }
 
   /// True when this listing reached the store through a representative
   /// (sales agent) assignment rather than the store owner's own item —
@@ -106,6 +179,93 @@ class Product {
           representativeInfo?['representative_assignment_id'] as int?,
       representativeCommissionPercentage:
           representativeInfo?['commission_percentage'] as String?,
+      isFavorited: json['is_favorited'] as bool? ?? false,
+      options: (json['options'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProductOption.fromJson)
+          .toList(),
+      variants: (json['variants'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProductVariant.fromJson)
+          .toList(),
     );
+  }
+}
+
+/// One axis of choice: `{"name": "اللون", "values": ["أحمر", "أزرق"]}`.
+class ProductOption {
+  final String name;
+  final List<String> values;
+
+  const ProductOption({required this.name, required this.values});
+
+  factory ProductOption.fromJson(Map<String, dynamic> json) {
+    return ProductOption(
+      name: json['name']?.toString() ?? '',
+      values: (json['values'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'name': name, 'values': values};
+}
+
+/// One sellable combination, mirroring the backend's ItemVariant.
+class ProductVariant {
+  final int id;
+
+  /// `{"اللون": "أحمر", "المقاس": "L"}` — keys are option names.
+  final Map<String, String> attributes;
+  final String sku;
+  final int quantity;
+
+  /// Override; null means the item's listing price applies.
+  final double? price;
+
+  /// Already resolved server-side: [price] if set, else the listing price.
+  final double? effectivePrice;
+  /// What the seller paid per unit. Only present when the viewer owns the
+  /// item — the server strips it for everyone else.
+  final double? costPrice;
+  final String? imageUrl;
+  final bool isActive;
+
+  const ProductVariant({
+    required this.id,
+    required this.attributes,
+    this.sku = '',
+    required this.quantity,
+    this.price,
+    this.effectivePrice,
+    this.costPrice,
+    this.imageUrl,
+    this.isActive = true,
+  });
+
+  bool get inStock => isActive && quantity > 0;
+
+  /// 'أحمر / L'
+  String get label => attributes.values.join(' / ');
+
+  factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    final rawAttrs = json['attributes'] as Map<String, dynamic>? ?? const {};
+    return ProductVariant(
+      id: json['id'] as int,
+      attributes: rawAttrs.map((k, v) => MapEntry(k, v.toString())),
+      sku: json['sku']?.toString() ?? '',
+      quantity: json['quantity'] as int? ?? 0,
+      price: _parseDouble(json['price']),
+      effectivePrice: _parseDouble(json['effective_price']),
+      costPrice: _parseDouble(json['cost_price']),
+      imageUrl: json['image_url'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  static double? _parseDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
   }
 }

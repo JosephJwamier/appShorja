@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../features/location/models/location_model.dart';
 import '../features/location/screens/widgets/delivery_location_widget.dart';
 import '../models/reservation.dart';
+import '../providers/auth_provider.dart';
+import '../services/item_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'disputes_screen.dart';
 import 'file_dispute_screen.dart';
 import 'print_delivery_label_screen.dart';
+import 'product_details_screen.dart';
 
 const _months = [
   'يناير',
@@ -204,6 +208,42 @@ class ReservationDetailScreen extends StatelessWidget {
     if (result == true) {
       await onRefresh();
       if (context.mounted) Navigator.pop(context);
+    }
+  }
+
+  /// One-tap re-order: opens the same item's current listing straight on
+  /// product details, ready to reserve again.
+  Future<void> _orderAgain(BuildContext context) async {
+    final token = context.read<AuthProvider>().accessToken ?? '';
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final listing = await ItemService().fetchListingByItemId(
+        accessToken: token,
+        itemId: reservation.item.id,
+      );
+      navigator.pop();
+      if (listing != null) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(listing: listing),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('هذا المنتج لم يعد متوفراً')),
+        );
+      }
+    } catch (_) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('تعذّر فتح تفاصيل المنتج')),
+      );
     }
   }
 
@@ -1152,6 +1192,24 @@ class ReservationDetailScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    if (isBuyer && r.status == 'confirmed') {
+      buttons.add(
+        OutlinedButton.icon(
+          onPressed: () => _orderAgain(context),
+          icon: const Icon(Icons.replay_rounded, size: 18),
+          label: const Text('اطلبه مرة ثانية'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ),
       );
     }

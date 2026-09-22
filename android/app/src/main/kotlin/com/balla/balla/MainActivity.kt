@@ -1,4 +1,4 @@
-package com.example.marketplace_app
+package com.balla.balla
 
 import io.flutter.embedding.android.FlutterActivity
 

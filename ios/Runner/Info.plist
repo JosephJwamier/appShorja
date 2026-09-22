@@ -71,6 +71,8 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.78176989926-9bo83u0cjuv3jilhhpbohs4kq997q7hv</string>
+				<!-- عودة المتصفّح إلى التطبيق بعد الدفع -->
+				<string>balla</string>
 			</array>
 		</dict>
 	</array>

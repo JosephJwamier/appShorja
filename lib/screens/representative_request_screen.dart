@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/notification_service.dart';
 import '../services/representative_service.dart';
 
 class RepresentativeRequestScreen extends StatefulWidget {
@@ -70,6 +71,9 @@ class _RepresentativeRequestScreenState
       setState(() => _isSubmitting = false);
 
       if (result.success) {
+        // أول طلب مندوبية ناجح هو أول لحظة يصبح فيها إشعار الرد (قبول/رفض)
+        // مفيدًا فعليًا — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+        NotificationService.requestPermissionIfNeeded();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),

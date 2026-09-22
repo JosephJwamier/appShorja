@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="diamond badge">
+  <circle cx="512" cy="512" r="440" fill="#EAF3F8"/>
+  <circle cx="512" cy="512" r="472" fill="none" stroke="#9DB4C4" stroke-width="34" stroke-dasharray="62 22"/>
+  <polygon points="884.0,512.0 738.2,738.2 512.0,884.0 285.8,738.2 140.0,512.0 285.8,285.8 512.0,140.0 738.2,285.8" fill="none" stroke="#9DB4C4" stroke-width="10" stroke-linejoin="round" opacity="0.50"/>
+  <g><path d="M372,452 L436,370 L588,370 L652,452 L512,668 Z" fill="none" stroke="#4E6073" stroke-width="44" stroke-linejoin="round"/><polyline points="372,452 652,452" fill="none" stroke="#4E6073" stroke-width="28"/><polyline points="436,370 512,668 588,370" fill="none" stroke="#4E6073" stroke-width="28" stroke-linejoin="round"/></g>
+</svg>

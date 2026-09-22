@@ -14,6 +14,10 @@ class User {
   final String bio;
   final DateTime? dateOfBirth;
 
+  /// Badge kinds of this user's store (founder, verified, gold…), in the
+  /// server's display order. Empty for users without a store.
+  final List<String> storeBadges;
+
   User({
     required this.id,
     required this.username,
@@ -27,6 +31,7 @@ class User {
     this.avatarUrl,
     this.bio = '',
     this.dateOfBirth,
+    this.storeBadges = const [],
   });
 
   /// الاسم الأول + الثاني إن أدخلهما المستخدم، وإلا اسم المستخدم — يُستخدم
@@ -69,6 +74,7 @@ class User {
         avatarUrl: avatarUrl ?? this.avatarUrl,
         bio: bio ?? this.bio,
         dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+        storeBadges: storeBadges,
       );
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -87,6 +93,9 @@ class User {
       dateOfBirth: json['date_of_birth'] != null
           ? DateTime.tryParse(json['date_of_birth'] as String)
           : null,
+      storeBadges: (json['store_badges'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 

@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/auctions_provider.dart';
 import '../services/item_service.dart';
+import '../services/notification_service.dart';
 
 class CreateListingScreen extends StatefulWidget {
   final int itemId;
@@ -138,6 +139,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       }
 
       if (!mounted) return;
+
+      // أول نشر ناجح هو أول لحظة يصبح فيها إشعار "رسالة جديدة/مزايدة/حجز"
+      // مفيدًا للبائع — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+      NotificationService.requestPermissionIfNeeded();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

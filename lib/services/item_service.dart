@@ -98,6 +98,37 @@ class ItemService {
     return (listings: <FixedListing>[], hasMore: false);
   }
 
+  /// The current user's favorited listings, most recently favorited first.
+  /// Same paginated shape as [fetchFixedListingsPaginated] so the favorites
+  /// screen can reuse the standard infinite-scroll list-state pattern.
+  Future<({List<FixedListing> listings, bool hasMore})>
+      fetchFavoriteListingsPaginated({
+    required String accessToken,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final response = await _client.get(
+      '/listings/fixed/favorites/?page=$page&page_size=$pageSize',
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return (listings: <FixedListing>[], hasMore: false);
+      final results = decoded['results'] as List<dynamic>;
+      return (
+        listings: results
+            .cast<Map<String, dynamic>>()
+            .map((e) => FixedListing.fromJson(e))
+            .toList(),
+        hasMore: decoded['next'] != null,
+      );
+    } else if (response.statusCode == 401) {
+      throw Exception('الجلسة منتهية، سجّل دخولاً من جديد');
+    } else {
+      throw Exception('فشل جلب المفضلة');
+    }
+  }
+
   Future<List<FixedListing>> fetchSimilarListings({
     required String accessToken,
     required int listingId,
@@ -135,6 +166,8 @@ class ItemService {
     String packageSize = 'medium',
     int warrantyDays = 7,
     int? locationId,
+    List<Map<String, dynamic>>? options,
+    List<Map<String, dynamic>>? variants,
   }) async {
     final uri = Uri.parse('$baseUrl/items/');
     final request = http.MultipartRequest('POST', uri);
@@ -150,6 +183,13 @@ class ItemService {
     request.fields['warranty_days'] = warrantyDays.toString();
     if (locationId != null) {
       request.fields['current_location_id'] = locationId.toString();
+    }
+    // Multipart carries strings only; the server json-decodes these two.
+    // When options are present the server recomputes `quantity` from the
+    // variants, so the plain field above is just a placeholder then.
+    if (options != null && options.isNotEmpty) {
+      request.fields['options'] = jsonEncode(options);
+      request.fields['variants'] = jsonEncode(variants ?? const []);
     }
 
     for (final image in images) {
@@ -395,6 +435,8 @@ class ItemService {
     int? locationId,
     List<XFile> newImages = const [],
     List<int> removeImageIds = const [],
+    List<Map<String, dynamic>>? options,
+    List<Map<String, dynamic>>? variants,
   }) async {
     final uri = Uri.parse('$baseUrl/items/$itemId/');
     final request = http.MultipartRequest('PATCH', uri);
@@ -413,6 +455,14 @@ class ItemService {
     }
     if (removeImageIds.isNotEmpty) {
       request.fields['remove_image_ids'] = removeImageIds.join(',');
+    }
+    // Options and the variant table always travel together (the server
+    // rejects one without the other). `options: []` turns options off — the
+    // server then collapses stock into a single default variant holding
+    // `quantity`. Omit both to leave the item's options untouched.
+    if (options != null) {
+      request.fields['options'] = jsonEncode(options);
+      request.fields['variants'] = jsonEncode(variants ?? const []);
     }
 
     for (final image in newImages) {
@@ -446,6 +496,19 @@ class ItemService {
 
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception('فشل حذف المنتج');
+    }
+  }
+
+  Future<void> setFavorite({
+    required String accessToken,
+    required int itemId,
+    required bool favorited,
+  }) async {
+    final path = favorited ? 'favorite' : 'unfavorite';
+    final response = await _client.post('/items/$itemId/$path/');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(favorited ? 'فشل إضافة المنتج للمفضلة' : 'فشل إزالة المنتج من المفضلة');
     }
   }
 }

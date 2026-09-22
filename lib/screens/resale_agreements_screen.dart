@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/resale_agreement.dart';
 import '../providers/auth_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'create_listing_screen.dart';
@@ -194,8 +195,9 @@ class _AgreementCardState extends State<_AgreementCard> {
   };
 
   Future<void> _doAction(
-    Future<({bool success, String message})> Function() action,
-  ) async {
+    Future<({bool success, String message})> Function() action, {
+    bool requestNotificationPermission = false,
+  }) async {
     setState(() => _isProcessing = true);
     final result = await action();
     if (!mounted) return;
@@ -208,7 +210,15 @@ class _AgreementCardState extends State<_AgreementCard> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-    if (result.success) await widget.onRefresh();
+    if (result.success) {
+      await widget.onRefresh();
+      // أول قبول ناجح لطلب إعادة بيع/نقل ملكية هو أول لحظة يصبح فيها إشعار
+      // اكتمال/إنهاء الاتفاقية مفيدًا — نطلب إذن الإشعارات هنا بدل أول فتحة
+      // للتطبيق.
+      if (requestNotificationPermission) {
+        NotificationService.requestPermissionIfNeeded();
+      }
+    }
   }
 
   Future<void> _confirmAction({
@@ -298,6 +308,7 @@ class _AgreementCardState extends State<_AgreementCard> {
     final token = context.read<AuthProvider>().accessToken!;
     await _doAction(
       () => context.read<TransfersProvider>().approve(token: token, id: a.id),
+      requestNotificationPermission: true,
     );
   }
 
@@ -419,7 +430,7 @@ class _AgreementCardState extends State<_AgreementCard> {
                     const SizedBox(height: 2),
                     _UserRow(
                       icon: Icons.storefront_outlined,
-                      label: 'البائع',
+                      label: 'الموزّع',
                       username: a.reseller.username,
                     ),
                   ],

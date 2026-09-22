@@ -4,17 +4,22 @@ import '../features/location/models/location_model.dart';
 
 class CreateReservationRequest {
   final int itemId;
+  /// Which colour/size combination; required by the server for items that
+  /// have options, ignored for plain items.
+  final int? variantId;
   final int quantity;
   final int? deliveryLocationId;
 
   const CreateReservationRequest({
     required this.itemId,
+    this.variantId,
     this.quantity = 1,
     this.deliveryLocationId,
   });
 
   Map<String, dynamic> toJson() => {
     'item_id': itemId,
+    if (variantId != null) 'variant_id': variantId,
     'quantity': quantity,
     if (deliveryLocationId != null) 'delivery_location_id': deliveryLocationId,
   };

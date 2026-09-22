@@ -220,7 +220,28 @@ class AuthService {
     return (success: false, message: _extractError(response, 'رمز غير صحيح'));
   }
 
-  /// Sends a fresh 6-digit SMS verification code to the user's phone.
+  /// Marks the phone verified from a Firebase ID token carrying a verified
+  /// `phone_number` claim — see [FirebasePhoneAuth]. The SMS itself is sent
+  /// by Firebase from the device; the server's only job is to check the token
+  /// and confirm its phone matches this account's.
+  Future<({bool success, String message})> verifyPhoneWithFirebase({
+    required String accessToken,
+    required String idToken,
+  }) async {
+    final response = await _client.post(
+      '/auth/verify-phone/',
+      body: {'id_token': idToken},
+    );
+    if (response.statusCode == 200) {
+      return (success: true, message: 'تم تفعيل رقم هاتفك');
+    }
+    return (success: false, message: _extractError(response, 'تعذّر تفعيل الرقم'));
+  }
+
+  /// Legacy server-generated SMS code (Twilio). Superseded by
+  /// [verifyPhoneWithFirebase] and no longer called from the app — kept
+  /// because the endpoint still accepts it, so an older build in the wild
+  /// keeps working.
   Future<({bool success, String message})> sendPhoneVerificationCode({
     required String accessToken,
   }) async {

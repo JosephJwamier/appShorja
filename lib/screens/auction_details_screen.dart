@@ -12,6 +12,7 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auctions_provider.dart';
 import '../services/analytics_service.dart';
+import '../services/notification_service.dart';
 import '../services/auction_service.dart'
     show AuctionService, BidsResult, MyBidStatus;
 import '../theme/app_colors.dart';
@@ -414,6 +415,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
           // تحديث الحد الأدنى مباشرةً بدون انتظار WebSocket أو refresh
           _minimumNextBid = amount + rollbackAuction.minimumIncrement;
         });
+        // أول مزايدة ناجحة هي أول لحظة يصبح فيها إشعار "انتصار المزاد/تجاوز
+        // العرض" مفيدًا فعليًا — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
+        NotificationService.requestPermissionIfNeeded();
         if (mounted) {
           Provider.of<AuctionsProvider>(
             context,
