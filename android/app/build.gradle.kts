@@ -65,19 +65,32 @@ android {
 
     buildTypes {
         release {
+            // بلا مفتاح إصدار يبقى signingConfig فارغًا (حزمة غير موقّعة)
+            // ولا يُستبدل بمفتاح debug أبدًا. الفشل الصريح يحدث في فحص
+            // طور التنفيذ أسفل الملف، لا هنا: كتلة release تُقيَّم في طور
+            // الضبط مع كل أمر Gradle، فرمي استثناء هنا كان يكسر
+            // assembleDebug أيضًا.
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
-            } else {
-                // بلا مفتاح إصدار لا نوقّع بمفتاح debug بصمت. البناء يفشل
-                // هنا عمدًا؛ لبناء نسخة تجريبية غير موقّعة استعمل
-                // `flutter build apk --debug` أو أنشئ key.properties.
-                throw GradleException(
-                    "Release signing is not configured: create android/key.properties " +
-                    "(see android/key.properties.example) or set storeFile/storePassword/" +
-                    "keyAlias/keyPassword in the environment."
-                )
             }
         }
+    }
+}
+
+// يفشل فقط عندما يطلب البناء فعلًا مهمة إصدار (assemble/bundle/package
+// Release)، فتبقى نسخة debug و`flutter run` تعملان بلا مفتاح.
+gradle.taskGraph.whenReady {
+    if (hasReleaseSigning) return@whenReady
+    val releaseTask = allTasks.firstOrNull { task ->
+        task.project == project && Regex("^(assemble|bundle|package).*Release$").matches(task.name)
+    }
+    if (releaseTask != null) {
+        throw GradleException(
+            "Release signing is not configured (task '${releaseTask.name}'): create " +
+            "android/key.properties (see android/key.properties.example) or set " +
+            "storeFile/storePassword/keyAlias/keyPassword in the environment. " +
+            "Debug builds are unaffected."
+        )
     }
 }
 
