@@ -54,3 +54,6 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
+
+# Kotlin incremental-compile cache
+android/.kotlin/
