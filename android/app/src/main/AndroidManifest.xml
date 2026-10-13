@@ -52,8 +52,8 @@
             </intent-filter>
 
             <!-- App Links لروابط المشاركة (منتج/متجر/مزاد/بث).
-                 TODO: بدّل android:host بالدومين الفعلي بعد شرائه، ويجب أن
-                 يطابق kWebDomain في lib/config/deep_link_config.dart. لن
+                 android:host يطابق kWebDomain في
+                 lib/config/deep_link_config.dart. لن
                  يتحقق أندرويد من الرابط (autoVerify) حتى يُنشر
                  /.well-known/assetlinks.json على نفس الدومين وبه بصمة
                  SHA256 لمفتاح توقيع التطبيق. -->
@@ -61,7 +61,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="REPLACE_WITH_YOUR_DOMAIN.example"/>
+                <data android:scheme="https" android:host="shorjeh.com"/>
             </intent-filter>
         </activity>
 

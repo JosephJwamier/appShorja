@@ -72,7 +72,64 @@ class _AddItemScreenState extends State<AddItemScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRootCategories());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRootCategories();
+      _ensurePickupLocation();
+    });
+  }
+
+  /// يمنع البدء بلا موقع رئيسي. الخادم يرفض الإنشاء في هذه الحالة
+  /// (code: no_pickup_location) لأن شركة التوصيل تستلم من هذا العنوان،
+  /// لكن رفضه بعد ملء النموذج كله وإرفاق الصور تجربة سيئة — فالفحص هنا
+  /// قبل أن يكتب البائع حرفاً واحداً.
+  Future<void> _ensurePickupLocation() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    final provider = context.read<LocationProvider>();
+    await provider.loadMyLocations(token);
+    if (!mounted || provider.myLocations.isNotEmpty) return;
+
+    final addNow = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('أضف موقعك أولاً'),
+        content: const Text(
+          'شركة التوصيل تستلم منتجاتك من موقعك الرئيسي، فلا يمكن نشر منتج قبل تحديده.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('لاحقاً'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('أضف الموقع'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+
+    if (addNow != true) {
+      // "لاحقاً" يعني مغادرة الشاشة لا تجاهل الشرط: البقاء فيها ينتهي
+      // برفض من الخادم بعد كل هذا العمل.
+      Navigator.pop(context);
+      return;
+    }
+
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddEditLocationScreen()),
+    );
+    if (!mounted) return;
+    await provider.loadMyLocations(token);
+    if (!mounted) return;
+    if (provider.myLocations.isEmpty) {
+      // لم يُحفظ شيء — لا نحبسه في حلقة حوارات.
+      Navigator.pop(context);
+    }
   }
 
   @override

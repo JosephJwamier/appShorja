@@ -2,7 +2,7 @@
 // للتشغيل على بيئة مختلفة (dev/staging/production) أو مع HTTPS مرّر القيم
 // وقت التشغيل/البناء عبر --dart-define بدون تعديل الكود:
 //   flutter run --dart-define=API_HOST=10.0.2.2:8000 --dart-define=API_SCHEME=http
-//   flutter build apk --dart-define=API_HOST=api.eshorja.com --dart-define=API_SCHEME=https
+//   flutter build apk --dart-define=API_HOST=api.shorjeh.com --dart-define=API_SCHEME=https
 //
 // القيم الافتراضية (بدون أي --dart-define) تبقى مطابقة لمحاكي Android الحالي
 // حتى لا ينكسر التطوير المحلي.
@@ -19,7 +19,7 @@ class ApiConfig {
     defaultValue: 'http',
   );
 
-  /// مثال: http://10.0.2.2:8000/api أو https://api.eshorja.com/api
+  /// مثال: http://10.0.2.2:8000/api أو https://api.shorjeh.com/api
   static const String baseUrl = '$scheme://$host/api';
 
   /// لبناء روابط الوسائط (صور المتاجر... إلخ) بدون مسار /api.
