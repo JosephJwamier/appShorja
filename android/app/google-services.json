@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "78176989926-eea4ghi0o24lc46tpmohs37679oan17s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.balla.balla",
+            "certificate_hash": "896c17c1cc2ebde00f6fc03d01da47fbb2eff676"
+          }
+        },
+        {
           "client_id": "78176989926-uoq73g7huevsghb109o1eitn28h1nd9n.apps.googleusercontent.com",
           "client_type": 3
         }
