@@ -251,7 +251,18 @@ class _AuthGateState extends State<AuthGate> {
             // product — the one screen that has to earn the signup was the
             // one nobody could reach.
             if (!auth.isLoggedIn) {
-              return MainShell(key: mainShellKey);
+              // مفتاح مختلف عمداً. لو شارك الضيف مفتاح المستخدم الداخل،
+              // لنقل Flutter حالة MainShell نفسها بين الفرعين بدل إنشائها
+              // — فلا يُستدعى initState، ولا يُعاد أي تحميل.
+              //
+              // وكل تبويب يبدأ بـ `if (token == null) return;`، وقد بُني
+              // كاملاً أثناء التصفّح كضيف (IndexedStack يبني الجميع فوراً).
+              // فيبقى بعد الدخول على فراغه: المتجر غير محمَّل، وزرّا
+              // «ريلزاتي» و«بثّ الآن» معلّقان على myStore != null فيختفيان.
+              //
+              // المفتاح المختلف يُسقط هيكل الضيف ويبني آخر عند الدخول،
+              // فتُعاد كل تحميلات initState ومعها رمز حقيقي هذه المرة.
+              return const MainShell(key: ValueKey('guestShell'));
             }
 
             final pendingType = NotificationService.pendingTapType;
