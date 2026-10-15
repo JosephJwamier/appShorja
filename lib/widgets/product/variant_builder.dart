@@ -246,6 +246,8 @@ class _VariantBuilderState extends State<VariantBuilder> {
               Expanded(
                 child: TextFormField(
                   initialValue: option.name,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
                   decoration: const InputDecoration(
                     labelText: 'اسم الخيار',
                     hintText: 'اللون / المقاس / السعة',
@@ -331,6 +333,8 @@ class _NewValueDialogState extends State<_NewValueDialog> {
         content: TextField(
           controller: _controller,
           autofocus: true,
+          textAlign: TextAlign.right,
+          textDirection: TextDirection.rtl,
           decoration: const InputDecoration(hintText: 'مثال: أحمر، L، 128GB'),
           onSubmitted: (v) => Navigator.pop(context, v),
         ),

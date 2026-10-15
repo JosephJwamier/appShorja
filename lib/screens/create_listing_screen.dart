@@ -26,7 +26,15 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   // حقول السعر الثابت
   final _priceController = TextEditingController();
-  final _depositController = TextEditingController(text: '10');
+  final _depositController = TextEditingController();
+
+  /// الافتراضي: بلا عربون.
+  ///
+  /// كان الحقل يبدأ بـ 10٪ ومعه سطر شارح يقول «ضع 0 لعدم أخذ عربون» —
+  /// أي أن البائع الذي لا يريد عربوناً كان عليه أن يقرأ الشرح ثم يمسح
+  /// رقماً لم يضعه. الافتراض الصامت يصير قراراً لمن لا ينتبه، فالأسلم
+  /// أن يكون الافتراض هو الأقل التزاماً على المشتري.
+  bool _hasDeposit = false;
 
   // حقول المزاد
   final _startingPriceController = TextEditingController();
@@ -123,7 +131,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           accessToken: auth.accessToken!,
           itemId: widget.itemId,
           price: double.parse(_priceController.text),
-          depositPercentage: double.parse(_depositController.text),
+          // بلا عربون = صفر: الخادم يقبلها (MinValueValidator(0))
+          // ويحسب deposit_amount = price * 0 / 100.
+          depositPercentage: _hasDeposit
+              ? (double.tryParse(_depositController.text) ?? 0)
+              : 0,
         );
       }
 
@@ -273,24 +285,47 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           return null;
         },
       ),
-      const SizedBox(height: 16),
-      TextFormField(
-        controller: _depositController,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          labelText: 'نسبة العربون (٪)',
-          border: OutlineInputBorder(),
-          helperText:
-              'النسبة المطلوبة كعربون لحجز المنتج — ضع 0 لعدم أخذ أي عربون (الدفع بالكامل كاش عند التوصيل)',
-          helperMaxLines: 2,
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'هل تطلب عربوناً؟',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        validator: (v) {
-          if (v == null || v.trim().isEmpty) return 'النسبة مطلوبة';
-          final n = double.tryParse(v);
-          if (n == null || n < 0 || n > 100) return 'النسبة بين 0 و 100';
-          return null;
-        },
+        subtitle: Text(
+          _hasDeposit
+              ? 'يدفع المشتري نسبة مقدّماً لتثبيت الحجز'
+              : 'بدون عربون — الدفع بالكامل كاش عند التوصيل',
+          style: const TextStyle(fontSize: 12),
+        ),
+        value: _hasDeposit,
+        onChanged: (v) => setState(() => _hasDeposit = v),
       ),
+      // يظهر الحقل بعد الاختيار فقط: حقل معطّل أو مخفيّ القيمة يترك
+      // البائع يتساءل عمّا سيُرسَل عنه.
+      if (_hasDeposit) ...[
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _depositController,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.right,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'نسبة العربون (٪)',
+            border: OutlineInputBorder(),
+            helperText: 'النسبة التي يدفعها المشتري مقدّماً لحجز المنتج',
+            helperMaxLines: 2,
+          ),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'النسبة مطلوبة';
+            final n = double.tryParse(v);
+            // الصفر مقبول هنا أيضاً: من فتح الخيار ثم كتب 0 يقصد ما
+            // يقصده من أطفأه، ورفضه يجبره على التراجع بلا سبب.
+            if (n == null || n < 0 || n > 100) return 'النسبة بين 0 و 100';
+            return null;
+          },
+        ),
+      ],
     ];
   }
 

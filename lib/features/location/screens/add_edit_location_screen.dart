@@ -25,8 +25,6 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
   late final TextEditingController _addr1Ctrl;
   late final TextEditingController _cityCtrl;
   String? _selectedGovernorate;
-  late final TextEditingController _postalCtrl;
-  late final TextEditingController _countryCtrl;
   late final TextEditingController _contactPersonCtrl;
   late final TextEditingController _contactPhoneCtrl;
 
@@ -59,10 +57,15 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
         e != null && iraqGovernorates.any((g) => g.name == e.state)
         ? e.state
         : null;
-    _postalCtrl = TextEditingController(text: e?.postalCode ?? '');
-    _countryCtrl = TextEditingController(text: e?.country ?? 'العراق');
-    _contactPersonCtrl = TextEditingController(text: e?.contactPerson ?? '');
-    _contactPhoneCtrl = TextEditingController(text: e?.contactPhone ?? '');
+    // جهة التواصل من الحساب حين لا تكون محفوظة: المستخدم أعطانا اسمه
+    // ورقمه الموثّق عند التسجيل، وإعادة سؤاله عنهما تطلب منه تكرار ما
+    // يعرفه التطبيق سلفاً. يبقى الحقلان قابلين للتعديل لمن يريد تسليماً
+    // باسم غيره أو على رقم آخر.
+    final user = context.read<AuthProvider>().user;
+    _contactPersonCtrl = TextEditingController(
+        text: e?.contactPerson ?? user?.displayName ?? '');
+    _contactPhoneCtrl = TextEditingController(
+        text: e?.contactPhone ?? user?.phone ?? '');
     _locationType = e?.locationType ?? 'user_address';
     _isPrimary = e?.isPrimary ?? false;
     _isActive = e?.isActive ?? true;
@@ -76,8 +79,6 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
     _nameCtrl.dispose();
     _addr1Ctrl.dispose();
     _cityCtrl.dispose();
-    _postalCtrl.dispose();
-    _countryCtrl.dispose();
     _contactPersonCtrl.dispose();
     _contactPhoneCtrl.dispose();
     super.dispose();
@@ -87,8 +88,25 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
   Future<void> _pickOnMap() async {
     final result = await MapPickerScreen.pick(context, initial: _pickedLatLng);
     if (result != null && mounted) {
-      setState(() => _pickedLatLng = result);
+      setState(() {
+        _pickedLatLng = result;
+        _applyInferredGovernorate(result);
+      });
     }
+  }
+
+  /// يملأ المحافظة من الدبّوس — اقتراحاً لا حكماً.
+  ///
+  /// لا يدوس اختياراً سابقاً: من صحّح المحافظة بيده ثم حرّك الدبّوس قليلاً
+  /// لا يُعاد تصحيحه إلى ما رفضه. أمّا الحقل الفارغ فملؤه ربح خالص.
+  void _applyInferredGovernorate(LatLng point) {
+    if (_selectedGovernorate != null) return;
+    final guess = nearestGovernorate(point);
+    _selectedGovernorate = guess.name;
+    // المدينة تتبع المحافظة افتراضياً: في أغلب محافظات العراق المدينة
+    // الرئيسية تحمل اسم المحافظة، ومن كان في قضاء آخر يكتبه.
+    if (_cityCtrl.text.trim().isEmpty) _cityCtrl.text = guess.name;
+    if (_nameCtrl.text.trim().isEmpty) _nameCtrl.text = 'موقعي في ${guess.name}';
   }
 
   // ── تحديد الموقع الحالي مباشرة ──────────────────────────────────────────
@@ -115,7 +133,10 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
         ),
       );
       if (mounted) {
-        setState(() => _pickedLatLng = LatLng(pos.latitude, pos.longitude));
+        setState(() {
+          _pickedLatLng = LatLng(pos.latitude, pos.longitude);
+          _applyInferredGovernorate(_pickedLatLng!);
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -141,9 +162,9 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
       'address_line1': _addr1Ctrl.text.trim(),
       'city': _cityCtrl.text.trim(),
       'state': _selectedGovernorate,
-      if (_postalCtrl.text.trim().isNotEmpty)
-        'postal_code': _postalCtrl.text.trim(),
-      'country': _countryCtrl.text.trim(),
+      // ثابتة: التطبيق عراقي، والمحافظات مقيّدة بقائمة العراق أصلاً.
+      // سؤال المستخدم عنها كان يضيف حقلاً إجبارياً جوابه معروف.
+      'country': 'العراق',
       'contact_person': _contactPersonCtrl.text.trim(),
       'contact_phone': _contactPhoneCtrl.text.trim(),
       if (_pickedLatLng != null)
@@ -293,24 +314,21 @@ class _AddEditLocationScreenState extends State<AddEditLocationScreen> {
             const SizedBox(height: 20),
 
             // ── حقول العنوان ────────────────────────────────────────────────
-            _field(_nameCtrl, 'اسم الموقع *', required: true),
-            _field(_addr1Ctrl, 'العنوان *', required: true),
+            // المحافظة أولاً: هي المُستنتَجة من الدبّوس، ورؤيتها فوق بقية
+            // الحقول تُطمئن المستخدم أن التطبيق فهم أين هو.
             Row(
               children: [
-                Expanded(child: _field(_cityCtrl, 'المدينة *', required: true)),
-                const SizedBox(width: 12),
                 Expanded(child: _governorateField()),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(child: _field(_postalCtrl, 'الرمز البريدي (اختياري)')),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _field(_countryCtrl, 'الدولة *', required: true),
-                ),
+                Expanded(child: _field(_cityCtrl, 'المدينة / القضاء *',
+                    required: true)),
               ],
             ),
+            _field(_addr1Ctrl, 'أقرب نقطة دالّة *', required: true),
+            _field(_nameCtrl, 'اسم الموقع *', required: true),
+            // الدولة والرمز البريدي حُذفا: الأولى ثابتة (العراق) ويضعها
+            // المُرسِل صامتاً، والثاني لا نظام بريدي عاملاً يسنده في العراق
+            // فكان حقلاً إجبارياً يُملأ بالفراغ أو بالنفاية.
 
             const SizedBox(height: 8),
             const Divider(),

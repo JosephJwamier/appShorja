@@ -36,3 +36,31 @@ const List<IraqGovernorate> iraqGovernorates = [
   IraqGovernorate('دهوك', 36.8617, 42.9951),
   IraqGovernorate('السليمانية', 35.5650, 45.4347),
 ];
+
+/// المحافظة الأقرب إلى نقطة على الخريطة.
+///
+/// يُستعمل لتعبئة حقل المحافظة تلقائياً بعد أن يضع المستخدم دبّوسه، بدل
+/// مطالبته باختيارها من قائمة من ثمانية عشر بندًا وهو قد حدّد مكانه للتوّ.
+///
+/// لماذا «أقرب مركز» لا حدود حقيقية؟ لأن الحدود الدقيقة تحتاج مضلّعات
+/// ثقيلة أو خدمة عنونة عكسية بمفتاح API وشبكة. وأقرب مركز يصيب داخل
+/// المحافظات الواسعة ويخطئ قرب الحدود — وهو خطأ مقبول لأن النتيجة
+/// **اقتراح** يراه المستخدم ويصحّحه، لا قيمة تُحفظ من وراء ظهره.
+///
+/// المسافة إقليدية على الدرجات لا على سطح الكرة: المقارنة بين مراكز
+/// متقاربة في العرض نفسه تقريباً، والترتيب لا يتغيّر بإهمال التكوير.
+IraqGovernorate nearestGovernorate(LatLng point) {
+  IraqGovernorate best = iraqGovernorates.first;
+  double bestDistance = double.infinity;
+
+  for (final governorate in iraqGovernorates) {
+    final dLat = governorate.lat - point.latitude;
+    final dLng = governorate.lng - point.longitude;
+    final distance = dLat * dLat + dLng * dLng; // لا حاجة للجذر للمقارنة
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = governorate;
+    }
+  }
+  return best;
+}

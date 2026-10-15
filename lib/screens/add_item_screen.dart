@@ -53,12 +53,14 @@ class _AddItemScreenState extends State<AddItemScreen> {
   int? _selectedLocationId;
   String? _selectedLocationAddress;
 
+  // أربع بدل خمس. «جيد/مقبول/ضعيف» كانت تطلب من البائع حكماً بدقة لا
+  // يملكها ولا يستطيع المشتري التحقق منه — والفرق بينها رأي لا وصف.
+  // و«غير معلوم» يعترف بالحالة الشائعة: بضاعة جملة لم تُفحص قطعة قطعة.
   static const _conditions = [
     {'value': 'new', 'label': 'جديد'},
     {'value': 'like_new', 'label': 'شبه جديد'},
-    {'value': 'good', 'label': 'جيد'},
-    {'value': 'fair', 'label': 'مقبول'},
-    {'value': 'poor', 'label': 'ضعيف'},
+    {'value': 'used', 'label': 'مستعمل'},
+    {'value': 'unknown', 'label': 'غير معلوم'},
   ];
 
   // يحدّد عدد المنتجات القابلة لدمجها بشحنة توصيل واحدة برسم واحد.
@@ -162,14 +164,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Future<void> _onRootSelected(Category cat) async {
     final token = context.read<AuthProvider>().accessToken;
     if (token == null) return;
-    if (_selectedRootId == cat.id) {
-      setState(() {
-        _selectedRootId = null;
-        _selectedSubId = null;
-        _subCategories = [];
-      });
-      return;
-    }
+    // منطق الرقائق السابق كان يُلغي الاختيار عند إعادة الضغط عليه —
+    // سلوك صحيح لرقيقة تُضغط، وخطأ لمنسدلة: من يفتحها ويعيد اختيار نفس
+    // القيمة يؤكّدها، لا يمسحها.
+    if (_selectedRootId == cat.id) return;
     setState(() {
       _selectedRootId = cat.id;
       _selectedSubId = null;
@@ -192,15 +190,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   void _onSubSelected(Category cat) {
-    setState(() {
-      _selectedSubId = _selectedSubId == cat.id ? null : cat.id;
-    });
+    setState(() => _selectedSubId = cat.id);
   }
 
   Widget _buildCategorySelector() {
     if (_loadingRoots) {
       return const SizedBox(
-        height: 40,
+        height: 56,
         child: Center(
           child: SizedBox(
             width: 20,
@@ -210,21 +206,38 @@ class _AddItemScreenState extends State<AddItemScreen> {
         ),
       );
     }
+
+    // قائمتان منسدلتان بدل رقائق (chips). الفئات عندك تقارب التسعين،
+    // والرقائق تمدّ النموذج شاشتين وتجعل الفئة المختارة تضيع بين
+    // أخواتها — بينما المنسدلة تُظهر الاختيار دائماً في سطر واحد.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _rootCategories.map((cat) {
-            final isSelected = _selectedRootId == cat.id;
-            return _CategoryChip(
-              label: cat.displayName,
-              selected: isSelected,
-              onTap: () => _onRootSelected(cat),
-            );
-          }).toList(),
+        DropdownButtonFormField<int>(
+          initialValue: _selectedRootId,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'الفئة الرئيسية',
+            border: OutlineInputBorder(),
+          ),
+          validator: (v) => v == null ? 'اختر الفئة' : null,
+          items: _rootCategories
+              .map((cat) => DropdownMenuItem(
+                    value: cat.id,
+                    child: Text(cat.displayName,
+                        textDirection: TextDirection.rtl,
+                        overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: (id) {
+            if (id == null) return;
+            final cat = _rootCategories.firstWhere((c) => c.id == id);
+            _onRootSelected(cat);
+          },
         ),
+
+        // الفرعية تظهر بعد اختيار الرئيسية فقط — وتغيب إن لم يكن للفئة
+        // فروع، فلا يبقى حقل فارغ يوحي بأن شيئاً ينقص.
         if (_loadingSubs)
           const Padding(
             padding: EdgeInsets.only(top: 12),
@@ -234,28 +247,28 @@ class _AddItemScreenState extends State<AddItemScreen> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           )
-        else if (_subCategories.isNotEmpty) ...[
+        else if (_selectedRootId != null && _subCategories.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text(
-            'الفئة الفرعية',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
+          DropdownButtonFormField<int>(
+            initialValue: _selectedSubId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'الفئة الفرعية',
+              border: OutlineInputBorder(),
             ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _subCategories.map((cat) {
-              final isSelected = _selectedSubId == cat.id;
-              return _CategoryChip(
-                label: cat.displayName,
-                selected: isSelected,
-                onTap: () => _onSubSelected(cat),
-              );
-            }).toList(),
+            items: _subCategories
+                .map((cat) => DropdownMenuItem(
+                      value: cat.id,
+                      child: Text(cat.displayName,
+                          textDirection: TextDirection.rtl,
+                          overflow: TextOverflow.ellipsis),
+                    ))
+                .toList(),
+            onChanged: (id) {
+              if (id == null) return;
+              final cat = _subCategories.firstWhere((c) => c.id == id);
+              _onSubSelected(cat);
+            },
           ),
         ],
       ],
@@ -287,8 +300,42 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
   }
 
+  /// الاستوديو أو الكاميرا.
+  ///
+  /// التقاط الصورة لحظة النشر هو الحالة الشائعة لبائع يصوّر بضاعته أمامه،
+  /// وإجباره على التصوير ثم الخروج إلى الاستوديو خطوتان زائدتان في كل مرة.
   Future<void> _pickImages() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('التقاط صورة'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('اختيار من الاستوديو'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
     final picker = ImagePicker();
+    if (source == ImageSource.camera) {
+      // الكاميرا تُرجع صورة واحدة لكل التقاطة — لا مقابل لـ pickMultiImage.
+      final shot = await picker.pickImage(source: ImageSource.camera);
+      if (shot == null) return;
+      setState(() => _images.add(shot));
+      return;
+    }
+
     final picked = await picker.pickMultiImage();
     if (picked.isEmpty) return;
     setState(() => _images.addAll(picked));
@@ -376,17 +423,21 @@ class _AddItemScreenState extends State<AddItemScreen> {
             children: [
               TextFormField(
                 controller: _titleController,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
                 decoration: const InputDecoration(
-                  labelText: 'العنوان',
+                  labelText: 'اسم المنتج',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'العنوان مطلوب' : null,
+                    (v == null || v.trim().isEmpty) ? 'اسم المنتج مطلوب' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 4,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
                 decoration: const InputDecoration(
                   labelText: 'الوصف',
                   border: OutlineInputBorder(),
@@ -443,6 +494,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               TextFormField(
                 controller: _warrantyDaysController,
                 keyboardType: TextInputType.number,
+                textAlign: TextAlign.right,
                 decoration: const InputDecoration(
                   labelText: 'مدة الضمان (بالأيام)',
                   helperText:
@@ -470,6 +522,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 value: _hasOptions,
                 onChanged: (v) => setState(() => _hasOptions = v),
               ),
+              // فاصل صريح: المفتاح أعلاه والحقل أسفله كانا متلاصقين،
+              // فيبدو حقل الكمية تابعاً للسؤال لا بديلاً عنه.
+              const SizedBox(height: 12),
               if (_hasOptions)
                 VariantBuilder(
                   draft: _variantDraft,
@@ -479,6 +534,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 TextFormField(
                   controller: _quantityController,
                   keyboardType: TextInputType.number,
+                  textAlign: TextAlign.right,
                   decoration: const InputDecoration(
                     labelText: 'الكمية',
                     border: OutlineInputBorder(),
@@ -490,7 +546,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     return null;
                   },
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               const Text(
                 'الصور',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -639,44 +695,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.primary : AppColors.surfaceContainer,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            color: selected ? Colors.white : AppColors.onSurface,
           ),
         ),
       ),
