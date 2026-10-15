@@ -31,8 +31,9 @@ class ItemService {
     }
   }
 
+  /// قراءة عامة: المسار مفتوح للضيوف، فالرمز اختياري.
   Future<FixedListing?> fetchListingById({
-    required String accessToken,
+    String? accessToken,
     required int listingId,
   }) async {
     final response = await _client.get('/listings/fixed/$listingId/');

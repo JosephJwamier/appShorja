@@ -47,9 +47,14 @@ class DeepLinkService {
     final id = int.tryParse(segments[1]);
     if (id == null) return;
 
+    // لا يُشترط حساب. الرابط المشارَك هو أقوى دعوة للتسجيل يملكها
+    // التطبيق، وابتلاعه بصمت لأن فاتحه ضيف يهدرها: يضغط الرابط، يُفتح
+    // التطبيق، ولا يحدث شيء — فيظنّه معطّلاً لا مقفلاً.
+    //
+    // الخادم صار يسمح بقراءة المنتجات والمتاجر والمزادات للضيوف، وبوابة
+    // الحساب تظهر عند الحجز أو المزايدة لا عند النظر.
     final accessToken =
         Provider.of<AuthProvider>(context, listen: false).accessToken;
-    if (accessToken == null) return; // غير مسجّل دخول — يُترك على شاشته الحالية
 
     switch (segments[0]) {
       case 'p':

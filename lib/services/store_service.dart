@@ -255,8 +255,9 @@ class StoreService {
     throw Exception('فشل جلب متجر البائع');
   }
 
+  /// قراءة عامة: المسار مفتوح للضيوف، فالرمز اختياري.
   Future<Store?> fetchStoreById({
-    required String accessToken,
+    String? accessToken,
     required int storeId,
   }) async {
     final response = await _client.get('/stores/$storeId/');
