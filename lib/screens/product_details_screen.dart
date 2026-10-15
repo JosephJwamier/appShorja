@@ -30,6 +30,7 @@ import '../features/location/screens/location_picker_sheet.dart';
 import 'reservation_sheet.dart';
 import 'make_offer_sheet.dart';
 import '../widgets/store/store_badges.dart';
+import '../utils/auth_gate.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final FixedListing listing;
@@ -158,6 +159,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    // قبل setState المتفائل: الضيف لا يرى القلب يمتلئ ثم يفرغ.
+    if (!await requireAuth(context, reason: 'لحفظ هذا المنتج')) return;
+    if (!mounted) return;
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
     final next = !_isFavorite;
@@ -209,6 +214,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _reserve() async {
+    if (!await requireAuth(context, reason: 'لحجز هذا المنتج')) return;
+    if (!mounted) return;
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isReserving = true);

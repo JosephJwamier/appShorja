@@ -96,7 +96,12 @@ class ApiClient {
     final headers = {
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
-      if (auth) 'Authorization': 'Bearer ${_getAccessToken?.call() ?? ''}',
+      // الترويسة تُرسل فقط حين يوجد رمز فعلي. 'Bearer ' فارغة ليست
+      // «بلا مصادقة» — إنها ترويسة فاسدة، و DRF يردّ عليها 401 بدل أن
+      // يعامل الطلب كزائر. ومنذ أن صار التصفّح مفتوحاً للضيوف، ذلك
+      // يعني رفض كل قراءة عامة يُفترض أن تنجح.
+      if (auth && (_getAccessToken?.call() ?? '').isNotEmpty)
+        'Authorization': 'Bearer ${_getAccessToken!.call()}',
     };
     final encodedBody = body == null ? null : jsonEncode(body);
 

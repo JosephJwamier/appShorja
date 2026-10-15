@@ -20,6 +20,7 @@ import '../utils/formatters.dart';
 import '../utils/share_helper.dart';
 import 'store_profile_screen.dart' show VisitStoreButton;
 import 'reservations_screen.dart';
+import '../utils/auth_gate.dart';
 
 class AuctionDetailsScreen extends StatefulWidget {
   final Auction auction;
@@ -189,11 +190,11 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
     try {
       final results = await Future.wait([
         service.fetchAuctionDetails(
-          accessToken: auth.accessToken!,
+          accessToken: auth.accessToken,
           auctionId: _auction.id,
         ),
         service.fetchBids(
-          accessToken: auth.accessToken!,
+          accessToken: auth.accessToken,
           auctionId: _auction.id,
         ),
       ]);
@@ -220,6 +221,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
 
   Future<void> _fetchMyStatus() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    // «حالتي في هذا المزاد» لا معنى لها بلا حساب. تحميل تلقائي لا فعل
+    // مقصود، فينصرف بصمت — البوابة تُعرض عند المزايدة، لا عند الفتح.
+    if (!auth.isLoggedIn) return;
     try {
       final status = await AuctionService().fetchMyStatus(
         accessToken: auth.accessToken!,
@@ -378,6 +382,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
 
   Future<void> _placeBid(double amount) async {
     if (_isPlacingBid) return;
+
+    if (!await requireAuth(context, reason: 'للمزايدة')) return;
+    if (!mounted) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.user == null) return;

@@ -293,6 +293,36 @@ class AuthService {
   /// Requests a password-reset code by email (no auth — used from the
   /// login screen). Always reports success to avoid revealing whether the
   /// email is registered.
+  /// Resets a password with proof of holding the account's phone.
+  ///
+  /// The only route open to the many accounts that have no email. There is
+  /// no code to send or compare here: Firebase Phone Auth delivers the SMS
+  /// from the device and [phoneIdToken] is the proof it was received.
+  ///
+  /// The server answers the same way whether the number has an account or
+  /// not, so a success here does not confirm that one exists — it only
+  /// says the request was well formed.
+  Future<({bool success, String message})> resetPasswordByPhone({
+    required String phoneIdToken,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      '/auth/reset-password-phone/',
+      body: {'id_token': phoneIdToken, 'new_password': newPassword},
+      auth: false,
+    );
+    if (response.statusCode == 200) {
+      return (
+        success: true,
+        message: _tryMessage(response) ?? 'تم تغيير كلمة المرور',
+      );
+    }
+    return (
+      success: false,
+      message: _extractError(response, 'تعذّر تغيير كلمة المرور'),
+    );
+  }
+
   Future<({bool success, String message})> requestPasswordResetCode({
     required String email,
   }) async {

@@ -98,8 +98,9 @@ class AuctionService {
     }
   }
 
+  /// قراءة عامة: المزاد مفتوح للضيوف، فالرمز اختياري.
   Future<Auction> fetchAuctionDetails({
-    required String accessToken,
+    String? accessToken,
     required int auctionId,
   }) async {
     final response = await _client.get('/auctions/$auctionId/');
@@ -168,8 +169,9 @@ class AuctionService {
 
   /// GET /api/auctions/{id}/bids/
   /// Returns bids list + current_price + minimum_next_bid from the server.
+  /// قراءة عامة: المزاد مفتوح للضيوف، فالرمز اختياري.
   Future<BidsResult> fetchBids({
-    required String accessToken,
+    String? accessToken,
     required int auctionId,
   }) async {
     final response = await _client.get('/auctions/$auctionId/bids/');

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter/services.dart';
+import '../services/firebase_phone_auth.dart';
+import '../utils/formatters.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -11,18 +14,25 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _service = AuthService();
+  final _phoneAuth = FirebasePhoneAuth();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmController = TextEditingController();
 
-  int _step = 0; // 0 = enter email, 1 = enter code + new password
+  /// الهاتف هو الافتراضي: البريد اختياري عند التسجيل، فأكثر الحسابات بلا
+  /// عنوان يصلها عليه رمز. من سجّل ببريد يجده خلف المبدّل.
+  bool _byPhone = true;
+
+  int _step = 0; // 0 = enter identifier, 1 = enter code + new password
   bool _busy = false;
   String? _error;
   String? _info;
 
   @override
   void dispose() {
+    _phoneController.dispose();
     _emailController.dispose();
     _codeController.dispose();
     _newPasswordController.dispose();
@@ -31,6 +41,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _requestCode() async {
+    if (_byPhone) return _requestCodeByPhone();
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       setState(() => _error = 'أدخل بريداً إلكترونياً صحيحاً');
@@ -50,6 +61,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _confirmReset() async {
+    if (_byPhone) return _confirmResetByPhone();
     final code = _codeController.text.trim();
     final newPassword = _newPasswordController.text;
     if (code.length != 6) {
@@ -92,6 +104,81 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     Navigator.pop(context);
   }
 
+  Future<void> _requestCodeByPhone() async {
+    final phone = _phoneController.text.trim();
+    if (!isIraqiMobile(phone)) {
+      setState(() => _error = 'رقم غير صالح — يبدأ بـ 075 أو 077 أو 078 أو 079');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    // Firebase تشترط E.164، والمستخدم يكتب محلياً.
+    final result = await _phoneAuth.sendCode(toE164(phone));
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (result.success) {
+        _info = 'أدخل الرمز الذي وصلك برسالة نصية';
+        _step = 1;
+      } else {
+        _error = result.message;
+      }
+    });
+  }
+
+  Future<void> _confirmResetByPhone() async {
+    final code = _codeController.text.trim();
+    final newPassword = _newPasswordController.text;
+    if (code.length != 6) {
+      setState(() => _error = 'أدخل الرمز المكوّن من 6 أرقام');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setState(() => _error = 'يجب ألا تقل كلمة المرور عن 8 أحرف');
+      return;
+    }
+    if (newPassword != _confirmController.text) {
+      setState(() => _error = 'كلمتا المرور غير متطابقتين');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    // خطوتان متمايزتان: Firebase تتحقّق من الرمز وتُصدر رمز هوية، ثم
+    // يتحقّق خادمنا من ذلك الرمز ويغيّر كلمة المرور. فشل الأولى خطأ رمز،
+    // وفشل الثانية شيء آخر تماماً — ولهذا تُعرض رسالتاهما منفصلتين.
+    final confirmed = await _phoneAuth.confirmCode(code);
+    if (!mounted) return;
+    if (!confirmed.success || confirmed.idToken == null) {
+      setState(() {
+        _busy = false;
+        _error = confirmed.message;
+      });
+      return;
+    }
+
+    final result = await _service.resetPasswordByPhone(
+      phoneIdToken: confirmed.idToken!,
+      newPassword: newPassword,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!result.success) {
+      setState(() => _error = result.message);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message), backgroundColor: AppColors.success),
+    );
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -117,21 +204,60 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'أدخل بريدك الإلكتروني وسنرسل لك رمزاً لإعادة تعيين كلمة المرور',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(
+              value: true,
+              label: Text('برقم الهاتف'),
+              icon: Icon(Icons.sms_outlined),
+            ),
+            ButtonSegment(
+              value: false,
+              label: Text('بالبريد'),
+              icon: Icon(Icons.mail_outline),
+            ),
+          ],
+          selected: {_byPhone},
+          onSelectionChanged: _busy
+              ? null
+              : (selection) => setState(() {
+                    _byPhone = selection.first;
+                    // الخطأ يخصّ الطريقة السابقة، فلا معنى لبقائه معروضاً
+                    // فوق حقل مختلف.
+                    _error = null;
+                  }),
         ),
         const SizedBox(height: 20),
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          textAlign: TextAlign.right,
-          decoration: const InputDecoration(
-            labelText: 'البريد الإلكتروني',
-            border: OutlineInputBorder(),
-          ),
+        Text(
+          _byPhone
+              ? 'أدخل رقم هاتفك وسيصلك رمز برسالة نصية'
+              : 'أدخل بريدك الإلكتروني وسنرسل لك رمزاً لإعادة تعيين كلمة المرور',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
         ),
+        const SizedBox(height: 20),
+        if (_byPhone)
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            textAlign: TextAlign.right,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: 'رقم الهاتف',
+              hintText: '07XXXXXXXXX',
+              border: OutlineInputBorder(),
+            ),
+          )
+        else
+          TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            textAlign: TextAlign.right,
+            decoration: const InputDecoration(
+              labelText: 'البريد الإلكتروني',
+              border: OutlineInputBorder(),
+            ),
+          ),
         if (_error != null) ...[
           const SizedBox(height: 12),
           Text(_error!, style: const TextStyle(color: AppColors.error)),
