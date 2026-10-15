@@ -78,9 +78,13 @@ class AuthService {
   /// the backend verifies it with firebase_admin. The endpoint is still
   /// provider-agnostic (it only reads the Firebase token), so a second
   /// provider needs no change here.
-  Future<({User user, String accessToken, String refreshToken})> socialLogin({
-    required String idToken,
-  }) async {
+  ///
+  /// Two shapes come back, which is why this returns a sealed type rather
+  /// than a nullable session: every account must carry a verified phone,
+  /// and Google never tells us the number. A first-time signer-in therefore
+  /// gets [SocialPhoneRequired] and no session at all — the server has
+  /// written nothing yet. Call [attachPhone] once the SMS is confirmed.
+  Future<SocialLoginResult> socialLogin({required String idToken}) async {
     final response = await _client.post(
       '/auth/social-login/',
       body: {'id_token': idToken},
@@ -89,13 +93,31 @@ class AuthService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return (
-        user: User.fromJson(data['user']),
-        accessToken: data['tokens']['access'] as String,
-        refreshToken: data['tokens']['refresh'] as String,
-      );
+      if (data['status'] == 'phone_required') {
+        return SocialPhoneRequired(googleIdToken: idToken);
+      }
+      return SocialSession.fromJson(data);
     }
     throw Exception(_extractError(response, 'فشل تسجيل الدخول'));
+  }
+
+  /// Completes a Google signup by attaching a phone the user has just
+  /// proved they hold. Both tokens are required: the Google one says which
+  /// identity is signing in, the phone one says which number is theirs.
+  Future<SocialSession> attachPhone({
+    required String googleIdToken,
+    required String phoneIdToken,
+  }) async {
+    final response = await _client.post(
+      '/auth/social-login/attach-phone/',
+      body: {'id_token': googleIdToken, 'phone_id_token': phoneIdToken},
+      auth: false,
+    );
+
+    if (response.statusCode == 200) {
+      return SocialSession.fromJson(jsonDecode(response.body));
+    }
+    throw Exception(_extractError(response, 'تعذّر إكمال التسجيل'));
   }
 
   /// Parses a Django error body into a single readable message, checking the
@@ -382,4 +404,42 @@ class AuthService {
       return null;
     }
   }
+}
+
+
+/// نتيجة دخول Google: إمّا جلسة، وإمّا طلب رقم هاتف موثّق.
+///
+/// نوع مُغلق لا علَم منطقي: الحالتان تحملان بيانات مختلفة تماماً، وجعلهما
+/// سجلّاً واحداً بحقول فارغة يدفع كل مُستدعٍ إلى التحقّق من null في أماكن
+/// لا تحدث فيها. المحوّل (switch) هنا يُلزم بتغطية الحالتين.
+sealed class SocialLoginResult {
+  const SocialLoginResult();
+}
+
+class SocialSession extends SocialLoginResult {
+  final User user;
+  final String accessToken;
+  final String refreshToken;
+  final bool isNewUser;
+
+  const SocialSession({
+    required this.user,
+    required this.accessToken,
+    required this.refreshToken,
+    required this.isNewUser,
+  });
+
+  factory SocialSession.fromJson(Map<String, dynamic> data) => SocialSession(
+        user: User.fromJson(data['user']),
+        accessToken: data['tokens']['access'] as String,
+        refreshToken: data['tokens']['refresh'] as String,
+        isNewUser: data['is_new_user'] as bool? ?? false,
+      );
+}
+
+/// لا جلسة بعد، ولم يُكتب شيء في الخادم. [googleIdToken] يُعاد إرساله مع
+/// رمز الهاتف إلى attachPhone — فهو إثبات أيّ هوية Google تُسجّل الدخول.
+class SocialPhoneRequired extends SocialLoginResult {
+  final String googleIdToken;
+  const SocialPhoneRequired({required this.googleIdToken});
 }

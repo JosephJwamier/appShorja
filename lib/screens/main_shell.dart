@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,7 @@ import 'store_chat_screen.dart';
 import 'resale_agreements_screen.dart';
 import '../features/location/screens/map_screen.dart';
 import '../features/location/screens/my_locations_screen.dart';
+import '../utils/auth_gate.dart';
 
 /// مفتاح عام يتيح لأي شاشة مدفوعة فوق [MainShell] تبديل التبويب النشط
 /// (مثلاً عند الضغط على شريط تنقّل مطابق ظاهر أسفل شاشة فرعية).
@@ -79,9 +81,25 @@ class MainShellState extends State<MainShell> {
         _ => null,
       };
 
-  void jumpToTab(int index) => _selectTab(index);
+  void jumpToTab(int index) => unawaited(_selectTab(index));
 
-  void _selectTab(int index) {
+  /// التبويبات التي لا معنى لها بلا هوية: المحادثات والحجوزات والحساب.
+  /// الرئيسية والمزادات والريلز مفتوحة للضيوف.
+  static const _tabsNeedingAccount = {
+    ShellTab.chats: 'لعرض محادثاتك',
+    ShellTab.reservations: 'لعرض حجوزاتك',
+    ShellTab.account: 'لعرض حسابك',
+  };
+
+  Future<void> _selectTab(int index) async {
+    final reason = _tabsNeedingAccount[index];
+    if (reason != null && !await requireAuth(context, reason: reason)) {
+      // رفض أو أغلق الورقة: يبقى حيث كان. لا ننتقل إلى تبويب فارغ ثم
+      // نعتذر — الشريط السفلي يبقى مؤشِّراً على ما يراه فعلاً.
+      return;
+    }
+    if (!mounted) return;
+
     if (index != _currentIndex) {
       _notifyVisibility(_currentIndex, visible: false);
     }
@@ -160,7 +178,9 @@ class MainShellState extends State<MainShell> {
           ? FloatingActionButton(
               heroTag: 'mainShellAddItemFab',
               backgroundColor: AppColors.primary,
-              onPressed: () {
+              onPressed: () async {
+                if (!await requireAuth(context, reason: 'لنشر منتج')) return;
+                if (!context.mounted) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const AddItemScreen()),

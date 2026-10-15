@@ -6,6 +6,8 @@ import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import '../services/auth_service.dart';
+import 'verify_phone_for_signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,10 +33,30 @@ class _LoginScreenState extends State<LoginScreen> {
     final notificationsProvider =
         Provider.of<NotificationsProvider>(context, listen: false);
     final chatsProvider = Provider.of<ChatsProvider>(context, listen: false);
-    await authProvider.loginWithGoogle(
+    final result = await authProvider.loginWithGoogle(
       notificationsProvider: notificationsProvider,
       chatsProvider: chatsProvider,
     );
+    if (!mounted) return;
+
+    // Google لا يسلّم رقم الهاتف، وكل حساب يلزمه رقم موثّق. فالخادم يردّ
+    // بطلب الرقم ولا يُنشئ شيئاً — وهذه الشاشة تُكمل الخطوة.
+    if (result is SocialPhoneRequired) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerifyPhoneForSignupScreen(
+            googleIdToken: result.googleIdToken,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // نفس سبب الإغلاق في _handleLogin.
+    if (authProvider.isLoggedIn && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -48,7 +70,14 @@ class _LoginScreenState extends State<LoginScreen> {
       notificationsProvider: notificationsProvider,
       chatsProvider: chatsProvider,
     );
-    // البوّابة (AuthGate) تتولّى الانتقال بعد نجاح الدخول
+    // كانت هذه الشاشة جذر التطبيق، فيكفي أن يتبدّل الجذر عند نجاح الدخول.
+    // أمّا حين تُفتح من بوابة الإجراءات المحمية فهي مُكدَّسة فوق ما كان
+    // يتصفّحه المستخدم — فتُغلق نفسها لتعيده إلى حيث توقّف تماماً، بدل أن
+    // تتركه ينظر إلى شاشة دخول نجحت ولم تختفِ.
+    if (!mounted) return;
+    if (authProvider.isLoggedIn && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -113,9 +142,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // حقل اسم المستخدم / البريد
+                        // الخادم يحلّ أيّاً من الثلاثة إلى حساب واحد
+                        // (LoginView): اسم المستخدم يفوز دائماً، ثم البريد،
+                        // ثم الرقم بأي صيغة كُتب.
                         const Text(
-                          'اسم المستخدم',
+                          'اسم المستخدم أو رقم الهاتف',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 14,
@@ -129,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.right,
                           style: const TextStyle(color: AppColors.onSurface),
                           decoration: _fieldDecoration(
-                            hint: 'اسم المستخدم',
+                            hint: 'اسم المستخدم أو 07XXXXXXXXX',
                             icon: Icons.person_outline,
                           ),
                         ),

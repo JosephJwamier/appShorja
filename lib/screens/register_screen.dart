@@ -5,6 +5,7 @@ import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
 import '../services/legal_service.dart';
 import 'interests_selection_screen.dart';
+import '../utils/formatters.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -194,13 +195,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             keyboardType: TextInputType.emailAddress,
                             textAlign: TextAlign.right,
                             style: const TextStyle(color: AppColors.onSurface),
-                            decoration: _fieldDecoration('البريد الإلكتروني'),
+                            decoration: _fieldDecoration(
+                                'البريد الإلكتروني (اختياري)'),
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'البريد الإلكتروني مطلوب';
-                              }
-                              if (!value.contains('@') ||
-                                  !value.contains('.')) {
+                              // اختياري: كثير من التجّار بلا بريد يتابعونه،
+                              // والرقم هو ما يحمل الهوية والاسترجاع. لكن
+                              // إن كُتب فليكن صالحاً — بريد مكسور أسوأ من
+                              // لا بريد، إذ يُظنّ أنه وسيلة تواصل.
+                              final email = value?.trim() ?? '';
+                              if (email.isEmpty) return null;
+                              if (!email.contains('@') || !email.contains('.')) {
                                 return 'بريد إلكتروني غير صالح';
                               }
                               return null;
@@ -216,8 +220,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: const TextStyle(color: AppColors.onSurface),
                             decoration: _fieldDecoration('رقم الهاتف'),
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'رقم الهاتف مطلوب';
+                              final phone = value?.trim() ?? '';
+                              if (phone.isEmpty) return 'رقم الهاتف مطلوب';
+                              // نفس قاعدة الخادم، مُطبَّقة هنا ليُكتشف الخطأ
+                              // قبل الرحلة لا بعدها.
+                              if (!isIraqiMobile(phone)) {
+                                return 'رقم غير صالح — يبدأ بـ 075 أو 077 أو 078 أو 079';
                               }
                               return null;
                             },

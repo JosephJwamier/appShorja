@@ -88,3 +88,29 @@ String formatIqd(double amount) {
       ((amount - amount.truncate()) * 100).round().toString().padLeft(2, '0');
   return 'IQD $whole.$frac';
 }
+
+/// بادئات شركات الاتصال العراقية العاملة: كورك (75)، آسياسيل (77)،
+/// زين (78 و79). مطابِقة لـ VALID_MOBILE_PREFIXES في الخادم
+/// (core/phone_utils.py) — وأي تغيير هناك يلزمه تغيير هنا.
+const _iraqiMobilePrefixes = ['75', '77', '78', '79'];
+
+/// هل هذا رقم موبايل عراقي صالح، بأي صيغة كُتب؟
+///
+/// الأرضي مرفوض عمداً: الرقم هو هويّة الحساب لأنه يستقبل رسالة التحقّق،
+/// والأرضي لا يستقبلها.
+bool isIraqiMobile(String phone) {
+  var digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.startsWith('00')) digits = digits.substring(2);
+
+  final String national;
+  if (digits.startsWith('964')) {
+    national = digits.substring(3);
+  } else if (digits.startsWith('0')) {
+    national = digits.substring(1);
+  } else {
+    national = digits;
+  }
+
+  return national.length == 10 &&
+      _iraqiMobilePrefixes.any(national.startsWith);
+}

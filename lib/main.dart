@@ -16,7 +16,6 @@ import 'providers/home_items_provider.dart';
 import 'providers/following_provider.dart';
 import 'providers/recommended_items_provider.dart';
 import 'providers/recommended_listings_provider.dart';
-import 'screens/login_screen.dart';
 import 'providers/my_items_provider.dart';
 import 'providers/auctions_provider.dart';
 import 'providers/representative_requests_provider.dart';
@@ -239,13 +238,20 @@ class _AuthGateState extends State<AuthGate> {
         }
         return Consumer<AuthProvider>(
           builder: (context, auth, _) {
+            // Shown once ever per install — introduces the app before the
+            // first run, not shown again for returning users.
+            if (!_hasSeenOnboarding) {
+              return OnboardingScreen(onDone: _completeOnboarding);
+            }
+
+            // No login wall. A visitor lands in the shell and can browse
+            // items, auctions and reels; requireAuth() (lib/utils/auth_gate)
+            // asks for an account at the moment one is actually needed. The
+            // old gate here demanded a password before showing a single
+            // product — the one screen that has to earn the signup was the
+            // one nobody could reach.
             if (!auth.isLoggedIn) {
-              // Shown once ever per install — introduces the app before the
-              // very first login/signup, not shown again for returning users.
-              if (!_hasSeenOnboarding) {
-                return OnboardingScreen(onDone: _completeOnboarding);
-              }
-              return const LoginScreen();
+              return MainShell(key: mainShellKey);
             }
 
             final pendingType = NotificationService.pendingTapType;

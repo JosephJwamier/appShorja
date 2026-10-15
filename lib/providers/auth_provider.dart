@@ -166,7 +166,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> loginWithGoogle({
+  Future<SocialLoginResult?> loginWithGoogle({
     NotificationsProvider? notificationsProvider,
     ChatsProvider? chatsProvider,
   }) async {
@@ -179,7 +179,7 @@ class AuthProvider extends ChangeNotifier {
           : null,
     );
     final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) return false; // User cancelled the picker
+    if (googleUser == null) return null; // User cancelled the picker
 
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -196,9 +196,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Tail of [loginWithGoogle]: exchanges the Google credential for a
-  /// Firebase ID token, hands it to the
-  /// backend, and persists the session exactly like [login] does.
-  Future<bool> _completeSocialSignIn(
+  /// Firebase ID token and hands it to the backend.
+  ///
+  /// Returns [SocialPhoneRequired] when the account has no verified phone
+  /// yet — nothing has been created server-side, and the caller must run
+  /// the SMS step and finish through [completeSocialSignUpWithPhone].
+  /// Returns null when the sign-in failed; [errorMessage] says why.
+  Future<SocialLoginResult?> _completeSocialSignIn(
     AuthCredential credential, {
     required String method,
     NotificationsProvider? notificationsProvider,
@@ -214,38 +218,96 @@ class AuthProvider extends ChangeNotifier {
       final idToken = await userCredential.user!.getIdToken();
 
       final result = await _authService.socialLogin(idToken: idToken!);
-      _user = result.user;
-      _accessToken = result.accessToken;
-      _refreshToken = result.refreshToken;
-
-      await _secureStorage.write(key: _accessTokenKey, value: result.accessToken);
-      await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
-
-      _isLoading = false;
-      notifyListeners();
-
-      _startFcmSync(result.accessToken);
-      chatsProvider?.load(accessToken: result.accessToken);
-      AppAnalytics.instance.setUserId(id: result.user.id.toString());
-      AppAnalytics.login(method: method);
-
-      if (notificationsProvider != null) {
-        await notificationsProvider.loadAndSync(
-          result.user.id.toString(),
-          result.accessToken,
-        );
+      if (result is SocialPhoneRequired) {
+        // Not an error and not a session: the UI takes over for the SMS
+        // step. Loading must stop or the login screen stays spinning
+        // behind the phone sheet.
+        _isLoading = false;
+        notifyListeners();
+        return result;
       }
 
-      return true;
+      await _persistSocialSession(
+        result as SocialSession,
+        method: method,
+        notificationsProvider: notificationsProvider,
+        chatsProvider: chatsProvider,
+      );
+      return result;
     } catch (e) {
       _errorMessage = e is NoConnectionException
           ? e.toString()
           : 'فشل تسجيل الدخول، حاول مرة أخرى';
       _isLoading = false;
       notifyListeners();
+      return null;
+    }
+  }
+
+  /// Second half of a Google signup: the user has just proved the phone is
+  /// theirs, so the account can finally be created and a session issued.
+  Future<bool> completeSocialSignUpWithPhone({
+    required String googleIdToken,
+    required String phoneIdToken,
+    NotificationsProvider? notificationsProvider,
+    ChatsProvider? chatsProvider,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final session = await _authService.attachPhone(
+        googleIdToken: googleIdToken,
+        phoneIdToken: phoneIdToken,
+      );
+      await _persistSocialSession(
+        session,
+        method: 'google',
+        notificationsProvider: notificationsProvider,
+        chatsProvider: chatsProvider,
+      );
+      return true;
+    } catch (e) {
+      _errorMessage = e is NoConnectionException
+          ? e.toString()
+          : e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
       return false;
+    }
+  }
+
+  /// Shared by both halves so a session reached either way is stored,
+  /// announced and warmed up identically.
+  Future<void> _persistSocialSession(
+    SocialSession result, {
+    required String method,
+    NotificationsProvider? notificationsProvider,
+    ChatsProvider? chatsProvider,
+  }) async {
+    _user = result.user;
+    _accessToken = result.accessToken;
+    _refreshToken = result.refreshToken;
+
+    await _secureStorage.write(key: _accessTokenKey, value: result.accessToken);
+    await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
+
+    _isLoading = false;
+    notifyListeners();
+
+    _startFcmSync(result.accessToken);
+    chatsProvider?.load(accessToken: result.accessToken);
+    AppAnalytics.instance.setUserId(id: result.user.id.toString());
+    AppAnalytics.login(method: method);
+
+    if (notificationsProvider != null) {
+      await notificationsProvider.loadAndSync(
+        result.user.id.toString(),
+        result.accessToken,
+      );
     }
   }
 
