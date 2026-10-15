@@ -85,10 +85,14 @@ class MainShellState extends State<MainShell> {
 
   /// التبويبات التي لا معنى لها بلا هوية: المحادثات والحجوزات والحساب.
   /// الرئيسية والمزادات والريلز مفتوحة للضيوف.
+  /// تبويبان يُرفض فتحهما بلا حساب: قائمتان فارغتان تمامًا للضيف، ولا
+  /// شيء فيهما يستحق العرض خلف الطلب.
+  ///
+  /// تبويب الحساب ليس منهما: يُفتح ويعرض الطلب في متنه (_AccountTab).
+  /// رفض فتحه كان يجعل الضغط عليه يبدو كعطل — زرّ لا يستجيب.
   static const _tabsNeedingAccount = {
     ShellTab.chats: 'لعرض محادثاتك',
     ShellTab.reservations: 'لعرض حجوزاتك',
-    ShellTab.account: 'لعرض حسابك',
   };
 
   Future<void> _selectTab(int index) async {
@@ -275,7 +279,11 @@ class _AccountTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    // watch لا read: بعد الدخول من هذه الشاشة نفسها يجب أن يختفي الطلب
+    // ويظهر الحساب بلا أن يضغط المستخدم التبويب ثانية.
+    final auth = context.watch<AuthProvider>();
+    if (!auth.isLoggedIn) return const _GuestAccountTab();
+
     final repPending =
         context.watch<RepresentativeRequestsProvider>().pendingReceivedCount;
     final resalePending =
@@ -587,6 +595,32 @@ class _AccountTile extends StatelessWidget {
                 color: AppColors.onSurfaceVariant,
               ),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+
+/// تبويب الحساب للضيف: يُفتح كأي تبويب، ويشرح لماذا لا محتوى فيه بعد.
+class _GuestAccountTab extends StatelessWidget {
+  const _GuestAccountTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: AuthPromptBody(
+              title: 'حسابك في الشورجة',
+              subtitle: 'سجّل الدخول لمتابعة طلباتك ومتجرك ومحفظتك، '
+                  'أو أنشئ حسابًا جديدًا في دقيقة.',
+              showDismiss: false,
+            ),
+          ),
+        ),
       ),
     );
   }
