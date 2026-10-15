@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:firebase_auth/firebase_auth.dart'
-    show FirebaseAuth, AuthCredential, GoogleAuthProvider, FacebookAuthProvider;
+    show FirebaseAuth, AuthCredential, GoogleAuthProvider;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
@@ -196,26 +195,8 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  Future<bool> loginWithFacebook({
-    NotificationsProvider? notificationsProvider,
-    ChatsProvider? chatsProvider,
-  }) async {
-    final result = await FacebookAuth.instance.login();
-    if (result.status != LoginStatus.success) return false; // Cancelled/failed
-
-    final credential =
-        FacebookAuthProvider.credential(result.accessToken!.tokenString);
-
-    return _completeSocialSignIn(
-      credential,
-      method: 'facebook',
-      notificationsProvider: notificationsProvider,
-      chatsProvider: chatsProvider,
-    );
-  }
-
-  /// Shared tail for [loginWithGoogle]/[loginWithFacebook]: exchanges the
-  /// Google/Facebook credential for a Firebase ID token, hands it to the
+  /// Tail of [loginWithGoogle]: exchanges the Google credential for a
+  /// Firebase ID token, hands it to the
   /// backend, and persists the session exactly like [login] does.
   Future<bool> _completeSocialSignIn(
     AuthCredential credential, {

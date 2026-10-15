@@ -73,9 +73,11 @@ class AuthService {
     }
   }
 
-  /// Signs in (or registers) via Google/Facebook. [idToken] is the Firebase
-  /// Auth ID token obtained after signing in with the native Google/Facebook
-  /// credential — the backend verifies it with firebase_admin.
+  /// Signs in (or registers) via Google. [idToken] is the Firebase Auth ID
+  /// token obtained after signing in with the native Google credential —
+  /// the backend verifies it with firebase_admin. The endpoint is still
+  /// provider-agnostic (it only reads the Firebase token), so a second
+  /// provider needs no change here.
   Future<({User user, String accessToken, String refreshToken})> socialLogin({
     required String idToken,
   }) async {

@@ -37,17 +37,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _handleFacebookLogin() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final notificationsProvider =
-        Provider.of<NotificationsProvider>(context, listen: false);
-    final chatsProvider = Provider.of<ChatsProvider>(context, listen: false);
-    await authProvider.loginWithFacebook(
-      notificationsProvider: notificationsProvider,
-      chatsProvider: chatsProvider,
-    );
-  }
-
   Future<void> _handleLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final notificationsProvider =
@@ -288,30 +277,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 20),
 
-                        // زرّا فيسبوك وجوجل (بصريّان فقط)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _SocialButton(
-                                label: 'جوجل',
-                                icon: Icons.g_mobiledata,
-                                iconColor: AppColors.onSurface,
-                                onTap:
-                                    auth.isLoading ? null : _handleGoogleLogin,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _SocialButton(
-                                label: 'فيسبوك',
-                                icon: Icons.facebook,
-                                iconColor: const Color(0xFF1877F2),
-                                onTap: auth.isLoading
-                                    ? null
-                                    : _handleFacebookLogin,
-                              ),
-                            ),
-                          ],
+                        // جوجل وحده. فيسبوك أُزيل: فتحه للعامّة يتطلّب وصولاً
+                        // متقدّماً من ميتا، وهو مشروط بتحقّق تجاري لم يُنجز.
+                        SizedBox(
+                          width: double.infinity,
+                          child: _SocialButton(
+                            label: 'جوجل',
+                            icon: Icons.g_mobiledata,
+                            iconColor: AppColors.onSurface,
+                            onTap: auth.isLoading ? null : _handleGoogleLogin,
+                          ),
                         ),
                       ],
                     ),
@@ -465,7 +440,7 @@ class _BrandHeader extends StatelessWidget {
   }
 }
 
-// زرّ اجتماعيّ (بصريّ فقط، لا خادم له)
+// زرّ دخول اجتماعيّ
 class _SocialButton extends StatelessWidget {
   final String label;
   final IconData icon;
