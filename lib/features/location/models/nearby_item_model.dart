@@ -1,5 +1,6 @@
 import '../../../models/user.dart';
 import 'location_model.dart';
+import '../../../utils/item_condition.dart' as labels;
 
 LocationModel? _parseLocation(dynamic json) {
   if (json == null) return null;
@@ -96,22 +97,9 @@ class NearbyItem {
 
   String? get firstImageUrl => images.isNotEmpty ? images.first.image : null;
 
-  String get conditionLabel {
-    switch (condition) {
-      case 'new':
-        return 'جديد';
-      case 'like_new':
-        return 'شبه جديد';
-      case 'good':
-        return 'جيد';
-      case 'fair':
-        return 'مقبول';
-      case 'poor':
-        return 'مستعمل';
-      default:
-        return condition;
-    }
-  }
+  /// الاسم مؤهَّل بالبادئة لأن الـ getter يحمل اسم الدالة نفسه،
+  /// فيحجبها داخل الصنف.
+  String get conditionLabel => labels.conditionLabel(condition);
 
   String get distanceText =>
       distanceKm != null ? '${distanceKm!.toStringAsFixed(1)} كم' : '-- كم';

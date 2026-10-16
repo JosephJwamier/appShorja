@@ -6,8 +6,6 @@ import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import '../services/auth_service.dart';
-import 'verify_phone_for_signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,37 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleGoogleLogin() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final notificationsProvider =
-        Provider.of<NotificationsProvider>(context, listen: false);
-    final chatsProvider = Provider.of<ChatsProvider>(context, listen: false);
-    final result = await authProvider.loginWithGoogle(
-      notificationsProvider: notificationsProvider,
-      chatsProvider: chatsProvider,
-    );
-    if (!mounted) return;
-
-    // Google لا يسلّم رقم الهاتف، وكل حساب يلزمه رقم موثّق. فالخادم يردّ
-    // بطلب الرقم ولا يُنشئ شيئاً — وهذه الشاشة تُكمل الخطوة.
-    if (result is SocialPhoneRequired) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerifyPhoneForSignupScreen(
-            googleIdToken: result.googleIdToken,
-          ),
-        ),
-      );
-      return;
-    }
-
-    // نفس سبب الإغلاق في _handleLogin.
-    if (authProvider.isLoggedIn && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
   }
 
   Future<void> _handleLogin() async {
@@ -142,11 +109,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // الخادم يحلّ أيّاً من الثلاثة إلى حساب واحد
-                        // (LoginView): اسم المستخدم يفوز دائماً، ثم البريد،
-                        // ثم الرقم بأي صيغة كُتب.
+                        // الرقم وحده في الواجهة. LoginView ما زال يقبل
+                        // اسم المستخدم والبريد أيضاً — وهذا مقصود: حسابات
+                        // سُجّلت قبل اليوم تحمل معرّفات اختارها أصحابها،
+                        // وإغلاق الباب عليها في الخادم كان سيحبسهم خارجاً.
                         const Text(
-                          'اسم المستخدم أو رقم الهاتف',
+                          'رقم الهاتف',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 14,
@@ -160,8 +128,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.right,
                           style: const TextStyle(color: AppColors.onSurface),
                           decoration: _fieldDecoration(
-                            hint: 'اسم المستخدم أو 07XXXXXXXXX',
-                            icon: Icons.person_outline,
+                            hint: '07XXXXXXXXX',
+                            icon: Icons.phone_outlined,
                           ),
                         ),
 
@@ -276,49 +244,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
-
-                        // فاصل "أو عبر"
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Divider(
-                                color: AppColors.outlineVariant
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'أو عبر',
-                                style: TextStyle(
-                                  color: AppColors.onSurfaceVariant,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Divider(
-                                color: AppColors.outlineVariant
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // جوجل وحده. فيسبوك أُزيل: فتحه للعامّة يتطلّب وصولاً
-                        // متقدّماً من ميتا، وهو مشروط بتحقّق تجاري لم يُنجز.
-                        SizedBox(
-                          width: double.infinity,
-                          child: _SocialButton(
-                            label: 'جوجل',
-                            icon: Icons.g_mobiledata,
-                            iconColor: AppColors.onSurface,
-                            onTap: auth.isLoading ? null : _handleGoogleLogin,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -467,45 +392,6 @@ class _BrandHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// زرّ دخول اجتماعيّ
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color iconColor;
-  final VoidCallback? onTap;
-  const _SocialButton({
-    required this.label,
-    required this.icon,
-    required this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        foregroundColor: AppColors.onSurface,
-        side: BorderSide(
-          color: AppColors.outlineVariant.withValues(alpha: 0.6),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
-          Icon(icon, color: iconColor, size: 24),
-        ],
-      ),
     );
   }
 }

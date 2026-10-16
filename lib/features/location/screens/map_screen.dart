@@ -13,6 +13,7 @@ import '../../../screens/item_from_map_screen.dart';
 import 'widgets/store_marker_widget.dart';
 import 'widgets/item_marker_widget.dart';
 import 'widgets/radius_slider_widget.dart';
+import '../services/gps_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -66,6 +67,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void dispose() {
     _pulseCtrl.dispose();
     super.dispose();
+  }
+
+  /// يعالج سبب التعذّر ثم يُعيد المحاولة.
+  ///
+  /// فتح الإعدادات يُخرج المستخدم من التطبيق، فنُعيد المحاولة عند عودته
+  /// بدل أن نطلب منه فتح الخريطة من جديد.
+  Future<void> _fixGps(LocationProvider provider) async {
+    switch (provider.gpsDenial) {
+      case GpsDenial.serviceOff:
+        await provider.openLocationSettings();
+      case GpsDenial.deniedForever:
+        // أندرويد لا يعرض حوار الإذن بعد الرفض النهائي مهما طُلب —
+        // إعدادات التطبيق هي الطريق الوحيد.
+        await provider.openAppSettings();
+      case GpsDenial.denied:
+        break; // retryGps يطلب الإذن ثانية بنفسه
+      case GpsDenial.none:
+        return;
+    }
+
+    await provider.retryGps();
+    if (!mounted) return;
+    if (provider.gpsReady &&
+        provider.currentLat != null &&
+        provider.currentLng != null) {
+      _mapController.move(
+        LatLng(provider.currentLat!, provider.currentLng!),
+        13,
+      );
+      await provider.loadNearby(
+        lat: provider.currentLat!,
+        lng: provider.currentLng!,
+        token: context.read<AuthProvider>().accessToken,
+      );
+    }
   }
 
   // ── Re-center on user location ────────────────────────────────────────────
@@ -476,6 +512,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   onChangeEnd: _reloadNearby,
                 ),
               ),
+              // شريط السبب: يظهر فقط حين يتعذّر الموقع. بدونه تستقرّ
+              // الخريطة على بغداد صامتةً، فيظنّ المستخدم أن لا بضاعة
+              // قربه بينما التطبيق لا يعرف أين هو أصلاً.
+              if (provider.gpsDenial != GpsDenial.none)
+                PositionedDirectional(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  start: 12,
+                  end: 12,
+                  child: _GpsDenialBanner(
+                    denial: provider.gpsDenial,
+                    onFix: () => _fixGps(provider),
+                  ),
+                ),
             ],
           );
         },
@@ -762,6 +811,67 @@ class _StatsBubble extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: noCoords ? Colors.orange.shade800 : AppColors.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
+
+/// شريط يشرح لماذا لا يُعرف الموقع، ويحمل زرّ العلاج المناسب لكل سبب.
+class _GpsDenialBanner extends StatelessWidget {
+  final GpsDenial denial;
+  final VoidCallback onFix;
+
+  const _GpsDenialBanner({required this.denial, required this.onFix});
+
+  @override
+  Widget build(BuildContext context) {
+    final (text, action) = switch (denial) {
+      GpsDenial.serviceOff => (
+          'خدمة الموقع مطفأة — شغّلها لعرض ما حولك',
+          'تشغيل',
+        ),
+      GpsDenial.deniedForever => (
+          'إذن الموقع مرفوض — فعّله من إعدادات التطبيق',
+          'الإعدادات',
+        ),
+      GpsDenial.denied => (
+          'نحتاج إذن الموقع لعرض البضاعة القريبة منك',
+          'السماح',
+        ),
+      GpsDenial.none => ('', ''),
+    };
+
+    return Material(
+      color: AppColors.surface,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(
+            start: 14, end: 6, top: 6, bottom: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.location_off_outlined,
+                size: 20, color: AppColors.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                    fontSize: 12.5, color: AppColors.onSurface),
+              ),
+            ),
+            TextButton(
+              onPressed: onFix,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              child: Text(action,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );

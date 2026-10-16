@@ -317,12 +317,28 @@ class _AccountTab extends StatelessWidget {
                 ),
                 Align(
                   alignment: Alignment.topRight,
-                  child: IconButton(
+                  // نصّ ظاهر لا tooltip: الأخير يحتاج ضغطة مطوّلة ولا
+                  // يظهر باللمس العادي على الهاتف — أي أن اسم الزرّ كان
+                  // مخفيّاً عن كل من يستعمل التطبيق كما يُستعمل، وتبقى
+                  // أيقونة سمّاعة لا يعرف الجميع معناها.
+                  child: TextButton.icon(
                     icon: const Icon(
                       Icons.support_agent_outlined,
+                      size: 20,
                       color: AppColors.onSurfaceVariant,
                     ),
-                    tooltip: 'التواصل مع الدعم',
+                    label: const Text(
+                      'تواصل مع الدعم',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      visualDensity: VisualDensity.compact,
+                    ),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(

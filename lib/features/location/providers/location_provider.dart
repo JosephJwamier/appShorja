@@ -38,10 +38,14 @@ class LocationProvider extends ChangeNotifier {
   double? _currentLat;
   double? _currentLng;
   bool _gpsReady = false;
+  GpsDenial _gpsDenial = GpsDenial.none;
 
   double? get currentLat => _currentLat;
   double? get currentLng => _currentLng;
   bool get gpsReady => _gpsReady;
+
+  /// سبب تعذّر الموقع — تعرضه الخريطة مع علاجه بدل أن تصمت على بغداد.
+  GpsDenial get gpsDenial => _gpsDenial;
 
   // ── Map settings ────────────────────────────────────────────────────────
   double _radiusKm = 10.0;
@@ -52,16 +56,32 @@ class LocationProvider extends ChangeNotifier {
 
   // ── GPS init ─────────────────────────────────────────────────────────────
   Future<void> initGps() async {
+    // يُطلب الإذن أولاً ويُحتفظ بسبب الرفض: getCurrentPosition وحدها
+    // تُرجع null لثلاثة أسباب مختلفة، ولا شيء يميّزها بعدها.
+    _gpsDenial = await _gps.ensurePermission();
+    if (_gpsDenial != GpsDenial.none) {
+      _gpsReady = false;
+      notifyListeners();
+      return;
+    }
+
     final position = await _gps.getCurrentPosition();
     if (position != null) {
       _currentLat = position.latitude;
       _currentLng = position.longitude;
       _gpsReady = true;
     } else {
+      // الإذن مُنح لكن القراءة فشلت (مهلة، أو جهاز بلا إشارة بعد).
       _gpsReady = false;
     }
     notifyListeners();
   }
+
+  /// يُعيد المحاولة بعد أن يعالج المستخدم السبب (شغّل الخدمة أو منح الإذن).
+  Future<void> retryGps() => initGps();
+
+  Future<void> openLocationSettings() => _gps.openLocationSettings();
+  Future<void> openAppSettings() => _gps.openAppSettings();
 
   // ── My locations CRUD ────────────────────────────────────────────────────
   Future<void> loadMyLocations(String token) async {

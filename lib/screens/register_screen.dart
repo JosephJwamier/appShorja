@@ -18,7 +18,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -32,7 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _usernameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -56,7 +54,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final chatsProvider = Provider.of<ChatsProvider>(context, listen: false);
     final success = await auth.register(
-      username: _usernameController.text.trim(),
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
       email: _emailController.text.trim(),
@@ -165,24 +162,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'الاسم الثاني مطلوب';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // اسم المستخدم
-                          TextFormField(
-                            controller: _usernameController,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(color: AppColors.onSurface),
-                            decoration: _fieldDecoration('اسم المستخدم'),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'اسم المستخدم مطلوب';
-                              }
-                              if (value.trim().length < 3) {
-                                return 'اسم المستخدم قصير جداً';
                               }
                               return null;
                             },

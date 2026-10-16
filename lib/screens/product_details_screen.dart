@@ -31,6 +31,8 @@ import 'reservation_sheet.dart';
 import 'make_offer_sheet.dart';
 import '../widgets/store/store_badges.dart';
 import '../utils/auth_gate.dart';
+import '../utils/item_condition.dart';
+import '../widgets/image_gallery_viewer.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final FixedListing listing;
@@ -359,20 +361,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  String _conditionLabel(String c) {
-    switch (c) {
-      case 'new':
-        return 'جديد';
-      case 'like_new':
-        return 'شبه جديد';
-      case 'good':
-        return 'جيّد';
-      case 'used':
-        return 'مستعمل';
-      default:
-        return c;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +377,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         quantity: _quantity,
         onReserve: _openReservationSheet,
         onToggleFavorite: _toggleFavorite,
-        conditionLabel: _conditionLabel,
+        conditionLabel: conditionLabel,
         eligibleCoupons: _eligibleCoupons,
         selectedCoupon: _selectedCoupon,
         onPickCoupon: _openCouponPicker,
@@ -1682,14 +1670,24 @@ class _ImageCarouselState extends State<_ImageCarousel> {
             itemCount: widget.images.length,
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (context, index) {
-              return AppNetworkImage(
-                widget.images[index],
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surfaceContainer,
-                  child: const Icon(Icons.broken_image,
-                      size: 80, color: AppColors.outline),
+              return GestureDetector(
+                // يفتح على الصورة المضغوطة لا على الأولى: شريط المنتج
+                // يقصّ الصور لتملأ العرض، ومن يريد تفحّص بضاعة قبل
+                // الدفع يحتاجها كاملة وبإمكان التكبير.
+                onTap: () => ImageGalleryViewer.open(
+                  context,
+                  images: widget.images,
+                  initialIndex: index,
+                ),
+                child: AppNetworkImage(
+                  widget.images[index],
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.surfaceContainer,
+                    child: const Icon(Icons.broken_image,
+                        size: 80, color: AppColors.outline),
+                  ),
                 ),
               );
             },
