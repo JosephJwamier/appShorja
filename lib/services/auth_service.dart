@@ -199,55 +199,6 @@ class AuthService {
     return (success: false, message: _extractError(response, 'رمز غير صحيح'));
   }
 
-  /// Marks the phone verified from a Firebase ID token carrying a verified
-  /// `phone_number` claim — see [FirebasePhoneAuth]. The SMS itself is sent
-  /// by Firebase from the device; the server's only job is to check the token
-  /// and confirm its phone matches this account's.
-  Future<({bool success, String message})> verifyPhoneWithFirebase({
-    required String accessToken,
-    required String idToken,
-  }) async {
-    final response = await _client.post(
-      '/auth/verify-phone/',
-      body: {'id_token': idToken},
-    );
-    if (response.statusCode == 200) {
-      return (success: true, message: 'تم تفعيل رقم هاتفك');
-    }
-    return (success: false, message: _extractError(response, 'تعذّر تفعيل الرقم'));
-  }
-
-  /// Legacy server-generated SMS code (Twilio). Superseded by
-  /// [verifyPhoneWithFirebase] and no longer called from the app — kept
-  /// because the endpoint still accepts it, so an older build in the wild
-  /// keeps working.
-  Future<({bool success, String message})> sendPhoneVerificationCode({
-    required String accessToken,
-  }) async {
-    final response = await _client.get('/auth/verify-phone/');
-    if (response.statusCode == 200) {
-      return (success: true, message: 'تم إرسال رمز التحقق برسالة نصية');
-    }
-    return (success: false, message: _extractError(response, 'تعذّر إرسال رمز التحقق'));
-  }
-
-  Future<({bool success, String message})> verifyPhoneCode({
-    required String accessToken,
-    required String code,
-  }) async {
-    final response = await _client.post(
-      '/auth/verify-phone/',
-      body: {'code': code},
-    );
-    if (response.statusCode == 200) {
-      return (success: true, message: 'تم تفعيل رقم هاتفك');
-    }
-    return (success: false, message: _extractError(response, 'رمز غير صحيح'));
-  }
-
-  /// Requests a password-reset code by email (no auth — used from the
-  /// login screen). Always reports success to avoid revealing whether the
-  /// email is registered.
   /// الملف الشخصي للمستخدم الحالي.
   ///
   /// يُستعمل حين تُستعاد جلسة برمز بلا مستخدم محفوظ — فالخادم هو المصدر
@@ -259,22 +210,64 @@ class AuthService {
     return User.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  /// Resets a password with proof of holding the account's phone.
+  /// يطلب من الخادم إرسال رمز تحقّق عبر واتساب (Wevlix).
   ///
-  /// The only route open to the many accounts that have no email. There is
-  /// no code to send or compare here: Firebase Phone Auth delivers the SMS
-  /// from the device and [phoneIdToken] is the proof it was received.
+  /// الخادم هو من ينادي المزوّد بمفتاحه السرّي — بعد أن كانت Firebase
+  /// ترسل من الجهاز مباشرة. الفارق أن كل رسالة صارت تمرّ بخادمنا فيحدّها
+  /// ويسجّلها، وهي رسائل تُدفع نقداً.
   ///
-  /// The server answers the same way whether the number has an account or
-  /// not, so a success here does not confirm that one exists — it only
-  /// says the request was well formed.
-  Future<({bool success, String message})> resetPasswordByPhone({
-    required String phoneIdToken,
+  /// [alreadySent] تعني أن رمزاً سارياً موجوداً ولم تُرسَل رسالة ثانية.
+  Future<({bool success, String message, bool alreadySent})> sendPhoneCode({
+    required String phone,
+  }) async {
+    final response = await _client.post(
+      '/auth/phone/send-code/',
+      body: {'phone': phone},
+      auth: false,
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (
+        success: true,
+        message: data['message'] as String? ?? 'أُرسل رمز التحقّق',
+        alreadySent: data['already_sent'] as bool? ?? false,
+      );
+    }
+    return (
+      success: false,
+      message: _extractError(response, 'تعذّر إرسال رمز التحقّق'),
+      alreadySent: false,
+    );
+  }
+
+  /// يوثّق رقم الحساب الحالي بالرمز الذي وصل عبر واتساب.
+  Future<({bool success, String message})> verifyPhoneCode({
+    required String accessToken,
+    required String phone,
+    required String code,
+  }) async {
+    final response = await _client.post(
+      '/auth/phone/verify-code/',
+      body: {'phone': phone, 'code': code},
+    );
+    if (response.statusCode == 200) {
+      return (success: true, message: 'تم توثيق رقم هاتفك');
+    }
+    return (success: false, message: _extractError(response, 'تعذّر توثيق الرقم'));
+  }
+
+  /// يعيد تعيين كلمة المرور بالرمز — الطريق الوحيد لمن لا بريد له.
+  ///
+  /// يردّ الجواب نفسه سواء كان الرقم مسجّلاً أم لا، فلا يصلح لمعرفة أي
+  /// الأرقام تملك حسابات.
+  Future<({bool success, String message})> resetPasswordByCode({
+    required String phone,
+    required String code,
     required String newPassword,
   }) async {
     final response = await _client.post(
-      '/auth/reset-password-phone/',
-      body: {'id_token': phoneIdToken, 'new_password': newPassword},
+      '/auth/reset-password-code/',
+      body: {'phone': phone, 'code': code, 'new_password': newPassword},
       auth: false,
     );
     if (response.statusCode == 200) {

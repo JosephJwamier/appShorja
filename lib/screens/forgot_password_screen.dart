@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'package:flutter/services.dart';
-import '../services/firebase_phone_auth.dart';
 import '../utils/formatters.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -14,7 +13,6 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _service = AuthService();
-  final _phoneAuth = FirebasePhoneAuth();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
@@ -114,13 +112,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _busy = true;
       _error = null;
     });
-    // Firebase تشترط E.164، والمستخدم يكتب محلياً.
-    final result = await _phoneAuth.sendCode(toE164(phone));
+    // الخادم يطبّع الرقم بنفسه، لكن الإرسال بالصيغة المعيارية يُبقي ما
+    // يراه السجلّ مطابقاً لما يُحفظ.
+    final result = await _service.sendPhoneCode(phone: toE164(phone));
     if (!mounted) return;
     setState(() {
       _busy = false;
       if (result.success) {
-        _info = 'أدخل الرمز الذي وصلك برسالة نصية';
+        _info = result.alreadySent
+            ? 'رمز سابق ما زال صالحاً — أدخله'
+            : 'أدخل الرمز الذي وصلك عبر واتساب';
         _step = 1;
       } else {
         _error = result.message;
@@ -149,21 +150,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _error = null;
     });
 
-    // خطوتان متمايزتان: Firebase تتحقّق من الرمز وتُصدر رمز هوية، ثم
-    // يتحقّق خادمنا من ذلك الرمز ويغيّر كلمة المرور. فشل الأولى خطأ رمز،
-    // وفشل الثانية شيء آخر تماماً — ولهذا تُعرض رسالتاهما منفصلتين.
-    final confirmed = await _phoneAuth.confirmCode(code);
-    if (!mounted) return;
-    if (!confirmed.success || confirmed.idToken == null) {
-      setState(() {
-        _busy = false;
-        _error = confirmed.message;
-      });
-      return;
-    }
-
-    final result = await _service.resetPasswordByPhone(
-      phoneIdToken: confirmed.idToken!,
+    // نداء واحد: الخادم يتحقّق من الرمز مع Wevlix ويغيّر كلمة المرور في
+    // الطلب نفسه. كان هذا خطوتين حين كانت Firebase تتحقّق على الجهاز.
+    final result = await _service.resetPasswordByCode(
+      phone: toE164(_phoneController.text.trim()),
+      code: code,
       newPassword: newPassword,
     );
     if (!mounted) return;
