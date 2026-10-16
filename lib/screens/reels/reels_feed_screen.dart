@@ -17,6 +17,7 @@ import '../../widgets/reels/reel_video_pager.dart';
 import '../product_details_screen.dart';
 import '../store_profile_screen.dart';
 import 'my_reels_screen.dart';
+import '../create_store_screen.dart';
 
 /// Public TikTok/Reels-style feed. Video playback, the controller window and
 /// the mute preference all live in [ReelVideoPager]; what's left here is what
@@ -275,7 +276,45 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
   }
 
   Widget _buildTopBar(bool hasStore) {
-    if (!hasStore) return const SizedBox.shrink();
+    // بلا متجر: دعوة لإنشائه لا فراغ. الإخفاء الصامت كان يجعل التاجر
+    // يبحث عن زرّ النشر في كل شاشة ثم يستنتج أن الميزة معطّلة — بينما
+    // الشرط بسيط ويمكن تحقيقه في دقيقة.
+    if (!hasStore) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateStoreScreen()),
+              ),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.storefront_outlined,
+                        color: Colors.white, size: 16),
+                    SizedBox(width: 6),
+                    Text('أنشئ متجرك لتنشر ريلز',
+                        style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     // A labelled pill rather than a bare icon: this is now the only way into
     // posting a reel (the create-FAB used to sit on this screen), so it has
     // to read as an entry point, not as a decorative glyph.

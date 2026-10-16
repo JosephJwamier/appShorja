@@ -12,6 +12,7 @@ import '../../widgets/media/media_tab_switcher.dart';
 import 'create_live_session_screen.dart';
 import 'live_broadcast_screen.dart';
 import 'live_viewer_screen.dart';
+import '../create_store_screen.dart';
 
 class LiveSessionsScreen extends StatefulWidget {
   /// `true` عندما تعيش الشاشة داخل `MediaHubScreen`: يختفي شريط التطبيق لأن
@@ -104,8 +105,21 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
               title: const Text('البث المباشر',
                   style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-      floatingActionButton: hasStore
+      // بلا متجر: زرّ يقود إلى إنشائه بدل غياب يُقرأ كعطل. نفس علاج
+      // شريط الريلز — الشرط قابل للتحقيق، فيُعرض الطريق إليه.
+      floatingActionButton: !hasStore
           ? FloatingActionButton.extended(
+              heroTag: 'liveSessionsCreateStoreFab',
+              backgroundColor: AppColors.primaryContainer,
+              icon: const Icon(Icons.storefront_outlined, color: Colors.white),
+              label: const Text('أنشئ متجرك للبث',
+                  style: TextStyle(color: Colors.white)),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateStoreScreen()),
+              ),
+            )
+          : FloatingActionButton.extended(
               heroTag: 'liveSessionsGoLiveFab',
               backgroundColor: AppColors.error,
               icon: _checkingMyLiveSession
@@ -117,8 +131,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
                   : const Icon(Icons.videocam, color: Colors.white),
               label: const Text('بثّ الآن', style: TextStyle(color: Colors.white)),
               onPressed: _checkingMyLiveSession ? null : _goLivePressed,
-            )
-          : null,
+            ),
       body: SafeArea(
         // في الوضع المستقل يتكفّل AppBar بحشوة شريط الحالة. وفي الوضع المدمج
         // لا AppBar، فنأخذ الحشوة من هنا ثم نُزيح بارتفاع المبدّل العائم فوقنا.
