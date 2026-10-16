@@ -5,6 +5,7 @@ import '../screens/active_representatives_screen.dart';
 import '../screens/auction_details_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/received_requests_screen.dart';
+import '../screens/reels/my_reels_screen.dart';
 import '../screens/resale_agreements_screen.dart';
 import '../screens/reservations_screen.dart';
 import '../screens/sent_requests_screen.dart';
@@ -109,6 +110,18 @@ Future<void> navigateForNotificationTap(
     case 'resale_agreement_cancelled':
       navigator.push(
         MaterialPageRoute(builder: (_) => const ResaleAgreementsScreen()),
+      );
+      return;
+
+    case 'reel_liked':
+    case 'reel_comment':
+      // إلى «ريلزاتي» لا إلى موجز الريلز: الإشعار يخصّ ريلاً يملكه
+      // المستخدم، وهناك يرى إعجاباته وتعليقاته ويردّ عليها.
+      //
+      // بلا هذا الفرع كان الإشعاران يسقطان على الافتراضي أدناه فيفتحان
+      // قائمة الإشعارات — أي يعيدان المستخدم إلى حيث ضغط.
+      navigator.push(
+        MaterialPageRoute(builder: (_) => const MyReelsScreen()),
       );
       return;
   }
