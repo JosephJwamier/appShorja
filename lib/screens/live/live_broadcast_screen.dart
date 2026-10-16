@@ -391,6 +391,34 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     // clears _liveAuction and shows the result — nothing more to do here.
   }
 
+  /// البائع يبدأ على الكاميرا الخلفية (Agora تفتحها افتراضياً) لأنها
+  /// التي تصوّر البضاعة — لكنه يحتاج الأمامية ليخاطب المشاهدين بوجهه،
+  /// ثم يعود. وبلا مبدّل كان عليه إنهاء البث وبدء غيره.
+  bool _usingFrontCamera = false;
+  bool _switchingCamera = false;
+
+  Future<void> _switchCamera() async {
+    final engine = _engine;
+    // أثناء التبديل تُغلق الكاميرا وتُفتح الأخرى؛ ضغطتان متتابعتان
+    // تتداخلان على جهاز بطيء وقد تُجمّد المعاينة.
+    if (engine == null || _switchingCamera) return;
+
+    setState(() => _switchingCamera = true);
+    try {
+      await engine.switchCamera();
+      if (mounted) setState(() => _usingFrontCamera = !_usingFrontCamera);
+    } catch (e) {
+      if (!mounted) return;
+      // لا يُنهى البث لأجل كاميرا: الفشل هنا يعني أن الجهاز لا يملك
+      // عدستين أو أن إحداهما مشغولة — والبث قائم على الأخرى كما هو.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر تبديل الكاميرا')),
+      );
+    } finally {
+      if (mounted) setState(() => _switchingCamera = false);
+    }
+  }
+
   Future<void> _endSession() async {
     setState(() => _isEnding = true);
     final result = await _service.endSession(accessToken: _accessToken, sessionId: widget.sessionId);
@@ -527,6 +555,14 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
             style: TextButton.styleFrom(backgroundColor: AppColors.error.withValues(alpha: 0.85)),
           ),
           const Spacer(),
+          // مع المؤشّرات لا في الأسفل: إبهام الباثّ يستقرّ هنا وهو ممسك
+          // بالهاتف، وأسفل الشاشة مزدحم بالتعليقات وأزرار العرض.
+          _CameraSwitchButton(
+            front: _usingFrontCamera,
+            busy: _switchingCamera,
+            onTap: _switchCamera,
+          ),
+          const SizedBox(width: 6),
           _StatChip(icon: Icons.favorite, label: '${session.likesCount}'),
           const SizedBox(width: 6),
           GestureDetector(
@@ -693,6 +729,51 @@ class _StatChip extends StatelessWidget {
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
       ]),
+    );
+  }
+}
+
+
+/// مبدّل الكاميرا أثناء البث.
+class _CameraSwitchButton extends StatelessWidget {
+  final bool front;
+  final bool busy;
+  final VoidCallback onTap;
+
+  const _CameraSwitchButton({
+    required this.front,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.45),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: busy ? null : onTap,
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: busy
+              ? const Padding(
+                  padding: EdgeInsets.all(9),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              // الأيقونة تصف الفعل لا الحالة: من يرى «كاميرا أمامية»
+              // لا يعرف أهي الحالية أم ما سينتقل إليه.
+              : Tooltip(
+                  message: front
+                      ? 'التبديل إلى الكاميرا الخلفية'
+                      : 'التبديل إلى الكاميرا الأمامية',
+                  child: const Icon(Icons.cameraswitch_outlined,
+                      color: Colors.white, size: 19),
+                ),
+        ),
+      ),
     );
   }
 }
