@@ -21,6 +21,7 @@ import 'disputes_screen.dart';
 import 'print_delivery_label_screen.dart';
 import 'product_details_screen.dart';
 import 'reservation_detail_screen.dart';
+import 'wallet_screen.dart';
 
 class ReservationsScreen extends StatefulWidget {
   const ReservationsScreen({super.key});
@@ -141,6 +142,14 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         ),
       );
       _load();
+    } on InsufficientBalanceException {
+      if (!mounted) return;
+      // المبلغ الناقص يتبع ما اختاره المشتري، لا العربون دائماً: من
+      // اختار الدفع الكامل يحتاج السعر كلّه، وذكر العربون له يضلّله
+      // عن المبلغ الذي عليه شحنه.
+      await _offerTopUp(
+        paymentType == 'deposit' ? r.depositAmount : r.totalPrice,
+      );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -150,6 +159,41 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         ),
       );
     }
+  }
+
+  /// رصيد لا يكفي: يُعرض الطريق لا العائق.
+  ///
+  /// رسالة «رصيدك لا يكفي» وحدها تترك المشتري واقفاً أمام حجز لا يستطيع
+  /// إنهاءه ولا يعرف من أين يبدأ. وبعد العودة من الشحن تُعاد قائمة
+  /// الحجوزات تلقائياً فيجد الحجز بانتظاره بالرصيد الجديد.
+  Future<void> _offerTopUp(double required) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('الرصيد لا يكفي'),
+        content: Text(
+          'المبلغ المطلوب ${formatIqd(required)}، '
+          'ورصيد محفظتك أقلّ منه. اشحن محفظتك ثم أكمل الحجز.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('لاحقاً'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('اشحن المحفظة'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WalletScreen()),
+    );
+    if (mounted) _load();
   }
 
   /// Buyer explicitly wants to change the address (not the silent auto-pick
@@ -239,108 +283,74 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     await prefs.setBool(_paymentExplainerSeenKey, true);
   }
 
-  /// Returns 'deposit', 'full', or null if the user cancelled.
+  /// Returns 'deposit', 'full', or null if the user backed out.
+  ///
+  /// للخيارين ترتيب لا تساوٍ. ما حدّده البائع (عربون أو لا شيء) هو
+  /// الإجراء الأساسي في زرّ بارز، والدفع الكامل بديل في زرّ عادي —
+  /// بعد أن كانا متجاورين بوزن واحد، فيبدو كأن على المشتري أن يقارن
+  /// ويقرّر بينما هو يحاول إنهاء حجز.
+  ///
+  /// 'deposit' مع depositAmount = 0 تعني «لا تقبض شيئاً الآن»: قيمة
+  /// صالحة في الخادم لا حالة ناقصة.
   Future<String?> _pickPaymentType(Reservation r) async {
     await _maybeShowPaymentExplainer();
     if (!mounted) return null;
-    if (r.depositAmount <= 0) {
-      // Seller chose not to take any deposit on this listing — buyer can
-      // either pay nothing now (full amount collected in cash at delivery)
-      // or pay in full immediately if they'd rather not handle cash.
-      return showDialog<String>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('طريقة الدفع'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('لإكمال حجز "${r.item.title}"، اختر طريقة الدفع:'),
-              const SizedBox(height: 12),
-              const Text(
-                'الدفع عند الاستلام: لا شيء الآن',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                '(كامل المبلغ ${formatIqd(r.totalPrice)} كاش عند التوصيل)',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'أو الدفع الآن كاملاً: ${formatIqd(r.totalPrice)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: const Text('إلغاء'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'deposit'),
-              child: const Text('الدفع عند الاستلام'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'full'),
-              child: const Text(
-                'ادفع كاملاً',
-                style: TextStyle(color: AppColors.success),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
 
+    final hasDeposit = r.depositAmount > 0;
     return showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('طريقة الدفع'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(hasDeposit ? 'دفع العربون' : 'الدفع عند التوصيل'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('لإكمال حجز "${r.item.title}"، اختر طريقة الدفع:'),
+            Text('لإكمال حجز "${r.item.title}":'),
             const SizedBox(height: 12),
-            Text(
-              'عربون فقط: ${formatIqd(r.depositAmount)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '(الباقي ${formatIqd(r.totalPrice - r.depositAmount)} كاش عند التوصيل)',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.onSurfaceVariant,
+            if (hasDeposit) ...[
+              Text(
+                'يُخصم الآن من محفظتك: ${formatIqd(r.depositAmount)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'أو السعر كاملاً: ${formatIqd(r.totalPrice)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+              Text(
+                'والباقي ${formatIqd(r.totalPrice - r.depositAmount)} كاش عند التوصيل',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.onSurfaceVariant),
+              ),
+            ] else ...[
+              const Text(
+                'لا يُخصم شيء الآن',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'كامل المبلغ ${formatIqd(r.totalPrice)} كاش عند التوصيل',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.onSurfaceVariant),
+              ),
+            ],
           ],
         ),
+        actionsOverflowButtonSpacing: 4,
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, null),
+            onPressed: () => Navigator.pop(dialogContext, null),
             child: const Text('إلغاء'),
           ),
+          // متاح في الحالتين: من يفضّل ألّا يحمل نقداً عند الباب يدفع
+          // كاملاً الآن من محفظته، سواء طلب البائع عربوناً أو لم يطلب.
           TextButton(
-            onPressed: () => Navigator.pop(context, 'deposit'),
-            child: const Text('عربون فقط'),
+            onPressed: () => Navigator.pop(dialogContext, 'full'),
+            child: Text('ادفع كاملاً ${formatIqd(r.totalPrice)}'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, 'full'),
-            child: const Text('كامل المبلغ'),
+            onPressed: () => Navigator.pop(dialogContext, 'deposit'),
+            child: Text(hasDeposit ? 'ادفع العربون' : 'تأكيد الحجز'),
           ),
         ],
       ),
     );
   }
+
 
   Future<void> _approve(Reservation r) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);

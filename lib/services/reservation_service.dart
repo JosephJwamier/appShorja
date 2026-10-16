@@ -60,6 +60,11 @@ class ReservationService {
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      // الرصيد غير الكافي ليس فشلاً كبقية الأخطاء: له علاج معروف
+      // (شحن المحفظة)، فيُميَّز بنوعه ليستطيع المُستدعي أن يعرضه.
+      if (data['code'] == 'insufficient_balance') {
+        throw InsufficientBalanceException();
+      }
       throw Exception(data['message'] ?? 'فشل إكمال الحجز');
     }
 
@@ -195,4 +200,14 @@ extension DeliveryQuoteApi on ReservationService {
     }
     throw Exception('تعذّر حساب أجرة التوصيل');
   }
+}
+
+/// رصيد المحفظة لا يكفي لدفع العربون.
+///
+/// نوع مستقلّ لا رسالة نصّية: الشاشة تعرض للمشتري طريق الخروج (شحن
+/// المحفظة) بدل أن تخبره بما لا يستطيع فعله. مطابقة نصّ الرسالة كانت
+/// ستنكسر عند أول إعادة صياغة في الخادم.
+class InsufficientBalanceException implements Exception {
+  @override
+  String toString() => 'رصيد المحفظة لا يكفي';
 }

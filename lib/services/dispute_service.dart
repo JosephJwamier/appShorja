@@ -5,7 +5,9 @@ import 'api_client.dart';
 class DisputeService {
   final _client = ApiClient.instance;
 
-  /// نزاعاتي — كل النزاعات التي أنا طرف فيها (شاكياً أو مشكواً بحقّي)
+  /// «الطلبات المرفوضة» في الواجهة — كل النزاعات التي أنا طرف فيها
+  /// (شاكياً أو مشكواً بحقّي). الاسم الداخلي يبقى dispute في المسارات
+  /// والخادم: تغييره كان سيكسر الـ API مقابل تسمية فقط.
   Future<List<Dispute>> fetchMyDisputes({required String accessToken}) async {
     final response = await _client.get('/disputes/');
     if (response.statusCode != 200) {

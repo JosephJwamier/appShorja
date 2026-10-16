@@ -231,7 +231,7 @@ class _FileDisputeScreenState extends State<FileDisputeScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'سيراجع فريق الدعم النزاع ويتخذ القرار المناسب (استرجاع المبلغ أو الدفع للبائع). يمكنك متابعة الحالة من "نزاعاتي".',
+                  'سيراجع فريق الدعم النزاع ويتخذ القرار المناسب (استرجاع المبلغ أو الدفع للبائع). يمكنك متابعة الحالة من "الطلبات المرفوضة".',
                   textAlign: TextAlign.center,
                   style:
                       TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),

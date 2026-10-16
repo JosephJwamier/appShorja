@@ -66,7 +66,7 @@ class _DisputesScreenState extends State<DisputesScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
-          title: const Text('نزاعاتي'),
+          title: const Text('الطلبات المرفوضة'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios),
             onPressed: () => Navigator.pop(context),
@@ -103,9 +103,10 @@ class _DisputesScreenState extends State<DisputesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.gavel_outlined, size: 64, color: AppColors.outline),
+              const Icon(Icons.assignment_late_outlined,
+                  size: 64, color: AppColors.outline),
               const SizedBox(height: 12),
-              const Text('لا توجد نزاعات',
+              const Text('لا توجد طلبات مرفوضة',
                   style: TextStyle(
                       color: AppColors.onSurfaceVariant, fontSize: 15)),
               const SizedBox(height: 8),

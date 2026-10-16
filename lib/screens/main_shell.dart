@@ -383,7 +383,7 @@ class _AccountTab extends StatelessWidget {
             ),
             _AccountTile(
               icon: Icons.gavel_outlined,
-              label: 'نزاعاتي',
+              label: 'الطلبات المرفوضة',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const DisputesScreen()),
