@@ -9,6 +9,7 @@ import '../../widgets/app_network_image.dart';
 import 'create_reel_screen.dart';
 import 'edit_reel_screen.dart';
 import 'my_reel_viewer_screen.dart';
+import '../../widgets/reels/reel_comments_sheet.dart';
 
 /// The store owner's reel management screen — everything they've posted, at
 /// any status (pending_upload/published/failed/archived), and the only place
@@ -20,7 +21,21 @@ import 'my_reel_viewer_screen.dart';
 /// matches "متجري" → "منتجاتي" elsewhere in the app. Reached from a small
 /// icon on ReelsFeedScreen's top bar, shown once the user has a store.
 class MyReelsScreen extends StatefulWidget {
-  const MyReelsScreen({super.key});
+  /// يُفتح هذا الريل فور التحميل، وتُفتح تعليقاته.
+  ///
+  /// مدخل إشعار التعليق. يمرّ من هنا لا من العارض مباشرة لأن دوالّ
+  /// التعديل والحذف تعيش هنا — فتوجيه الإشعار إلى العارض كان سيعني
+  /// نسخة ثانية منها.
+  final int? openCommentsForReelId;
+
+  /// التعليق الذي جاء منه الإشعار — يُظلَّل ويُمرَّر إليه.
+  final int? highlightCommentId;
+
+  const MyReelsScreen({
+    super.key,
+    this.openCommentsForReelId,
+    this.highlightCommentId,
+  });
 
   @override
   State<MyReelsScreen> createState() => _MyReelsScreenState();
@@ -36,7 +51,37 @@ class _MyReelsScreenState extends State<MyReelsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _load();
+      if (mounted) await _openRequestedComments();
+    });
+  }
+
+  /// يفتح الريل المطلوب وتعليقاته — بعد التحميل لأن الفهرس يُحسب من
+  /// القائمة المحمّلة.
+  Future<void> _openRequestedComments() async {
+    final reelId = widget.openCommentsForReelId;
+    if (reelId == null) return;
+
+    final reels = context.read<ReelsProvider>().myReels;
+    final index = reels.indexWhere((r) => r.id == reelId);
+    // الريل قد يكون حُذف أو أُرشف بين وصول الإشعار وفتحه؛ تُترك الشبكة
+    // معروضة بدل شاشة خطأ عن شيء لم يعد موجوداً.
+    if (index < 0) return;
+
+    await _openViewer(index);
+    if (!mounted) return;
+
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    await showReelCommentsSheet(
+      context,
+      reel: reels[index],
+      accessToken: token,
+      currentUserId: context.read<AuthProvider>().user?.id,
+      isStoreOwner: true,
+      highlightCommentId: widget.highlightCommentId,
+    );
   }
 
   Future<void> _load() {

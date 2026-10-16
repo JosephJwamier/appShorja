@@ -17,8 +17,66 @@ typedef OnNotificationTap = void Function(
 OnNotificationReceived? _onNotificationReceived;
 OnNotificationTap? _onNotificationTapCallback;
 
+/// معرّفات أزرار الإشعار. تصل في NotificationResponse.actionId.
+const String kActionCompleteReservation = 'complete_reservation';
+const String kActionDismiss = 'dismiss';
+
+/// بناء إشعار بأزرار من حمولة بيانات.
+///
+/// الخادم يرسل هذا النوع **بلا كتلة notification** عمداً: ما دامت موجودة
+/// يرسم أندرويد الإشعار بنفسه في الخلفية — بلا أزرار ولا سبيل لإضافتها.
+/// فالأزرار تعني أن التطبيق هو من يبني، هنا وفي المقدّمة على السواء.
+Future<void> _showActionableNotification(
+  FlutterLocalNotificationsPlugin plugin,
+  Map<String, dynamic> data,
+) async {
+  final title = data['title'] as String? ?? 'الشورجة';
+  final body = data['body'] as String? ?? '';
+
+  await plugin.show(
+    data['reservation_id'].hashCode,
+    title,
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        'high_importance_channel',
+        'إشعارات الشورجة',
+        channelDescription: 'إشعارات الحجوزات والمزادات والرسائل',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        actions: const [
+          AndroidNotificationAction(
+            kActionCompleteReservation,
+            'أكمل الحجز',
+            showsUserInterface: true, // يفتح التطبيق على الحجز
+          ),
+          AndroidNotificationAction(
+            kActionDismiss,
+            'لاحقاً',
+            cancelNotification: true,
+          ),
+        ],
+      ),
+      iOS: const DarwinNotificationDetails(),
+    ),
+    payload: jsonEncode(data),
+  );
+}
+
 @pragma('vm:entry-point')
 Future<void> _onBackgroundMessage(RemoteMessage message) async {
+  // رسالة بيانات فقط: لا يرسم أندرويد شيئاً، فإن لم نبنِه هنا لم يرَ
+  // المستخدم إشعاراً إطلاقاً.
+  if (message.data['actionable'] == '1') {
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    ));
+    await _showActionableNotification(plugin, message.data);
+    return;
+  }
   debugPrint('[FCM Background] ${message.notification?.title}');
 }
 
@@ -89,6 +147,26 @@ class NotificationService {
       pendingTapType = initial.data['type'] as String? ?? 'general';
       pendingTapData = initial.data;
     }
+
+    // مسار منفصل للإشعارات التفاعلية: هذه يبنيها التطبيق محلياً، فلا
+    // يعرفها getInitialMessage() ولا onMessageOpenedApp — كلاهما يخصّ
+    // إشعارات رسمها FCM. بدون هذا الفرع يفتح الضغط على «أكمل الحجز»
+    // التطبيقَ على الشاشة الرئيسية وكأن الزرّ لم يُضغط.
+    final launch =
+        await _localNotifications.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp ?? false) {
+      final response = launch!.notificationResponse;
+      if (response?.actionId != kActionDismiss && response?.payload != null) {
+        try {
+          final data =
+              jsonDecode(response!.payload!) as Map<String, dynamic>;
+          pendingTapType = data['type'] as String? ?? 'general';
+          pendingTapData = data;
+        } catch (e) {
+          debugPrint('[FCM] Bad launch payload: $e');
+        }
+      }
+    }
   }
 
   static const _permissionRequestedKey = 'notification_permission_requested';
@@ -122,6 +200,19 @@ class NotificationService {
   }
 
   static void _onForegroundMessage(RemoteMessage message) {
+    // تفاعليّ: يُبنى بأزراره حتى في المقدّمة، وبيانات فقط تعني أن
+    // message.notification فارغة فلا يصلح الفرع أدناه أصلاً.
+    if (message.data['actionable'] == '1') {
+      _showActionableNotification(_localNotifications, message.data);
+      _onNotificationReceived?.call(
+        message.data['title'] as String? ?? '',
+        message.data['body'] as String? ?? '',
+        message.data['type'] as String? ?? 'general',
+        message.data,
+      );
+      return;
+    }
+
     final notification = message.notification;
     if (notification == null) return;
 
@@ -168,6 +259,10 @@ class NotificationService {
   static void _onLocalNotificationTap(NotificationResponse response) {
     final payload = response.payload;
     if (payload == null) return;
+    // «لاحقاً» يُغلق الإشعار ولا يفتح شيئاً: من ضغطه قال إنه مشغول،
+    // وفتح التطبيق عليه يناقض ما طلبه.
+    if (response.actionId == kActionDismiss) return;
+
     try {
       final data = jsonDecode(payload) as Map<String, dynamic>;
       final type = data['type'] as String? ?? 'general';

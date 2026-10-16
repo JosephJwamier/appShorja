@@ -73,8 +73,10 @@ Future<void> navigateForNotificationTap(
       // must now choose full payment vs. deposit+cash-at-delivery (same
       // choice as any other reservation) — so this lands on the
       // reservations list too, not the auction page. There's no
-      // single-reservation detail screen yet, so the list is the best
-      // available destination for all of these.
+      // single-reservation detail screen reachable by id — ReservationDetail
+      // takes a built Reservation plus its callbacks — so the list is the
+      // best available destination for all of these. The pending one sits
+      // at the top of it, which is where "أكمل الحجز" needs to land.
       navigator.push(
         MaterialPageRoute(builder: (_) => const ReservationsScreen()),
       );
@@ -114,14 +116,24 @@ Future<void> navigateForNotificationTap(
       return;
 
     case 'reel_liked':
-    case 'reel_comment':
       // إلى «ريلزاتي» لا إلى موجز الريلز: الإشعار يخصّ ريلاً يملكه
-      // المستخدم، وهناك يرى إعجاباته وتعليقاته ويردّ عليها.
-      //
-      // بلا هذا الفرع كان الإشعاران يسقطان على الافتراضي أدناه فيفتحان
-      // قائمة الإشعارات — أي يعيدان المستخدم إلى حيث ضغط.
+      // المستخدم، وهناك يرى أرقامه.
       navigator.push(
         MaterialPageRoute(builder: (_) => const MyReelsScreen()),
+      );
+      return;
+
+    case 'reel_comment':
+      // التعليق سؤال ينتظر جواباً، فلا يكفي أن نصل إلى شبكة الريلز:
+      // يُفتح الريل نفسه، ثم ورقة التعليقات، مُمرَّرة إلى التعليق الذي
+      // جاء منه الإشعار ومُظلِّلة له — وإلا بحث صاحبه عنه بين عشرات.
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => MyReelsScreen(
+            openCommentsForReelId: _asInt(data['reel_id']),
+            highlightCommentId: _asInt(data['comment_id']),
+          ),
+        ),
       );
       return;
   }

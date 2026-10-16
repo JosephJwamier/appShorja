@@ -19,6 +19,10 @@ Future<void> showReelCommentsSheet(
   required int? currentUserId,
   required bool isStoreOwner,
   VoidCallback? onCommentPosted,
+  /// التعليق الذي جاء منه الإشعار: تُمرَّر إليه القائمة ويُظلَّل لحظات.
+  /// بدونها يفتح صاحب الريل ورقةً فيها خمسون تعليقاً ويبحث عن الذي
+  /// أُخبر عنه — وهو غالباً سؤال عن البضاعة ينتظر جواباً.
+  int? highlightCommentId,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -33,6 +37,7 @@ Future<void> showReelCommentsSheet(
       currentUserId: currentUserId,
       isStoreOwner: isStoreOwner,
       onCommentPosted: onCommentPosted,
+      highlightCommentId: highlightCommentId,
     ),
   );
 }
@@ -43,6 +48,7 @@ class _ReelCommentsSheet extends StatefulWidget {
   final int? currentUserId;
   final bool isStoreOwner;
   final VoidCallback? onCommentPosted;
+  final int? highlightCommentId;
 
   const _ReelCommentsSheet({
     required this.reel,
@@ -50,6 +56,7 @@ class _ReelCommentsSheet extends StatefulWidget {
     required this.currentUserId,
     required this.isStoreOwner,
     this.onCommentPosted,
+    this.highlightCommentId,
   });
 
   @override
@@ -59,6 +66,7 @@ class _ReelCommentsSheet extends StatefulWidget {
 class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
   final _service = ReelService();
   final _controller = TextEditingController();
+  final _listController = ScrollController();
   List<ReelComment> _comments = [];
   bool _isLoading = true;
   bool _isSending = false;
@@ -82,12 +90,38 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
       );
       if (!mounted) return;
       setState(() => _comments = comments);
+      _scrollToHighlighted();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// يمرّر القائمة إلى التعليق المقصود بعد أول رسم.
+  ///
+  /// تقدير بارتفاع صفّ ثابت لا مفاتيح عامة: الصفوف متفاوتة قليلاً بطول
+  /// النصّ، والتقدير يضع التعليق في الشاشة — والتظليل يُكمل التعريف.
+  /// المفاتيح العامة كانت ستكلّف إدارة قائمة منها لكل تعليق مقابل دقّة
+  /// بضعة بكسلات.
+  void _scrollToHighlighted() {
+    final target = widget.highlightCommentId;
+    if (target == null) return;
+    final index = _comments.indexWhere((c) => c.id == target);
+    if (index < 0) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listController.hasClients) return;
+      const estimatedRowHeight = 68.0;
+      final offset = (index * estimatedRowHeight)
+          .clamp(0.0, _listController.position.maxScrollExtent);
+      _listController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<void> _submit() async {
@@ -126,6 +160,7 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
 
   @override
   void dispose() {
+    _listController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -227,14 +262,23 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
       );
     }
     return ListView.builder(
-      controller: scrollController,
+      // متحكّم خاص لا متحكّم الورقة: التمرير إلى تعليق بعينه يخصّ هذه
+      // القائمة، وتحريك متحكّم الورقة كان سيسحبها لا محتواها.
+      controller: _listController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: _comments.length,
       itemBuilder: (context, index) {
         final comment = _comments[index];
         final canDelete = widget.isStoreOwner || comment.userId == widget.currentUserId;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+        final isHighlighted = comment.id == widget.highlightCommentId;
+        return Container(
+          decoration: isHighlighted
+              ? BoxDecoration(
+                  color: AppColors.primaryContainer.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                )
+              : null,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
