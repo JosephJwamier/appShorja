@@ -248,6 +248,17 @@ class AuthService {
   /// Requests a password-reset code by email (no auth — used from the
   /// login screen). Always reports success to avoid revealing whether the
   /// email is registered.
+  /// الملف الشخصي للمستخدم الحالي.
+  ///
+  /// يُستعمل حين تُستعاد جلسة برمز بلا مستخدم محفوظ — فالخادم هو المصدر
+  /// الوحيد الباقي للاسم والصورة. يُرجع null بدل أن يرمي: هذا استرجاع
+  /// في الخلفية لا فعل طلبه المستخدم، وفشله لا يستحق شاشة خطأ.
+  Future<User?> fetchProfile({required String accessToken}) async {
+    final response = await _client.get('/auth/profile/');
+    if (response.statusCode != 200) return null;
+    return User.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   /// Resets a password with proof of holding the account's phone.
   ///
   /// The only route open to the many accounts that have no email. There is

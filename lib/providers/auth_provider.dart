@@ -99,6 +99,12 @@ class AuthProvider extends ChangeNotifier {
         _user = User.fromJson(
           jsonDecode(savedUserJson) as Map<String, dynamic>,
         );
+      } else {
+        // رمز بلا مستخدم: جلسة نصفها محفوظ. تحدث لمن سجّل بنسخة سابقة
+        // لا تحفظ المستخدم، وقد تحدث إن فشلت كتابة SharedPreferences.
+        // الملف الشخصي يُجلب من الخادم بدل ترك الحساب بلا اسم إلى الأبد
+        // — فلا مخرج للمستخدم غير تسجيل خروج لا يعرف أنه يحتاجه.
+        unawaited(_restoreUserFromServer(savedAccess));
       }
       notifyListeners();
       _startFcmSync(savedAccess);
@@ -110,6 +116,20 @@ class AuthProvider extends ChangeNotifier {
         // Fire-and-forget — don't block auto-login on notification fetch
         notificationsProvider.loadAndSync(_user!.id.toString(), savedAccess);
       }
+    }
+  }
+
+  /// يجلب الملف الشخصي حين يُستعاد رمز بلا مستخدم محفوظ.
+  Future<void> _restoreUserFromServer(String accessToken) async {
+    try {
+      final user = await _authService.fetchProfile(accessToken: accessToken);
+      if (user == null) return;
+      _user = user;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, jsonEncode(user.toJson()));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[Auth] Could not restore profile: $e');
     }
   }
 
@@ -192,6 +212,13 @@ class AuthProvider extends ChangeNotifier {
 
       await _secureStorage.write(key: _accessTokenKey, value: result.accessToken);
       await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken);
+      // كان هذا السطر ناقصاً هنا وموجوداً في login(): الرمزان يُحفظان
+      // في التخزين الآمن والمستخدم في SharedPreferences — مخزنان
+      // منفصلان، فنسيان أحدهما يُنتج جلسة نصفها محفوظ. بعد إعادة فتح
+      // التطبيق كان المسجّل حديثاً يُعتبر داخلاً (الرمز موجود) بلا اسم
+      // ولا صورة (المستخدم مفقود).
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
 
       _isLoading = false;
       notifyListeners();
