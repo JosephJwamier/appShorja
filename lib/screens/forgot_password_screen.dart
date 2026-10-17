@@ -51,6 +51,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
     final result = await _service.requestPasswordResetCode(email: email);
     if (!mounted) return;
+    // لا نتقدّم إلى خطوة الرمز إلا إن كان هناك رمزٌ قادم فعلاً.
+    if (!result.success) {
+      setState(() {
+        _busy = false;
+        _error = result.message;
+      });
+      return;
+    }
     setState(() {
       _busy = false;
       _info = result.message;
