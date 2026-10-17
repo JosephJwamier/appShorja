@@ -148,6 +148,29 @@ class ReelService {
     throw Exception('فشل جلب الريلز');
   }
 
+  /// One store's reels — the grid on its public profile (`?store=<id>`).
+  ///
+  /// Same shape as [fetchFeed], and the same endpoint: the backend narrows
+  /// by store and still returns published rows only, so an archived or
+  /// half-uploaded reel never reaches a visitor. The owner's own view of
+  /// these is [fetchMyReels], which is the one that shows every status.
+  Future<({List<Reel> reels, bool hasMore})> fetchStoreReels({
+    required String accessToken,
+    required int storeId,
+    int page = 1,
+  }) async {
+    final response = await _client.get('/reels/?store=$storeId&page=$page');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final results = data['results'] as List<dynamic>;
+      return (
+        reels: results.map((e) => Reel.fromJson(e as Map<String, dynamic>)).toList(),
+        hasMore: data['next'] != null,
+      );
+    }
+    throw Exception('فشل جلب ريلزات المتجر');
+  }
+
   /// The current store's own reels, any status (pending_upload/published/
   /// failed/archived) — for the owner's management screen.
   Future<List<Reel>> fetchMyReels({required String accessToken}) async {

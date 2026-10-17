@@ -32,6 +32,30 @@ class ReelsProvider extends ChangeNotifier {
   bool get isLoadingMyReels => _isLoadingMyReels;
   String? get myReelsError => _myReelsError;
 
+  // ريلزات متجر واحد — شبكة صفحته العامة كما يراها الزائر.
+  //
+  // قائمة ثالثة مستقلّة، لا إعادة استخدام لـ_reels: الزائر يفتح صفحة
+  // المتجر من داخل الخلاصة نفسها (بالنقر على اسم المتجر فوق الريل)، فلو
+  // كتبنا ريلزات المتجر فوق الخلاصة لوجدها فارغةً — أو فيها متجر واحد —
+  // لحظة رجوعه إليها.
+  List<Reel> _storeReels = [];
+  int? _storeReelsStoreId;
+  bool _isLoadingStoreReels = false;
+  bool _isLoadingMoreStoreReels = false;
+  String? _storeReelsError;
+  int _storeReelsPage = 1;
+  bool _storeReelsHasMore = false;
+
+  List<Reel> get storeReels => _storeReels;
+
+  /// أيّ متجر تخصّ [storeReels] الآن — شاشة المتجر تقرأه لتتأكّد أن ما
+  /// تعرضه يخصّها هي، لا متجراً فُتح قبلها وما زالت قائمته محمّلة.
+  int? get storeReelsStoreId => _storeReelsStoreId;
+  bool get isLoadingStoreReels => _isLoadingStoreReels;
+  bool get isLoadingMoreStoreReels => _isLoadingMoreStoreReels;
+  String? get storeReelsError => _storeReelsError;
+  bool get storeReelsHasMore => _storeReelsHasMore;
+
   Future<void> loadFeed({required String accessToken}) async {
     _isLoading = true;
     _errorMessage = null;
@@ -69,32 +93,37 @@ class ReelsProvider extends ChangeNotifier {
     }
   }
 
-  /// Optimistic local toggle so the feed's like button feels instant; the
-  /// actual REST call happens from the feed screen. Patches both lists
-  /// since the same reel can appear in the public feed and in "my reels".
-  void applyLikeUpdate(int reelId, bool isLiked, int likesCount) {
+  /// يطبّق تعديلاً على الريل أينما كان في القوائم الثلاث.
+  ///
+  /// الريل الواحد قد يكون في ثلاثتها معاً: صاحب متجر يتصفّح الخلاصة، فيرى
+  /// ريله فيها وفي «ريلزاتي» وفي شبكة صفحة متجره. ترقيع واحدة دون أخرى
+  /// يعني رقمين مختلفين للشيء نفسه على شاشتين متجاورتين.
+  bool _patchEverywhere(int reelId, Reel Function(Reel) transform) {
     var changed = false;
-    final index = _reels.indexWhere((r) => r.id == reelId);
-    if (index != -1) {
-      _reels[index] = _reels[index].copyWith(isLikedByMe: isLiked, likesCount: likesCount);
-      changed = true;
+    for (final list in [_reels, _myReels, _storeReels]) {
+      final index = list.indexWhere((r) => r.id == reelId);
+      if (index != -1) {
+        list[index] = transform(list[index]);
+        changed = true;
+      }
     }
-    final myIndex = _myReels.indexWhere((r) => r.id == reelId);
-    if (myIndex != -1) {
-      _myReels[myIndex] =
-          _myReels[myIndex].copyWith(isLikedByMe: isLiked, likesCount: likesCount);
-      changed = true;
+    return changed;
+  }
+
+  /// Optimistic local toggle so the feed's like button feels instant; the
+  /// actual REST call happens from the feed screen.
+  void applyLikeUpdate(int reelId, bool isLiked, int likesCount) {
+    if (_patchEverywhere(
+        reelId, (r) => r.copyWith(isLikedByMe: isLiked, likesCount: likesCount))) {
+      notifyListeners();
     }
-    if (changed) notifyListeners();
   }
 
   /// Bumps the visible comment counter right after a successful post —
   /// avoids a full reel refetch just to keep the overlay's count in sync.
   void applyCommentPosted(int reelId) {
-    final index = _reels.indexWhere((r) => r.id == reelId);
-    if (index != -1) {
-      _reels[index] =
-          _reels[index].copyWith(commentsCount: _reels[index].commentsCount + 1);
+    if (_patchEverywhere(
+        reelId, (r) => r.copyWith(commentsCount: r.commentsCount + 1))) {
       notifyListeners();
     }
   }
@@ -115,28 +144,87 @@ class ReelsProvider extends ChangeNotifier {
   }
 
   /// Called after a successful owner edit (caption / tagged product) —
-  /// swaps the reel in both lists so the open feed reflects the change
-  /// without a refetch that would reset the viewer's scroll position.
+  /// swaps the reel wherever it is listed so an open feed or grid reflects
+  /// the change without a refetch that would reset the scroll position.
   void applyReelUpdate(Reel updated) {
-    var changed = false;
-    final index = _reels.indexWhere((r) => r.id == updated.id);
-    if (index != -1) {
-      _reels[index] = updated;
-      changed = true;
-    }
-    final myIndex = _myReels.indexWhere((r) => r.id == updated.id);
-    if (myIndex != -1) {
-      _myReels[myIndex] = updated;
-      changed = true;
-    }
-    if (changed) notifyListeners();
+    if (_patchEverywhere(updated.id, (_) => updated)) notifyListeners();
   }
 
-  /// Called after a successful permanent delete — removes it from both lists
-  /// locally instead of a full refetch.
+  /// Called after a successful permanent delete — removes it from every
+  /// list locally instead of a full refetch.
   void removeReelLocally(int reelId) {
     _reels.removeWhere((r) => r.id == reelId);
     _myReels.removeWhere((r) => r.id == reelId);
+    _storeReels.removeWhere((r) => r.id == reelId);
+    notifyListeners();
+  }
+
+  // ---- ريلزات متجر واحد ---------------------------------------------------
+
+  /// يحمّل الصفحة الأولى من ريلزات [storeId].
+  ///
+  /// يبدّل القائمة كاملةً لا يضيف إليها: فتح متجرٍ ثانٍ يعني شبكةً أخرى،
+  /// ودمجهما كان سيعرض ريلزات متجر في صفحة غيره.
+  Future<void> loadStoreReels({
+    required String accessToken,
+    required int storeId,
+  }) async {
+    _isLoadingStoreReels = true;
+    _storeReelsError = null;
+    _storeReelsStoreId = storeId;
+    _storeReelsPage = 1;
+    notifyListeners();
+
+    try {
+      final result = await _service.fetchStoreReels(
+          accessToken: accessToken, storeId: storeId);
+      // المتجر قد يكون تبدّل أثناء الطلب (رجوع ثم فتح متجر آخر بسرعة) —
+      // استجابةٌ متأخّرة لمتجرٍ غادره المستخدم لا تُكتب فوق الحالي.
+      if (_storeReelsStoreId != storeId) return;
+      _storeReels = result.reels;
+      _storeReelsHasMore = result.hasMore;
+    } catch (e) {
+      if (_storeReelsStoreId != storeId) return;
+      _storeReels = [];
+      _storeReelsError = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoadingStoreReels = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreStoreReels({required String accessToken}) async {
+    final storeId = _storeReelsStoreId;
+    if (storeId == null || _isLoadingMoreStoreReels || !_storeReelsHasMore) {
+      return;
+    }
+    _isLoadingMoreStoreReels = true;
+    notifyListeners();
+
+    try {
+      final result = await _service.fetchStoreReels(
+          accessToken: accessToken, storeId: storeId, page: _storeReelsPage + 1);
+      if (_storeReelsStoreId != storeId) return;
+      _storeReelsPage++;
+      _storeReels = [..._storeReels, ...result.reels];
+      _storeReelsHasMore = result.hasMore;
+    } catch (_) {
+      // silent fail — existing data stays visible, same as loadMore
+    } finally {
+      _isLoadingMoreStoreReels = false;
+      notifyListeners();
+    }
+  }
+
+  /// تُستدعى عند مغادرة صفحة متجر، فلا تُعرض شبكتُه لمتجرٍ يُفتح بعده قبل
+  /// أن يصل ردُّ طلبه.
+  void clearStoreReels() {
+    if (_storeReels.isEmpty && _storeReelsStoreId == null) return;
+    _storeReels = [];
+    _storeReelsStoreId = null;
+    _storeReelsError = null;
+    _storeReelsHasMore = false;
+    _storeReelsPage = 1;
     notifyListeners();
   }
 

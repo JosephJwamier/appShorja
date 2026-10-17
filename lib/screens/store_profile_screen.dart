@@ -6,9 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/deep_link_config.dart';
 import '../models/auction.dart';
 import '../models/product.dart';
+import '../models/reel.dart';
 import '../models/store.dart';
 import '../models/store_coupon.dart';
 import '../providers/auth_provider.dart';
+import '../providers/reels_provider.dart';
 import '../services/auction_service.dart';
 import '../services/item_service.dart';
 import '../services/notification_service.dart';
@@ -20,6 +22,7 @@ import '../widgets/live/live_store_avatar.dart';
 import '../widgets/report_bottom_sheet.dart';
 import 'auction_details_screen.dart';
 import 'product_details_screen.dart';
+import 'reels/store_reels_viewer_screen.dart';
 import 'store_chat_screen.dart';
 import 'store_reviews_screen.dart';
 import '../widgets/store/store_badges.dart';
@@ -38,7 +41,8 @@ class StoreProfileScreen extends StatefulWidget {
   State<StoreProfileScreen> createState() => _StoreProfileScreenState();
 }
 
-class _StoreProfileScreenState extends State<StoreProfileScreen> {
+class _StoreProfileScreenState extends State<StoreProfileScreen>
+    with TickerProviderStateMixin {
   final _itemService = ItemService();
   final _storeService = StoreService();
   final _searchController = TextEditingController();
@@ -57,15 +61,63 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   late int _followersCount;
   bool _followBusy = false;
 
+  /// موضع تبويب «الريلز» حين يظهر: بعد المنتجات وقبل المزادات. الريلز
+  /// محتوى تصفّح مثل المنتجات، والمزادات معاملة لها منطقها ووقتها.
+  static const int _reelsTabIndex = 3;
+
+  late TabController _tabController;
+
+  /// يبدأ خطأً ويصير صحيحاً مرّةً واحدة: حين يردّ الخادم بأن لهذا المتجر
+  /// ريلزات منشورة. لا يعود خطأً بعدها.
+  bool _showReelsTab = false;
+
   @override
   void initState() {
     super.initState();
     _isFollowing = widget.store.isFollowing;
     _followersCount = widget.store.followersCount;
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadItems();
       _loadAuctionItemIds();
+      _loadStoreReels();
     });
+  }
+
+  /// شبكة الريلز للزائر وحده. صاحب المتجر يدير ريلزاته في MyReelsScreen —
+  /// وهي تعرض كل الحالات (قيد الرفع، فاشل، مؤرشف) وتسمح بالتعديل والحذف،
+  /// فتبويبٌ هنا كان سيكون نسخةً أفقر منها في مكان لا يتوقّعها فيه.
+  Future<void> _loadStoreReels() async {
+    if (_isOwnStore) return;
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    final provider = context.read<ReelsProvider>();
+    await provider.loadStoreReels(
+        accessToken: token, storeId: widget.store.id);
+    if (!mounted || provider.storeReels.isEmpty) return;
+    _revealReelsTab();
+  }
+
+  /// يُضيف تبويب «الريلز» بعد وصول الردّ.
+  ///
+  /// التبويب مخفيّ حتى نعرف، لا ظاهرٌ ثم يُسحب: الريلز اليوم استثناء لا
+  /// قاعدة بين المتاجر، فالإظهار المتفائل كان سيعني تبويباً يختفي في أغلب
+  /// الصفحات — واختفاء تبويب أسوأ وقعاً من ظهوره. وحجب الشريط كلّه حتى
+  /// يصل الردّ كان سيؤخّر كل صفحة متجر من أجل تبويب لا يخصّ أغلبها.
+  ///
+  /// المتحكّم يُستبدل لأن طول TabController لا يتغيّر بعد إنشائه — ويُنقل
+  /// إليه التبويب المفتوح بدل الرجوع إلى الأول: المستخدم قد يكون بلغ
+  /// «عن المتجر» قبل وصول الردّ، وإعادةُ ضبطه كانت سترميه من حيث يقرأ.
+  void _revealReelsTab() {
+    final previous = _tabController;
+    final movedIndex =
+        previous.index >= _reelsTabIndex ? previous.index + 1 : previous.index;
+    _tabController =
+        TabController(length: 6, vsync: this, initialIndex: movedIndex);
+    setState(() => _showReelsTab = true);
+    // بعد انتهاء هذا الإطار: التخلّص منه الآن يترك شريط التبويبات القديم
+    // يقرأ متحكّماً مُتخلَّصاً منه أثناء بنائه.
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
   }
 
   Future<void> _loadAuctionItemIds() async {
@@ -88,6 +140,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _tabController.dispose();
+    // شبكة هذا المتجر لا تخصّ المتجر الذي يُفتح بعده — تُمسح هنا فلا تظهر
+    // ريلزاتُه لحظةً في صفحة غيره قبل وصول ردّ طلبها.
+    context.read<ReelsProvider>().clearStoreReels();
     super.dispose();
   }
 
@@ -174,13 +230,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _filteredItems;
+    final showReels = _showReelsTab;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.surface,
-        body: DefaultTabController(
-          length: 5,
-          child: NestedScrollView(
+        body: NestedScrollView(
             headerSliverBuilder: (context, _) => [
               SliverToBoxAdapter(
                 child: _CoverHeader(
@@ -209,27 +264,30 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabBarDelegate(
-                  const TabBar(
+                  TabBar(
+                    controller: _tabController,
                     isScrollable: true,
                     labelColor: AppColors.primary,
                     unselectedLabelColor: AppColors.onSurfaceVariant,
                     indicatorColor: AppColors.primary,
                     indicatorWeight: 3,
-                    labelStyle:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    unselectedLabelStyle: TextStyle(fontSize: 15),
+                    labelStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.bold),
+                    unselectedLabelStyle: const TextStyle(fontSize: 15),
                     tabs: [
-                      Tab(text: 'الرئيسية'),
-                      Tab(text: 'كل المنتجات'),
-                      Tab(text: 'وصل حديثاً'),
-                      Tab(text: 'المزادات'),
-                      Tab(text: 'عن المتجر'),
+                      const Tab(text: 'الرئيسية'),
+                      const Tab(text: 'كل المنتجات'),
+                      const Tab(text: 'وصل حديثاً'),
+                      if (showReels) const Tab(text: 'الريلز'),
+                      const Tab(text: 'المزادات'),
+                      const Tab(text: 'عن المتجر'),
                     ],
                   ),
                 ),
               ),
             ],
             body: TabBarView(
+              controller: _tabController,
               children: [
                 _HomeTab(
                   store: widget.store,
@@ -252,11 +310,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                   onRetry: _loadItems,
                   sort: _SortMode.newest,
                 ),
+                if (showReels) _StoreReelsTab(store: widget.store),
                 _StoreAuctionsTab(ownerUsername: widget.store.user.username),
                 _StoreAboutTab(store: widget.store),
               ],
             ),
-          ),
         ),
       ),
     );
@@ -1128,6 +1186,188 @@ class _DesignProductCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 // تبويب المزادات
 // ══════════════════════════════════════════════════════════════
+/// شبكة ريلزات المتجر كما يراها الزائر.
+///
+/// القائمة محمَّلة سلفاً في [ReelsProvider] — الشاشة الأمّ تطلبها عند
+/// الفتح لتعرف إن كان التبويب يظهر أصلاً، فلا طلب ثانٍ هنا. ما يبقى لهذا
+/// التبويب هو العرض، والتحميل عند الوصول إلى آخر الشبكة، وفتح العارض.
+class _StoreReelsTab extends StatefulWidget {
+  final Store store;
+  const _StoreReelsTab({required this.store});
+
+  @override
+  State<_StoreReelsTab> createState() => _StoreReelsTabState();
+}
+
+class _StoreReelsTabState extends State<_StoreReelsTab>
+    with AutomaticKeepAliveClientMixin {
+  final _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    // صفّان تقريباً قبل النهاية — الصفحة التالية تصل قبل أن يبلغ القاع.
+    if (position.pixels < position.maxScrollExtent - 400) return;
+    final provider = context.read<ReelsProvider>();
+    if (!provider.storeReelsHasMore || provider.isLoadingMoreStoreReels) return;
+    final token = context.read<AuthProvider>().accessToken;
+    if (token != null) provider.loadMoreStoreReels(accessToken: token);
+  }
+
+  Future<void> _refresh() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    await context
+        .read<ReelsProvider>()
+        .loadStoreReels(accessToken: token, storeId: widget.store.id);
+  }
+
+  void _openViewer(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoreReelsViewerScreen(
+          store: widget.store,
+          initialIndex: index,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final provider = context.watch<ReelsProvider>();
+    final reels = provider.storeReels;
+
+    if (provider.isLoadingStoreReels && reels.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (provider.storeReelsError != null && reels.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline,
+                  color: AppColors.onSurfaceVariant, size: 40),
+              const SizedBox(height: 8),
+              Text(provider.storeReelsError!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                  onPressed: _refresh, child: const Text('إعادة المحاولة')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: GridView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 0.6,
+        ),
+        itemCount: reels.length,
+        itemBuilder: (context, index) => _StoreReelTile(
+          reel: reels[index],
+          onTap: () => _openViewer(index),
+        ),
+      ),
+    );
+  }
+}
+
+/// بلاطة ريل في شبكة الزائر — الصورة المصغّرة وعدّاد المشاهدات.
+///
+/// بلا شارة حالة ولا زرّ ⋮، بخلاف بلاطة صاحب المتجر: الزائر لا يرى إلا
+/// المنشور، ولا يملك عليه تعديلاً ولا حذفاً.
+class _StoreReelTile extends StatelessWidget {
+  final Reel reel;
+  final VoidCallback onTap;
+
+  const _StoreReelTile({required this.reel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(10),
+          border:
+              Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            reel.thumbnailUrl != null
+                ? AppNetworkImage(reel.thumbnailUrl!, fit: BoxFit.cover)
+                : Container(
+                    color: AppColors.surfaceContainer,
+                    child: const Icon(Icons.videocam_outlined,
+                        color: AppColors.onSurfaceVariant),
+                  ),
+            // تدرّج أسفل البلاطة: الصور المصغّرة الفاتحة كانت تبتلع الرقم.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.play_arrow, color: Colors.white, size: 14),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${reel.viewCount}',
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StoreAuctionsTab extends StatefulWidget {
   final String ownerUsername;
   const _StoreAuctionsTab({required this.ownerUsername});
