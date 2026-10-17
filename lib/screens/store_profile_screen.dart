@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/deep_link_config.dart';
 import '../models/auction.dart';
 import '../models/product.dart';
-import '../models/reel.dart';
 import '../models/store.dart';
 import '../models/store_coupon.dart';
 import '../providers/auth_provider.dart';
@@ -22,7 +21,8 @@ import '../widgets/live/live_store_avatar.dart';
 import '../widgets/report_bottom_sheet.dart';
 import 'auction_details_screen.dart';
 import 'product_details_screen.dart';
-import 'reels/store_reels_viewer_screen.dart';
+import 'reels/reel_list_viewer_screen.dart';
+import '../widgets/reels/reel_grid_tile.dart';
 import 'store_chat_screen.dart';
 import 'store_reviews_screen.dart';
 import '../widgets/store/store_badges.dart';
@@ -1241,8 +1241,9 @@ class _StoreReelsTabState extends State<_StoreReelsTab>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StoreReelsViewerScreen(
-          store: widget.store,
+        builder: (_) => ReelListViewerScreen(
+          source: ReelViewerSource.store,
+          title: widget.store.name,
           initialIndex: index,
         ),
       ),
@@ -1288,80 +1289,12 @@ class _StoreReelsTabState extends State<_StoreReelsTab>
           crossAxisCount: 3,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          childAspectRatio: 0.6,
+          childAspectRatio: kReelTileAspectRatio,
         ),
         itemCount: reels.length,
-        itemBuilder: (context, index) => _StoreReelTile(
+        itemBuilder: (context, index) => ReelGridTile(
           reel: reels[index],
           onTap: () => _openViewer(index),
-        ),
-      ),
-    );
-  }
-}
-
-/// بلاطة ريل في شبكة الزائر — الصورة المصغّرة وعدّاد المشاهدات.
-///
-/// بلا شارة حالة ولا زرّ ⋮، بخلاف بلاطة صاحب المتجر: الزائر لا يرى إلا
-/// المنشور، ولا يملك عليه تعديلاً ولا حذفاً.
-class _StoreReelTile extends StatelessWidget {
-  final Reel reel;
-  final VoidCallback onTap;
-
-  const _StoreReelTile({required this.reel, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(10),
-          border:
-              Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            reel.thumbnailUrl != null
-                ? AppNetworkImage(reel.thumbnailUrl!, fit: BoxFit.cover)
-                : Container(
-                    color: AppColors.surfaceContainer,
-                    child: const Icon(Icons.videocam_outlined,
-                        color: AppColors.onSurfaceVariant),
-                  ),
-            // تدرّج أسفل البلاطة: الصور المصغّرة الفاتحة كانت تبتلع الرقم.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.55),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.play_arrow, color: Colors.white, size: 14),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${reel.viewCount}',
-                      style: const TextStyle(color: Colors.white, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

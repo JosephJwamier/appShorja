@@ -2,46 +2,68 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/reel.dart';
-import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/reels_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../services/item_service.dart';
 import '../../services/reel_service.dart';
+import '../../services/store_service.dart';
+import '../../utils/auth_gate.dart';
 import '../../utils/share_helper.dart';
 import '../../widgets/reels/reel_comments_sheet.dart';
 import '../../widgets/reels/reel_overlay.dart';
 import '../../widgets/reels/reel_video_pager.dart';
 import '../product_details_screen.dart';
+import '../store_profile_screen.dart';
 
-/// A visitor watching one store's reels full-screen, opened by tapping a
-/// tile in the reels tab of that store's profile and starting on that tile.
+/// أي قائمة ريلزات تخصّ المشاهد تملكها [ReelsProvider] — متجرٌ واحد، أو
+/// مفضلته.
+enum ReelViewerSource {
+  /// ريلزات متجر واحد، تُفتح من تبويب «الريلز» في صفحته.
+  store,
+
+  /// الريلز المحفوظة، تُفتح من تبويب الريلز في شاشة المفضلة.
+  saved,
+}
+
+/// A visitor watching a bounded list of reels full-screen, opened by tapping
+/// a tile in a grid and starting on that tile.
 ///
 /// The public [ReelOverlay], same as the feed — a visitor here is an
-/// audience, not an owner, so they get like/comment/share/tagged-product.
-/// What differs from [ReelsFeedScreen] is the list underneath: swiping
-/// stays inside this store's reels instead of wandering into other stores'.
-/// Someone who opened a store and tapped its video asked for *that store*,
-/// and a pager that quietly leaves it loses them the thread.
+/// audience, not an owner, so they get like/comment/save/share/tagged-product.
+/// What differs from [ReelsFeedScreen] is the list underneath: swiping stays
+/// inside the list the visitor opened instead of wandering into the global
+/// feed. Someone who opened a store and tapped its video asked for *that
+/// store*, and someone who opened their bookmarks asked for *those* — a pager
+/// that quietly leaves either loses them the thread.
 ///
 /// Playback, the controller window and the mute preference all live in
 /// [ReelVideoPager]; what this screen owns is the overlay's actions, view
-/// tracking, and paging the store's list as the visitor nears its end.
-class StoreReelsViewerScreen extends StatefulWidget {
-  final Store store;
+/// tracking, and paging its list as the visitor nears its end.
+class ReelListViewerScreen extends StatefulWidget {
+  /// أي قائمة في [ReelsProvider] تُعرض. القائمة تُقرأ من المزوّد لا تُمرَّر
+  /// هنا، فالشبكة التي فتحتنا والعارض يشتركان في مصدرٍ واحد: إلغاء الحفظ
+  /// داخل العارض يُخرج البلاطة من الشبكة تحته بلا إعادة جلب.
+  final ReelViewerSource source;
+
+  /// يُعرض في شريط العنوان: اسم المتجر، أو «المحفوظة». وسمٌ لمكان المشاهد لا
+  /// عنوانٌ للشاشة.
+  final String title;
+
   final int initialIndex;
 
-  const StoreReelsViewerScreen({
+  const ReelListViewerScreen({
     super.key,
-    required this.store,
+    required this.source,
+    required this.title,
     required this.initialIndex,
   });
 
   @override
-  State<StoreReelsViewerScreen> createState() => _StoreReelsViewerScreenState();
+  State<ReelListViewerScreen> createState() => _ReelListViewerScreenState();
 }
 
-class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
+class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
   final _reelService = ReelService();
   Timer? _viewTimer;
 
@@ -70,17 +92,34 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
     if (mounted) setState(() => _isActive = true);
   }
 
+  // ---- القائمة المعروضة --------------------------------------------------
+
+  bool get _isStore => widget.source == ReelViewerSource.store;
+
+  List<Reel> _reelsOf(ReelsProvider p) =>
+      _isStore ? p.storeReels : p.savedReels;
+
+  bool _hasMoreIn(ReelsProvider p) =>
+      _isStore ? p.storeReelsHasMore : p.savedReelsHasMore;
+
+  bool _isLoadingMoreIn(ReelsProvider p) =>
+      _isStore ? p.isLoadingMoreStoreReels : p.isLoadingMoreSavedReels;
+
+  Future<void> _loadMore(ReelsProvider p, String token) => _isStore
+      ? p.loadMoreStoreReels(accessToken: token)
+      : p.loadMoreSavedReels(accessToken: token);
+
   // ---- تتبّع المشاهدة والترقيم ------------------------------------------
 
   void _onPageChanged(int index) {
     _scheduleViewRecord(index);
 
     final provider = context.read<ReelsProvider>();
-    if (index >= provider.storeReels.length - 2 &&
-        provider.storeReelsHasMore &&
-        !provider.isLoadingMoreStoreReels) {
+    if (index >= _reelsOf(provider).length - 2 &&
+        _hasMoreIn(provider) &&
+        !_isLoadingMoreIn(provider)) {
       final token = context.read<AuthProvider>().accessToken;
-      if (token != null) provider.loadMoreStoreReels(accessToken: token);
+      if (token != null) _loadMore(provider, token);
     }
   }
 
@@ -88,7 +127,7 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
   /// يُحسب لمن مرّ عليه مسرعاً. والخادم يتجاهل مشاهدة صاحب الريل نفسه.
   void _scheduleViewRecord(int index) {
     _viewTimer?.cancel();
-    final reels = context.read<ReelsProvider>().storeReels;
+    final reels = _reelsOf(context.read<ReelsProvider>());
     if (index < 0 || index >= reels.length) return;
     final reelId = reels[index].id;
     final token = context.read<AuthProvider>().accessToken;
@@ -101,6 +140,10 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
   // ---- actions ----------------------------------------------------------
 
   Future<void> _toggleLike(Reel reel) async {
+    // البوابة لا `return` صامتة: التطبيق مفتوح للضيوف، وقلبٌ لا يفعل شيئاً
+    // عند الضغط يُقرأ كعطب لا كطلب حساب.
+    if (!await requireAuth(context, reason: 'للإعجاب بهذا الريل')) return;
+    if (!mounted) return;
     final token = context.read<AuthProvider>().accessToken;
     if (token == null) return;
     final provider = context.read<ReelsProvider>();
@@ -122,7 +165,9 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
     }
   }
 
-  void _openComments(Reel reel) {
+  Future<void> _openComments(Reel reel) async {
+    if (!await requireAuth(context, reason: 'للتعليق على هذا الريل')) return;
+    if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final token = auth.accessToken;
     if (token == null) return;
@@ -136,6 +181,63 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
       onCommentPosted: () =>
           context.read<ReelsProvider>().applyCommentPosted(reel.id),
     );
+  }
+
+  /// الحفظ في المفضلة. متفائل كالإعجاب، لكنه يُرجع الحالة عند الفشل: الإشارة
+  /// المرجعية وعدٌ بأن الريل سيكون هناك لاحقاً، وعلامةٌ كاذبة تُكتشف عند فتح
+  /// المفضلة أسوأ من رسالة الآن.
+  Future<void> _toggleSave(Reel reel) async {
+    if (!await requireAuth(context, reason: 'لحفظ هذا الريل في مفضلتك')) return;
+    if (!mounted) return;
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    final provider = context.read<ReelsProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final wasSaved = reel.isSavedByMe;
+
+    provider.applySaveUpdate(reel.id, !wasSaved);
+    try {
+      final saved = await _reelService.setSaved(
+          accessToken: token, reelId: reel.id, saved: !wasSaved);
+      if (!mounted) return;
+      // حالة الخادم لا حالتنا: حفظٌ مكرّر أو إزالةُ ما لم يُحفظ يردّان
+      // الحقيقة النهائية، وقد تخالف ما افترضناه.
+      if (saved != !wasSaved) provider.applySaveUpdate(reel.id, saved);
+    } catch (e) {
+      if (!mounted) return;
+      provider.applySaveUpdate(reel.id, wasSaved);
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  /// صفحة المتجر: رجوعٌ إن كانت تحتنا مباشرة، ودفعٌ إن لم تكن.
+  ///
+  /// المحفوظة تجمع ريلزات متاجر لم يزُرها المشاهد، فالرجوع منها كان سيعيده
+  /// إلى مفضلته بدل أن يُفتح المتجر الذي ضغط اسمه.
+  Future<void> _openStore(Reel reel) async {
+    if (_isStore) {
+      Navigator.maybePop(context);
+      return;
+    }
+    final token = context.read<AuthProvider>().accessToken ?? '';
+    await _runCovered(() async {
+      final store = await StoreService()
+          .fetchStoreById(accessToken: token, storeId: reel.store.id);
+      if (!mounted) return;
+      if (store == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذّر فتح المتجر')),
+        );
+        return;
+      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => StoreProfileScreen(store: store)),
+      );
+    });
   }
 
   void _shareReel(Reel reel) {
@@ -181,7 +283,7 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
         backgroundColor: Colors.black,
         body: Consumer<ReelsProvider>(
           builder: (context, provider, _) {
-            final reels = provider.storeReels;
+            final reels = _reelsOf(provider);
             // القائمة قد تفرغ تحتنا (صاحب المتجر يحذف ريلاً من شاشة أخرى،
             // أو غادر المستخدم المتجر فمُسحت) — نغلق بدل شاشة سوداء.
             if (reels.isEmpty) {
@@ -205,13 +307,11 @@ class _StoreReelsViewerScreenState extends State<StoreReelsViewerScreen> {
                     onLikeToggle: () => _toggleLike(info.reel),
                     onCommentTap: () => _openComments(info.reel),
                     onShareTap: () => _shareReel(info.reel),
+                    onSaveToggle: () => _toggleSave(info.reel),
                     onTagTap: info.reel.hasTaggedItem
                         ? () => _openTaggedItem(info.reel)
                         : null,
-                    // الرجوع لا الدفع: صفحة هذا المتجر هي ما تحتنا مباشرة،
-                    // ودفع نسخة ثانية منها كان سيبني كومةً من الصفحة نفسها
-                    // يخرج منها المستخدم ضغطةً ضغطة.
-                    onStoreTap: () => Navigator.maybePop(context),
+                    onStoreTap: () => _openStore(info.reel),
                   ),
                 ),
                 const _BackButton(),

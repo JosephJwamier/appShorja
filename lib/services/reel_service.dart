@@ -205,6 +205,55 @@ class ReelService {
     }
   }
 
+  /// يضيف الريل إلى مفضلة المشاهد أو يزيله منها.
+  ///
+  /// نداء واحد بمُعامل منطقي لا دالّتان كـ[likeReel]/[unlikeReel]: الزرّ
+  /// تبديليّ ولم يُستدعَ أي اتجاه منه وحده في أي شاشة — نفس شكل
+  /// [ItemService.setFavorite] للمنتجات.
+  ///
+  /// يُرجع حالة الخادم النهائية لا ما طُلب: حفظٌ مكرّر يردّ `is_saved=true`
+  /// وإزالةُ ما لم يُحفظ تردّ `false`، وكلتاهما الحقيقة.
+  Future<bool> setSaved({
+    required String accessToken,
+    required int reelId,
+    required bool saved,
+  }) async {
+    final response =
+        await _client.post('/reels/$reelId/${saved ? 'save' : 'unsave'}/');
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_extractErrorMessage(
+          response,
+          saved ? 'تعذّر حفظ الريل' : 'تعذّر إزالة الريل من المفضلة'));
+    }
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return body['is_saved'] as bool? ?? saved;
+    } catch (_) {
+      return saved;
+    }
+  }
+
+  /// مفضلة المشاهد من الريلز، الأحدث **حفظاً** أولاً — لا الأحدث نشراً.
+  ///
+  /// الخادم يُسقط ما لم يبقَ منشوراً (أرشفه صاحبه أو حُذف)، فقد تعود صفحة
+  /// أقصر من حجمها. وهذا مقصود: إشارةٌ مرجعية تفتح على شاشة سوداء أسوأ من
+  /// إشارةٍ اختفت.
+  Future<({List<Reel> reels, bool hasMore})> fetchSavedReels({
+    required String accessToken,
+    int page = 1,
+  }) async {
+    final response = await _client.get('/reels/saved/?page=$page');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final results = data['results'] as List<dynamic>;
+      return (
+        reels: results.map((e) => Reel.fromJson(e as Map<String, dynamic>)).toList(),
+        hasMore: data['next'] != null,
+      );
+    }
+    throw Exception('فشل جلب الريلز المحفوظة');
+  }
+
   Future<List<ReelComment>> fetchComments({
     required String accessToken,
     required int reelId,

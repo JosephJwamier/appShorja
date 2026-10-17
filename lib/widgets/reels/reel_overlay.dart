@@ -20,6 +20,11 @@ class ReelOverlay extends StatelessWidget {
   final VoidCallback onLikeToggle;
   final VoidCallback onCommentTap;
   final VoidCallback onShareTap;
+
+  /// حفظ الريل في مفضلة المشاهد. اختياري: شاشة مشاهدة المحفوظات نفسها
+  /// تمرّره، أمّا أي مُضيف لا يملك قائمة محفوظات فيُخفي الزرّ بتركه فارغاً
+  /// بدل أن يعرض زرّاً لا يفعل شيئاً.
+  final VoidCallback? onSaveToggle;
   final VoidCallback? onTagTap;
   final VoidCallback onStoreTap;
   final VoidCallback onMuteToggle;
@@ -31,6 +36,7 @@ class ReelOverlay extends StatelessWidget {
     required this.onLikeToggle,
     required this.onCommentTap,
     required this.onShareTap,
+    this.onSaveToggle,
     this.onTagTap,
     required this.onStoreTap,
     required this.onMuteToggle,
@@ -75,6 +81,18 @@ class ReelOverlay extends StatelessWidget {
                   icon: Icons.shopping_bag_outlined,
                   label: 'المنتج',
                   onTap: onTagTap ?? () {},
+                ),
+              ],
+              if (onSaveToggle != null) ...[
+                const SizedBox(height: 18),
+                _ActionButton(
+                  // ممتلئ/فارغ لا تغيّر لون: الحفظ خاصّ، ولون الإعجاب
+                  // الأحمر هنا كان سيجعل الزرّين يُقرآن كشيء واحد.
+                  icon: reel.isSavedByMe
+                      ? Icons.bookmark
+                      : Icons.bookmark_border,
+                  label: reel.isSavedByMe ? 'محفوظ' : 'حفظ',
+                  onTap: onSaveToggle!,
                 ),
               ],
               const SizedBox(height: 18),

@@ -8,6 +8,7 @@ import '../../providers/store_provider.dart';
 import '../../services/item_service.dart';
 import '../../services/reel_service.dart';
 import '../../services/store_service.dart';
+import '../../utils/auth_gate.dart';
 import '../../utils/refreshable_tab.dart';
 import '../../utils/share_helper.dart';
 import '../../utils/visibility_aware_tab.dart';
@@ -119,6 +120,10 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
   // ---- actions ----------------------------------------------------------
 
   Future<void> _toggleLike(Reel reel) async {
+    // البوابة لا `return` صامتة: الخلاصة تُعرض للضيوف، وقلبٌ لا يفعل شيئاً
+    // عند الضغط يُقرأ كعطب لا كطلب حساب.
+    if (!await requireAuth(context, reason: 'للإعجاب بهذا الريل')) return;
+    if (!mounted) return;
     final token = context.read<AuthProvider>().accessToken;
     if (token == null) return;
     final provider = context.read<ReelsProvider>();
@@ -136,7 +141,9 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
     }
   }
 
-  void _openComments(Reel reel) {
+  Future<void> _openComments(Reel reel) async {
+    if (!await requireAuth(context, reason: 'للتعليق على هذا الريل')) return;
+    if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final token = auth.accessToken;
     if (token == null) return;
@@ -149,6 +156,32 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
       isStoreOwner: isOwner,
       onCommentPosted: () => context.read<ReelsProvider>().applyCommentPosted(reel.id),
     );
+  }
+
+  /// نفس منطق الإعجاب أعلاه، بلا عدّاد: الحفظ خاصّ ولا رقم يتحرّك معه.
+  Future<void> _toggleSave(Reel reel) async {
+    if (!await requireAuth(context, reason: 'لحفظ هذا الريل في مفضلتك')) return;
+    if (!mounted) return;
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+
+    final provider = context.read<ReelsProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final wasSaved = reel.isSavedByMe;
+
+    provider.applySaveUpdate(reel.id, !wasSaved);
+    try {
+      final saved = await _reelService.setSaved(
+          accessToken: token, reelId: reel.id, saved: !wasSaved);
+      if (!mounted) return;
+      if (saved != !wasSaved) provider.applySaveUpdate(reel.id, saved);
+    } catch (e) {
+      if (!mounted) return;
+      provider.applySaveUpdate(reel.id, wasSaved);
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   void _shareReel(Reel reel) {
@@ -261,6 +294,7 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
                     onLikeToggle: () => _toggleLike(info.reel),
                     onCommentTap: () => _openComments(info.reel),
                     onShareTap: () => _shareReel(info.reel),
+                    onSaveToggle: () => _toggleSave(info.reel),
                     onTagTap:
                         info.reel.hasTaggedItem ? () => _openTaggedItem(info.reel) : null,
                     onStoreTap: () => _openStore(info.reel),

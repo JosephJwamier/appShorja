@@ -56,6 +56,24 @@ class ReelsProvider extends ChangeNotifier {
   String? get storeReelsError => _storeReelsError;
   bool get storeReelsHasMore => _storeReelsHasMore;
 
+  // الريلز المحفوظة — مفضلة المشاهد.
+  //
+  // قائمة رابعة لنفس سبب القائمة الثالثة: شاشة المفضلة تُفتح من تبويب
+  // الحساب فوق الخلاصة، والعارض الذي يُدفع منها يشارك القائمة مع الشبكة
+  // تحته — فإلغاء الحفظ داخل العارض يُخرج البلاطة من الشبكة بلا إعادة جلب.
+  List<Reel> _savedReels = [];
+  bool _isLoadingSavedReels = false;
+  bool _isLoadingMoreSavedReels = false;
+  String? _savedReelsError;
+  int _savedReelsPage = 1;
+  bool _savedReelsHasMore = false;
+
+  List<Reel> get savedReels => _savedReels;
+  bool get isLoadingSavedReels => _isLoadingSavedReels;
+  bool get isLoadingMoreSavedReels => _isLoadingMoreSavedReels;
+  String? get savedReelsError => _savedReelsError;
+  bool get savedReelsHasMore => _savedReelsHasMore;
+
   Future<void> loadFeed({required String accessToken}) async {
     _isLoading = true;
     _errorMessage = null;
@@ -93,14 +111,15 @@ class ReelsProvider extends ChangeNotifier {
     }
   }
 
-  /// يطبّق تعديلاً على الريل أينما كان في القوائم الثلاث.
+  /// يطبّق تعديلاً على الريل أينما كان في القوائم الأربع.
   ///
-  /// الريل الواحد قد يكون في ثلاثتها معاً: صاحب متجر يتصفّح الخلاصة، فيرى
-  /// ريله فيها وفي «ريلزاتي» وفي شبكة صفحة متجره. ترقيع واحدة دون أخرى
-  /// يعني رقمين مختلفين للشيء نفسه على شاشتين متجاورتين.
+  /// الريل الواحد قد يكون في أربعتها معاً: صاحب متجر يتصفّح الخلاصة، فيرى
+  /// ريله فيها وفي «ريلزاتي» وفي شبكة صفحة متجره — وقد يكون حفظه فهو في
+  /// المفضلة أيضاً. ترقيع واحدة دون أخرى يعني رقمين مختلفين للشيء نفسه على
+  /// شاشتين متجاورتين.
   bool _patchEverywhere(int reelId, Reel Function(Reel) transform) {
     var changed = false;
-    for (final list in [_reels, _myReels, _storeReels]) {
+    for (final list in [_reels, _myReels, _storeReels, _savedReels]) {
       final index = list.indexWhere((r) => r.id == reelId);
       if (index != -1) {
         list[index] = transform(list[index]);
@@ -117,6 +136,22 @@ class ReelsProvider extends ChangeNotifier {
         reelId, (r) => r.copyWith(isLikedByMe: isLiked, likesCount: likesCount))) {
       notifyListeners();
     }
+  }
+
+  /// نظير [applyLikeUpdate] للعلم الخاصّ، بلا عدّاد — فالحفظ لا رقم له.
+  ///
+  /// وإلغاء الحفظ يُخرج الريل من قائمة المحفوظة لا يُرقّعه فيها: تلك
+  /// القائمة *هي* المفضلة، وريلٌ غير محفوظ باقٍ فيها إلى التحديث القادم
+  /// يُقرأ كعطب. أمّا في القوائم الثلاث الأخرى فالعلم يُرقّع في مكانه،
+  /// فالريل ما زال ينتمي إليها.
+  void applySaveUpdate(int reelId, bool isSaved) {
+    var changed = _patchEverywhere(reelId, (r) => r.copyWith(isSavedByMe: isSaved));
+    if (!isSaved) {
+      final before = _savedReels.length;
+      _savedReels.removeWhere((r) => r.id == reelId);
+      changed = changed || _savedReels.length != before;
+    }
+    if (changed) notifyListeners();
   }
 
   /// Bumps the visible comment counter right after a successful post —
@@ -156,6 +191,7 @@ class ReelsProvider extends ChangeNotifier {
     _reels.removeWhere((r) => r.id == reelId);
     _myReels.removeWhere((r) => r.id == reelId);
     _storeReels.removeWhere((r) => r.id == reelId);
+    _savedReels.removeWhere((r) => r.id == reelId);
     notifyListeners();
   }
 
@@ -226,6 +262,46 @@ class ReelsProvider extends ChangeNotifier {
     _storeReelsHasMore = false;
     _storeReelsPage = 1;
     notifyListeners();
+  }
+
+  // ---- الريلز المحفوظة ----------------------------------------------------
+
+  Future<void> loadSavedReels({required String accessToken}) async {
+    _isLoadingSavedReels = true;
+    _savedReelsError = null;
+    _savedReelsPage = 1;
+    notifyListeners();
+
+    try {
+      final result = await _service.fetchSavedReels(accessToken: accessToken);
+      _savedReels = result.reels;
+      _savedReelsHasMore = result.hasMore;
+    } catch (e) {
+      _savedReels = [];
+      _savedReelsError = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoadingSavedReels = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreSavedReels({required String accessToken}) async {
+    if (_isLoadingMoreSavedReels || !_savedReelsHasMore) return;
+    _isLoadingMoreSavedReels = true;
+    notifyListeners();
+
+    try {
+      final result = await _service.fetchSavedReels(
+          accessToken: accessToken, page: _savedReelsPage + 1);
+      _savedReelsPage++;
+      _savedReels = [..._savedReels, ...result.reels];
+      _savedReelsHasMore = result.hasMore;
+    } catch (_) {
+      // silent fail — existing data stays visible, same as loadMore
+    } finally {
+      _isLoadingMoreSavedReels = false;
+      notifyListeners();
+    }
   }
 
   /// Prepends a freshly-published reel (from create_reel_screen) so it's

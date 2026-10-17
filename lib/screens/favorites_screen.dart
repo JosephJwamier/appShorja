@@ -2,20 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/listing.dart';
 import '../providers/auth_provider.dart';
+import '../providers/reels_provider.dart';
 import '../services/item_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/home/home_product_card.dart';
+import '../widgets/reels/reel_grid_tile.dart';
+import 'reels/reel_list_viewer_screen.dart';
 
-/// شاشة "المنتجات المفضلة" — قائمة مرقّمة الصفحات بالمنتجات التي فضّلها المستخدم،
-/// مع إمكانية إزالة أي منتج من المفضلة مباشرة من البطاقة.
-class FavoritesScreen extends StatefulWidget {
+/// شاشة «المفضلة» — ما حفظه المستخدم بنفسه، على تبويبين: المنتجات والريلز.
+///
+/// تبويبان لا قائمة واحدة مختلطة: البطاقتان لا تشتركان في شيء (منتج ببطاقة
+/// سعر عمودية، وريل بمصغّرة 9:16)، والترقيم على الخادم منفصل — نقطتان
+/// مختلفتان وجدولان مختلفان. خلطهما في شبكة واحدة كان سيعني ترقيماً مزدوجاً
+/// في قائمة واحدة، وهي أعقد مسألة من أن تُحلّ لأجل شكلٍ أقلّ وضوحاً.
+class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
 
   @override
-  State<FavoritesScreen> createState() => _FavoritesScreenState();
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: AppColors.surface,
+          appBar: AppBar(
+            backgroundColor: AppColors.surface,
+            foregroundColor: AppColors.onSurface,
+            elevation: 0,
+            centerTitle: true,
+            title: const Text(
+              'المفضلة',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios, size: 18),
+              onPressed: () => Navigator.pop(context),
+            ),
+            bottom: const TabBar(
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.onSurfaceVariant,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 3,
+              labelStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: TextStyle(fontSize: 15),
+              tabs: [
+                Tab(text: 'المنتجات'),
+                Tab(text: 'الريلز'),
+              ],
+            ),
+          ),
+          body: const TabBarView(
+            children: [
+              _FavoriteProductsTab(),
+              _SavedReelsTab(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen> {
+// ══════════════════════════════════════════════════════════════
+// تبويب المنتجات المفضلة
+// ══════════════════════════════════════════════════════════════
+
+/// قائمة مرقّمة الصفحات بالمنتجات التي فضّلها المستخدم، مع إزالة أي منتج
+/// مباشرة من البطاقة.
+class _FavoriteProductsTab extends StatefulWidget {
+  const _FavoriteProductsTab();
+
+  @override
+  State<_FavoriteProductsTab> createState() => _FavoriteProductsTabState();
+}
+
+class _FavoriteProductsTabState extends State<_FavoriteProductsTab>
+    with AutomaticKeepAliveClientMixin {
   final _service = ItemService();
   final _scrollController = ScrollController();
 
@@ -25,6 +88,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   bool _hasMore = true;
   int _page = 1;
   String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -119,33 +185,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.surface,
-        appBar: AppBar(
-          backgroundColor: AppColors.surface,
-          foregroundColor: AppColors.onSurface,
-          elevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'المنتجات المفضلة',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 18),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: RefreshIndicator(
-          onRefresh: _load,
-          color: AppColors.primary,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: _buildBody(),
-          ),
-        ),
+    super.build(context);
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: AppColors.primary,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: _buildBody(),
       ),
     );
   }
@@ -162,7 +209,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       ];
     }
     if (_listings.isEmpty) {
-      return const [SliverFillRemaining(child: _EmptyState())];
+      return const [
+        SliverFillRemaining(
+          child: _EmptyState(
+            icon: Icons.favorite_border_rounded,
+            title: 'لا توجد منتجات في مفضلتك بعد',
+            hint: 'اضغط على أيقونة القلب في أي منتج لإضافته هنا',
+          ),
+        ),
+      ];
     }
     final cardWidth = (MediaQuery.sizeOf(context).width - 16 * 2 - 14) / 2;
     return [
@@ -205,8 +260,130 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// تبويب الريلز المحفوظة
+// ══════════════════════════════════════════════════════════════
+
+/// شبكة مصغّرات لما حفظه المستخدم من ريلزات، الأحدث حفظاً أولاً، تُفتح
+/// مشاهدةً ملء الشاشة عند الضغط.
+///
+/// اسم المتجر يُعرض على كل مربّع هنا بخلاف شبكة ملف المتجر: ريلزات المحفوظة
+/// من متاجر مختلفة، ومصغّرةٌ بلا نسبة إلى أحد لا تُعرَّف.
+class _SavedReelsTab extends StatefulWidget {
+  const _SavedReelsTab();
+
+  @override
+  State<_SavedReelsTab> createState() => _SavedReelsTabState();
+}
+
+class _SavedReelsTabState extends State<_SavedReelsTab>
+    with AutomaticKeepAliveClientMixin {
+  final _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    // صفّان تقريباً قبل النهاية — الصفحة التالية تصل قبل أن يبلغ القاع.
+    if (position.pixels < position.maxScrollExtent - 400) return;
+    final provider = context.read<ReelsProvider>();
+    if (!provider.savedReelsHasMore || provider.isLoadingMoreSavedReels) return;
+    final token = context.read<AuthProvider>().accessToken;
+    if (token != null) provider.loadMoreSavedReels(accessToken: token);
+  }
+
+  Future<void> _refresh() async {
+    final token = context.read<AuthProvider>().accessToken;
+    if (token == null) return;
+    await context.read<ReelsProvider>().loadSavedReels(accessToken: token);
+  }
+
+  void _openViewer(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReelListViewerScreen(
+          source: ReelViewerSource.saved,
+          title: 'المحفوظة',
+          initialIndex: index,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final provider = context.watch<ReelsProvider>();
+    final reels = provider.savedReels;
+
+    if (provider.isLoadingSavedReels && reels.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (provider.savedReelsError != null && reels.isEmpty) {
+      return _ErrorState(message: provider.savedReelsError!, onRetry: _refresh);
+    }
+    if (reels.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.bookmark_border_rounded,
+        title: 'لا توجد ريلزات محفوظة',
+        hint: 'اضغط على علامة الحفظ في أي ريل ليظهر هنا',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      color: AppColors.primary,
+      child: GridView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: kReelTileAspectRatio,
+        ),
+        itemCount: reels.length,
+        itemBuilder: (context, index) => ReelGridTile(
+          reel: reels[index],
+          // المحفوظة من متاجر مختلفة، ومصغّرةٌ بلا نسبةٍ إلى أحد لا تُعرَّف.
+          showStoreName: true,
+          onTap: () => _openViewer(index),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// حالات مشتركة بين التبويبين
+// ══════════════════════════════════════════════════════════════
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  final IconData icon;
+  final String title;
+  final String hint;
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -216,26 +393,22 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.favorite_border_rounded,
-              size: 56,
-              color: AppColors.surfaceContainerHigh,
-            ),
+            Icon(icon, size: 56, color: AppColors.surfaceContainerHigh),
             const SizedBox(height: 14),
-            const Text(
-              'لا توجد منتجات في مفضلتك بعد',
+            Text(
+              title,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppColors.onSurface,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'اضغط على أيقونة القلب في أي منتج لإضافته هنا',
+            Text(
+              hint,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.onSurfaceVariant,
               ),

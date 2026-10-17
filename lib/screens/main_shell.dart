@@ -423,7 +423,7 @@ class _AccountTab extends StatelessWidget {
             ),
             _AccountTile(
               icon: Icons.favorite_border_rounded,
-              label: 'المنتجات المفضلة',
+              label: 'المفضلة',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FavoritesScreen()),

@@ -94,6 +94,9 @@ class Reel {
   final int likesCount;
   final int commentsCount;
   final bool isLikedByMe;
+  /// محفوظ في مفضلة هذا المشاهد. خاصّ تماماً: لا عدّاد يقابله على الريل،
+  /// لأن عدد من حفظوه ليس معلومةً يُراد إظهارها لصاحب المتجر.
+  final bool isSavedByMe;
   // pending_upload / published / failed / archived — my_reels shows every
   // status, the public feed only ever returns 'published'.
   final String status;
@@ -111,6 +114,7 @@ class Reel {
     required this.likesCount,
     required this.commentsCount,
     required this.isLikedByMe,
+    this.isSavedByMe = false,
     this.status = 'published',
     required this.createdAt,
   });
@@ -123,6 +127,7 @@ class Reel {
   /// tag is exactly the case the edit screen needs to express.
   Reel copyWith({
     bool? isLikedByMe,
+    bool? isSavedByMe,
     int? likesCount,
     int? commentsCount,
     int? viewCount,
@@ -143,6 +148,7 @@ class Reel {
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      isSavedByMe: isSavedByMe ?? this.isSavedByMe,
       status: status ?? this.status,
       createdAt: createdAt,
     );
@@ -165,6 +171,7 @@ class Reel {
       likesCount: json['likes_count'] as int? ?? 0,
       commentsCount: json['comments_count'] as int? ?? 0,
       isLikedByMe: json['is_liked_by_me'] as bool? ?? false,
+      isSavedByMe: json['is_saved_by_me'] as bool? ?? false,
       status: json['status'] as String? ?? 'published',
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
