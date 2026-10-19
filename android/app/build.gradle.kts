@@ -63,44 +63,6 @@ android {
         }
     }
 
-    // إضافات Agora الاختيارية: الحزمة تشحن كل ملحقات SDK حتى ما لا يستدعيه
-    // التطبيق أبدًا. شاشتا البث (live_broadcast_screen/live_viewer_screen)
-    // تستعملان سبع دوال فقط — initialize / enableVideo / startPreview /
-    // joinChannel / registerEventHandler / leaveChannel / release — بلا خلفية
-    // افتراضية، ولا تجميل صوت، ولا كتم ضوضاء بالذكاء الاصطناعي، ولا مشاركة
-    // شاشة. استبعادها يوفّر ~43 ميغابايت لكل معمارية.
-    //
-    // القائمة مُعدَّدة صراحةً لا بنمط عام مثل *_extension.so: بعض ما ينتهي
-    // بهذه اللاحقة أساسي — libagora_video_encoder_extension.so هو مُرمِّز
-    // الفيديو نفسه، وحذفه يوقف البث كليًا.
-    //
-    // تبقى في الحزمة عمدًا: libagora_ffmpeg.so و libagora-soundtouch.so و
-    // libagora-fdkaac.so (~7 ميغابايت). وثائق Agora تسمح بحذفها عند عدم
-    // استعمال مشغّل الوسائط، وهو ما ينطبق علينا، لكن أثرها لا يظهر إلا في
-    // بثّ حقيقي — تُحذف بعد اختبار على جهاز، لا قبله.
-    packaging {
-        jniLibs {
-            val unusedAgoraExtensions = listOf(
-                "agora_clear_vision",              // تحسين الصورة/الإضاءة المنخفضة
-                "agora_lip_sync",                  // مزامنة الشفاه للأفاتار
-                "agora_spatial_audio",             // الصوت المكاني
-                "agora_ai_noise_suppression",      // كتم الضوضاء بالذكاء الاصطناعي
-                "agora_ai_noise_suppression_ll",
-                "agora_ai_echo_cancellation",      // إلغاء الصدى بالذكاء الاصطناعي
-                "agora_ai_echo_cancellation_ll",   // (الأساسي منهما داخل النواة)
-                "agora_segmentation",              // الخلفية الافتراضية
-                "agora_face_capture",              // تتبّع الوجه للأفاتار
-                "agora_face_detection",
-                "agora_audio_beauty",              // تجميل الصوت
-                "agora_content_inspect",           // فحص المحتوى السحابي
-                "agora_video_av1_encoder",         // ترميز AV1 (الافتراضي H.264)
-                "agora_video_quality_analyzer",
-                "agora_screen_capture",            // مشاركة الشاشة
-            )
-            excludes += unusedAgoraExtensions.map { "**/lib${it}_extension.so" }
-        }
-    }
-
     buildTypes {
         release {
             // بلا مفتاح إصدار يبقى signingConfig فارغًا (حزمة غير موقّعة)

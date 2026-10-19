@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../config/api_config.dart';
 import '../../config/deep_link_config.dart';
@@ -14,6 +15,7 @@ import '../../models/live_session.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/live_sessions_provider.dart';
 import '../../services/auction_service.dart';
+import '../../services/live_media_client.dart';
 import '../../services/live_session_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
@@ -27,11 +29,20 @@ import '../../features/location/providers/location_provider.dart';
 import '../../features/location/screens/location_picker_sheet.dart';
 import '../../features/location/screens/add_edit_location_screen.dart';
 
-/// Viewer screen: subscribes to the broadcaster's Agora feed, shows the
-/// currently-showing product with a one-tap Reserve button (captures the
-/// actual rendered video frame as proof, charges the deposit immediately),
-/// live comments, and likes. Real-time events arrive over the ws/live/
-/// socket, same connection pattern as StoreChatScreen/AuctionDetailsScreen.
+/// How long a connected-but-silent WebRTC session is given to produce a
+/// picture before the viewer is moved to HLS.
+const _webrtcPictureGrace = Duration(seconds: 8);
+
+/// Beyond this much cropping, `cover` loses more of the frame than the
+/// black bars of `contain` cost — same threshold as the reels pager.
+const _maxCoverCropFactor = 1.35;
+
+/// Viewer screen: subscribes to the broadcaster's stream over WHEP (with
+/// HLS as the fallback — see _fallBackToHls), shows the currently-showing
+/// product with a one-tap Reserve button (captures the actual rendered
+/// video frame as proof, charges the deposit immediately), live comments,
+/// and likes. Real-time events arrive over the ws/live/ socket, same
+/// connection pattern as StoreChatScreen/AuctionDetailsScreen.
 class LiveViewerScreen extends StatefulWidget {
   final int sessionId;
   const LiveViewerScreen({super.key, required this.sessionId});
@@ -52,10 +63,13 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   String? _loadError;
   bool _streamEnded = false;
 
-  RtcEngine? _engine;
-  int? _remoteUid;
-  String? _channelName;
-  String? _agoraError;
+  LiveWatchConnection? _watch;
+  final _remoteRenderer = RTCVideoRenderer();
+  bool _hasWebrtcPicture = false;
+  VideoPlayerController? _hlsController;
+  Timer? _pictureTimeout;
+  bool _triedHls = false;
+  String? _mediaError;
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
@@ -98,46 +112,101 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
 
     _connectWebSocket();
     _loadComments();
-    await _initAgora();
+    await _initMedia();
   }
 
-  Future<void> _initAgora() async {
+  /// There is a picture when either road arrives: WebRTC's track, or the
+  /// HLS fallback's first frame. Everything that needs video — the
+  /// Reserve screenshot above all — asks this and not which transport won.
+  bool get _videoReady =>
+      _hasWebrtcPicture || (_hlsController?.value.isInitialized ?? false);
+
+  Future<void> _initMedia() async {
+    final LiveStreamCredentials credentials;
     try {
-      final joinToken = await _service.fetchJoinToken(
+      credentials = await _service.fetchStreamCredentials(
         accessToken: _accessToken,
         sessionId: widget.sessionId,
         role: 'subscriber',
       );
-      _channelName = joinToken.channelName;
-
-      final engine = createAgoraRtcEngine();
-      await engine.initialize(RtcEngineContext(appId: joinToken.appId));
-      await engine.enableVideo();
-      engine.registerEventHandler(RtcEngineEventHandler(
-        onUserJoined: (connection, remoteUid, elapsed) {
-          if (mounted) setState(() => _remoteUid = remoteUid);
-        },
-        onUserOffline: (connection, remoteUid, reason) {
-          if (mounted) setState(() => _remoteUid = null);
-        },
-        onError: (err, msg) {
-          if (mounted) setState(() => _agoraError = 'تعذّر تشغيل البث: $msg');
-        },
-      ));
-      await engine.joinChannel(
-        token: joinToken.token,
-        channelId: joinToken.channelName,
-        uid: joinToken.uid,
-        options: const ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
-          clientRoleType: ClientRoleType.clientRoleAudience,
-        ),
-      );
-      _engine = engine;
     } catch (e) {
-      if (mounted) setState(() => _agoraError = 'تعذّر الاتصال بالبث: $e');
+      // No credentials means no stream by either road — unlike a WebRTC
+      // failure, there is nothing to fall back to.
+      if (mounted) setState(() => _mediaError = _mediaErrorText(e));
+      return;
+    }
+
+    await _remoteRenderer.initialize();
+    try {
+      final watch = await LiveWatchConnection.watch(
+        credentials,
+        onStream: (stream) {
+          if (!mounted) return;
+          _pictureTimeout?.cancel();
+          setState(() {
+            _remoteRenderer.srcObject = stream;
+            _hasWebrtcPicture = true;
+          });
+        },
+        onState: (state) {
+          if (state == LiveMediaState.failed) _fallBackToHls(credentials);
+        },
+      );
+      if (!mounted) {
+        await watch.dispose();
+        return;
+      }
+      _watch = watch;
+      // A completed handshake is not a picture: carrier networks here
+      // routinely finish ICE and then drop the media. Rather than leave a
+      // spinner forever, take the slow road once the grace period passes.
+      _pictureTimeout = Timer(_webrtcPictureGrace, () {
+        if (!_hasWebrtcPicture) _fallBackToHls(credentials);
+      });
+    } catch (_) {
+      await _fallBackToHls(credentials);
     }
   }
+
+  /// HLS runs several seconds behind live, which is a real cost during a
+  /// two-minute auction — but a viewer who sees nothing cannot bid at all,
+  /// so late beats blank. Entered once: whichever of the handshake failing
+  /// and the grace period expiring comes first.
+  Future<void> _fallBackToHls(LiveStreamCredentials credentials) async {
+    final url = credentials.hlsUrl;
+    if (_triedHls || !mounted) return;
+    _triedHls = true;
+    _pictureTimeout?.cancel();
+    await _watch?.dispose();
+    _watch = null;
+
+    if (url == null || url.isEmpty) {
+      if (mounted) setState(() => _mediaError = 'تعذّر الاتصال بالبث');
+      return;
+    }
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    try {
+      await controller.initialize();
+      await controller.play();
+    } catch (_) {
+      await controller.dispose();
+      if (mounted) setState(() => _mediaError = 'تعذّر تشغيل البث على هذه الشبكة');
+      return;
+    }
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+    setState(() {
+      _hlsController = controller;
+      _hasWebrtcPicture = false;
+    });
+  }
+
+  String _mediaErrorText(Object error) => error is LiveMediaException
+      ? error.message
+      : 'تعذّر الاتصال بالبث: $error';
 
   void _connectWebSocket() {
     try {
@@ -484,7 +553,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     final nowShowing = _nowShowing;
     if (nowShowing == null || !nowShowing.isNowShowing) return;
 
-    if (_engine == null || _remoteUid == null) {
+    if (!_videoReady) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('لا يوجد بث فيديو نشط حالياً — لا يمكن الحجز بدون لقطة من البث'),
       ));
@@ -618,8 +687,10 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     _reconnectTimer?.cancel();
     _subscription?.cancel();
     _channel?.sink.close();
-    _engine?.leaveChannel();
-    _engine?.release();
+    _pictureTimeout?.cancel();
+    _watch?.dispose();
+    _remoteRenderer.dispose();
+    _hlsController?.dispose();
     super.dispose();
   }
 
@@ -682,33 +753,64 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   }
 
   Widget _buildRemoteVideo() {
-    if (_agoraError != null) {
+    if (_mediaError != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_agoraError!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+          child: Text(_mediaError!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
         ),
       );
     }
-    if (_engine == null || _remoteUid == null || _channelName == null) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 12),
-            Text('بانتظار بدء البث...', style: TextStyle(color: Colors.white70)),
-          ],
+
+    final hls = _hlsController;
+    if (hls != null && hls.value.isInitialized) {
+      // Same fitting as the reels pager, for the same reason: `cover`
+      // alone eats a third of a square or landscape frame, `contain`
+      // alone letterboxes a portrait one that would have filled the
+      // screen. Clipping is what keeps `cover`'s overflow off the
+      // overlaid comments and buttons.
+      return LayoutBuilder(
+        builder: (context, constraints) => SizedBox.expand(
+          child: FittedBox(
+            fit: _fitForVideo(hls.value.aspectRatio, constraints.biggest),
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: hls.value.size.width,
+              height: hls.value.size.height,
+              child: VideoPlayer(hls),
+            ),
+          ),
         ),
       );
     }
-    return AgoraVideoView(
-      controller: VideoViewController.remote(
-        rtcEngine: _engine!,
-        canvas: VideoCanvas(uid: _remoteUid!),
-        connection: RtcConnection(channelId: _channelName!),
+
+    if (_hasWebrtcPicture) {
+      return RTCVideoView(
+        _remoteRenderer,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+      );
+    }
+
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: Colors.white),
+          SizedBox(height: 12),
+          Text('بانتظار بدء البث...', style: TextStyle(color: Colors.white70)),
+        ],
       ),
     );
+  }
+
+  BoxFit _fitForVideo(double videoAspect, Size box) {
+    if (box.width <= 0 || box.height <= 0 || videoAspect <= 0) {
+      return BoxFit.contain;
+    }
+    final boxAspect = box.width / box.height;
+    final crop =
+        videoAspect > boxAspect ? videoAspect / boxAspect : boxAspect / videoAspect;
+    return crop <= _maxCoverCropFactor ? BoxFit.cover : BoxFit.contain;
   }
 
   Widget _buildTopBar(LiveSession session) {
@@ -764,7 +866,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
 
   Widget _buildNowShowingCard() {
     final item = _nowShowing!;
-    final videoReady = _engine != null && _remoteUid != null;
+    final videoReady = _videoReady;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       padding: const EdgeInsets.all(12),

@@ -59,7 +59,6 @@ dependencies:
   firebase_analytics: ^11.3.0
 
   # Social sign-in
-  agora_rtc_engine: ^6.5.4
   app_links: ^7.0.0
   share_plus: ^13.2.1
   pdf: ^3.12.0
@@ -70,6 +69,12 @@ dependencies:
   v_video_compressor: ^1.0.9
   video_thumbnail: ^0.5.3
   flutter_svg: ^2.3.0
+
+  # Live shopping video. WebRTC straight to our own SRS box over WHIP
+  # (publish) / WHEP (watch) — just one HTTP POST of an SDP offer each, so
+  # there is no vendor SDK here, and HLS through video_player above is the
+  # fallback for viewers whose network blocks WebRTC outright.
+  flutter_webrtc: ^1.6.2+hotfix.4
 
 dev_dependencies:
   flutter_test:

@@ -51,7 +51,7 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<!-- Live shopping broadcasts (Agora RTC) -->
+	<!-- Live shopping broadcasts (WebRTC to our own media server) -->
 	<key>NSCameraUsageDescription</key>
 	<string>يحتاج التطبيق للوصول إلى الكاميرا لبدء أو مشاهدة بث مباشر</string>
 	<key>NSMicrophoneUsageDescription</key>

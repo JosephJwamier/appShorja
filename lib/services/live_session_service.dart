@@ -9,8 +9,9 @@ import '../config/api_config.dart';
 import 'api_client.dart';
 
 /// Talks to the Django backend's live-shopping endpoints
-/// (/api/live-sessions/...). Video/audio itself is carried entirely by
-/// Agora — this service only handles discovery, session lifecycle,
+/// (/api/live-sessions/...). Video/audio itself goes straight between the
+/// phone and our media server (see LiveMediaClient; this service only
+/// fetches the credentials for it) — what is here is discovery, lifecycle,
 /// product queue/show, reservation, likes, and comments. Real-time fan-out
 /// (viewer count, now-showing changes, new reservations/comments) arrives
 /// over the ws/live/ socket for a session, connected directly by the screens (see
@@ -139,22 +140,28 @@ class LiveSessionService {
   }) =>
       _postAction(accessToken: accessToken, sessionId: sessionId, path: 'cancel-session');
 
-  /// role: 'publisher' (store owner going live) or 'subscriber' (viewer).
-  Future<LiveJoinToken> fetchJoinToken({
+  /// Credentials to publish ('publisher', store owner) or watch
+  /// ('subscriber'). Short-lived and tied to the caller's account, so they
+  /// are fetched when a screen opens rather than cached anywhere.
+  Future<LiveStreamCredentials> fetchStreamCredentials({
     required String accessToken,
     required int sessionId,
     required String role,
-    int uid = 0,
   }) async {
     final response = await _client.post(
       '/live-sessions/$sessionId/join-token/',
-      body: {'role': role, 'uid': uid},
+      body: {'role': role},
     );
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return LiveJoinToken.fromJson(body['data'] as Map<String, dynamic>);
+      return LiveStreamCredentials.fromJson(body['data'] as Map<String, dynamic>);
     }
-    throw Exception('تعذّر الحصول على رمز الانضمام للبث');
+    if (response.statusCode == 503) {
+      // The media server is down or unconfigured — nothing the viewer can
+      // retry their way out of, so say so instead of "try again".
+      throw Exception('البث المباشر غير متاح حالياً');
+    }
+    throw Exception('تعذّر الحصول على إذن البث');
   }
 
   Future<List<LiveCatalogEntry>> fetchCatalog({

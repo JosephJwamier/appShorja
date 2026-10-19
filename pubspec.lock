@@ -9,14 +9,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.59"
-  agora_rtc_engine:
-    dependency: "direct main"
-    description:
-      name: agora_rtc_engine
-      sha256: d9a88129b8fdc36ec5246331f36486b198dd7eb41ee68bfb54b289be8d60c6df
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.5.4"
   app_links:
     dependency: "direct main"
     description:
@@ -225,6 +217,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
+  dart_webrtc:
+    dependency: transitive
+    description:
+      name: dart_webrtc
+      sha256: "078e3c431500147e5cc52b3c6ea41ed538f30c7720cc2467d2186c9251e62716"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.8.2"
   dbus:
     dependency: transitive
     description:
@@ -576,6 +576,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_webrtc:
+    dependency: "direct main"
+    description:
+      name: flutter_webrtc
+      sha256: ebf5ceef2897caae425ed65a38b2961c29d9d9a626159418ed460e1a65038c00
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.2+hotfix.4"
   geolocator:
     dependency: "direct main"
     description:
@@ -744,14 +752,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.3"
-  iris_method_channel:
-    dependency: transitive
-    description:
-      name: iris_method_channel
-      sha256: "114bbe541369add8dd0727858e7df5764f375e3fb88374ad487301733fddb57f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.5"
   jni:
     dependency: transitive
     description:
@@ -768,14 +768,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
-  js:
-    dependency: transitive
-    description:
-      name: js
-      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.7"
   json_annotation:
     dependency: transitive
     description:
@@ -1541,6 +1533,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
+  webrtc_interface:
+    dependency: transitive
+    description:
+      name: webrtc_interface
+      sha256: c6f100eac5057d9a817a60473126f9828c796d42884d498af4f339c97b21014f
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.1"
   win32:
     dependency: transitive
     description:

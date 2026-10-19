@@ -309,26 +309,63 @@ class LiveCatalogEntry {
   }
 }
 
-/// Agora RTC join credentials from POST /live-sessions/{id}/join-token/.
-class LiveJoinToken {
-  final String appId;
-  final String channelName;
-  final String token;
-  final int uid;
+/// Credentials for a session's stream, from POST
+/// /live-sessions/{id}/join-token/.
+///
+/// The envelope is the server's: `provider` and `role` always, then
+/// whatever that provider's clients need. We read the fields our media
+/// client uses and ignore the rest, so adding a field server-side never
+/// breaks an installed app. A publisher gets [whipUrl]; a viewer gets
+/// [whepUrl] and [hlsUrl]. The signed token is already inside those URLs,
+/// which is why there is no separate token field to pass anywhere.
+class LiveStreamCredentials {
+  final String provider;
+  final String role;
+  final String streamName;
 
-  LiveJoinToken({
-    required this.appId,
-    required this.channelName,
-    required this.token,
-    required this.uid,
+  /// Where the broadcaster publishes (WHIP). Null for a viewer.
+  final String? whipUrl;
+
+  /// Where a viewer subscribes (WHEP). Null for the broadcaster.
+  final String? whepUrl;
+
+  /// The same stream as HLS: several seconds behind, but it survives
+  /// networks that drop WebRTC altogether. Null for the broadcaster.
+  final String? hlsUrl;
+
+  /// STUN/TURN servers in the shape RTCPeerConnection expects, passed
+  /// straight through. Empty when the server has no relay configured.
+  final List<Map<String, dynamic>> iceServers;
+
+  /// Seconds until the URLs above stop working. Nothing refreshes them
+  /// mid-stream today — a broadcast longer than this reconnects.
+  final int expiresIn;
+
+  LiveStreamCredentials({
+    required this.provider,
+    required this.role,
+    required this.streamName,
+    this.whipUrl,
+    this.whepUrl,
+    this.hlsUrl,
+    this.iceServers = const [],
+    required this.expiresIn,
   });
 
-  factory LiveJoinToken.fromJson(Map<String, dynamic> json) {
-    return LiveJoinToken(
-      appId: json['app_id'] as String,
-      channelName: json['channel_name'] as String,
-      token: json['token'] as String,
-      uid: json['uid'] as int? ?? 0,
+  factory LiveStreamCredentials.fromJson(Map<String, dynamic> json) {
+    final ice = json['ice_servers'] as List<dynamic>? ?? const [];
+    return LiveStreamCredentials(
+      provider: json['provider'] as String? ?? '',
+      role: json['role'] as String? ?? '',
+      streamName: json['stream_name'] as String? ?? '',
+      whipUrl: json['whip_url'] as String?,
+      whepUrl: json['whep_url'] as String?,
+      hlsUrl: json['hls_url'] as String?,
+      iceServers: ice
+          .whereType<Map<String, dynamic>>()
+          .map(Map<String, dynamic>.from)
+          .toList(),
+      expiresIn: json['expires_in'] as int? ?? 0,
     );
   }
 }

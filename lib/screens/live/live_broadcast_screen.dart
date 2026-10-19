@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -10,6 +10,7 @@ import '../../models/live_comment.dart';
 import '../../models/live_session.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auction_service.dart';
+import '../../services/live_media_client.dart';
 import '../../services/live_session_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
@@ -18,10 +19,11 @@ import '../../widgets/live/live_product_control_sheets.dart';
 import '../../widgets/live/live_viewers_sheet.dart';
 
 /// Store owner's live-broadcast control screen: publishes the camera feed
-/// to Agora, and controls the session (catalog picker / quick-show /
-/// end) over REST while a WebSocket relays viewer count, comments, and
-/// reservation events in real time. Same WS pattern as StoreChatScreen
-/// (?token= query param, raw WebSocketChannel owned by this State).
+/// to our media server over WHIP (see LiveBroadcastConnection), and
+/// controls the session (catalog picker / quick-show / end) over REST
+/// while a WebSocket relays viewer count, comments, and reservation events
+/// in real time. Same WS pattern as StoreChatScreen (?token= query param,
+/// raw WebSocketChannel owned by this State).
 class LiveBroadcastScreen extends StatefulWidget {
   final int sessionId;
   const LiveBroadcastScreen({super.key, required this.sessionId});
@@ -37,10 +39,9 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   LiveSessionItem? _nowShowing;
   String? _loadError;
 
-  RtcEngine? _engine;
-  bool _agoraJoined = false;
-  String? _agoraError;
-  int _localUid = 0;
+  LiveBroadcastConnection? _broadcast;
+  final _localRenderer = RTCVideoRenderer();
+  String? _mediaError;
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
@@ -83,52 +84,56 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
     _connectWebSocket();
     _loadComments();
-    await _initAgora();
+    await _initMedia();
   }
 
-  Future<void> _initAgora() async {
+  Future<void> _initMedia() async {
     final statuses = await [Permission.camera, Permission.microphone].request();
     final granted = (statuses[Permission.camera]?.isGranted ?? false) &&
         (statuses[Permission.microphone]?.isGranted ?? false);
     if (!granted) {
-      if (mounted) setState(() => _agoraError = 'يجب السماح بالوصول إلى الكاميرا والميكروفون لبدء البث');
+      if (mounted) setState(() => _mediaError = 'يجب السماح بالوصول إلى الكاميرا والميكروفون لبدء البث');
       return;
     }
 
     try {
-      final joinToken = await _service.fetchJoinToken(
+      final credentials = await _service.fetchStreamCredentials(
         accessToken: _accessToken,
         sessionId: widget.sessionId,
         role: 'publisher',
       );
-      _localUid = joinToken.uid;
-
-      final engine = createAgoraRtcEngine();
-      await engine.initialize(RtcEngineContext(appId: joinToken.appId));
-      await engine.enableVideo();
-      engine.registerEventHandler(RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) {
-          if (mounted) setState(() => _agoraJoined = true);
-        },
-        onError: (err, msg) {
-          if (mounted) setState(() => _agoraError = 'تعذّر الاتصال بخادم البث: $msg');
-        },
-      ));
-      await engine.startPreview();
-      await engine.joinChannel(
-        token: joinToken.token,
-        channelId: joinToken.channelName,
-        uid: joinToken.uid,
-        options: const ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        ),
+      await _localRenderer.initialize();
+      final broadcast = await LiveBroadcastConnection.publish(
+        credentials,
+        onState: _onMediaState,
       );
-      _engine = engine;
+      if (!mounted) {
+        // The owner left while the offer was in flight: let go of the
+        // camera rather than hold the lens open behind a closed screen.
+        await broadcast.dispose();
+        return;
+      }
+      setState(() {
+        _broadcast = broadcast;
+        _localRenderer.srcObject = broadcast.localStream;
+      });
     } catch (e) {
-      if (mounted) setState(() => _agoraError = 'تعذّر بدء الكاميرا: $e');
+      if (mounted) setState(() => _mediaError = _mediaErrorText(e));
     }
   }
+
+  /// The connection is established once and then left alone, so the only
+  /// state worth surfacing is losing it — the seller needs to know the
+  /// picture stopped reaching anyone, since nothing on their own screen
+  /// would otherwise change.
+  void _onMediaState(LiveMediaState state) {
+    if (!mounted || state != LiveMediaState.failed) return;
+    setState(() => _mediaError = 'انقطع الاتصال بخادم البث — أنهِ البث وابدأ من جديد');
+  }
+
+  String _mediaErrorText(Object error) => error is LiveMediaException
+      ? error.message
+      : 'تعذّر بدء البث: $error';
 
   void _connectWebSocket() {
     try {
@@ -391,21 +396,21 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     // clears _liveAuction and shows the result — nothing more to do here.
   }
 
-  /// البائع يبدأ على الكاميرا الخلفية (Agora تفتحها افتراضياً) لأنها
+  /// البائع يبدأ على الكاميرا الخلفية (نطلبها صراحةً عند فتح الكاميرا) لأنها
   /// التي تصوّر البضاعة — لكنه يحتاج الأمامية ليخاطب المشاهدين بوجهه،
   /// ثم يعود. وبلا مبدّل كان عليه إنهاء البث وبدء غيره.
   bool _usingFrontCamera = false;
   bool _switchingCamera = false;
 
   Future<void> _switchCamera() async {
-    final engine = _engine;
+    final broadcast = _broadcast;
     // أثناء التبديل تُغلق الكاميرا وتُفتح الأخرى؛ ضغطتان متتابعتان
     // تتداخلان على جهاز بطيء وقد تُجمّد المعاينة.
-    if (engine == null || _switchingCamera) return;
+    if (broadcast == null || _switchingCamera) return;
 
     setState(() => _switchingCamera = true);
     try {
-      await engine.switchCamera();
+      await broadcast.switchCamera();
       if (mounted) setState(() => _usingFrontCamera = !_usingFrontCamera);
     } catch (e) {
       if (!mounted) return;
@@ -437,8 +442,8 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     _auctionTicker?.cancel();
     _subscription?.cancel();
     _channel?.sink.close();
-    _engine?.leaveChannel();
-    _engine?.release();
+    _broadcast?.dispose();
+    _localRenderer.dispose();
     super.dispose();
   }
 
@@ -520,22 +525,23 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   }
 
   Widget _buildLocalPreview() {
-    if (_agoraError != null) {
+    if (_mediaError != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_agoraError!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+          child: Text(_mediaError!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
         ),
       );
     }
-    if (_engine == null || !_agoraJoined) {
+    if (_broadcast == null) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
-    return AgoraVideoView(
-      controller: VideoViewController(
-        rtcEngine: _engine!,
-        canvas: VideoCanvas(uid: _localUid),
-      ),
+    return RTCVideoView(
+      _localRenderer,
+      // البائع يرى نفسه معكوساً على الكاميرا الأمامية كما في المرآة؛
+      // المشاهدون يرون الصورة كما هي في الحالتين.
+      mirror: _usingFrontCamera,
+      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
     );
   }
 
