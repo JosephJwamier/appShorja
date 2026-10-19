@@ -185,7 +185,23 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    // The token has to ride on a header, not on the URL: a live playlist
+    // names its segments relatively and no player copies the playlist's
+    // query string onto them, so segment requests would reach the server
+    // with nothing to verify and the server refuses them (see
+    // core/live_hooks.HlsAuthView in the backend). httpHeaders is repeated
+    // on every request the player makes for this asset — ExoPlayer puts
+    // them on the data-source factory that backs the whole HLS pipeline,
+    // AVFoundation on the asset — which is what a cookie would not have
+    // done, ExoPlayer installing no cookie handler.
+    final uri = Uri.parse(url);
+    final streamToken = uri.queryParameters['token'];
+    final controller = VideoPlayerController.networkUrl(
+      uri,
+      httpHeaders: streamToken == null || streamToken.isEmpty
+          ? const {}
+          : {'X-Live-Token': streamToken},
+    );
     try {
       await controller.initialize();
       await controller.play();
