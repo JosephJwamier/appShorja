@@ -89,8 +89,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
   /// فتبويبٌ هنا كان سيكون نسخةً أفقر منها في مكان لا يتوقّعها فيه.
   Future<void> _loadStoreReels() async {
     if (_isOwnStore) return;
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     final provider = context.read<ReelsProvider>();
     await provider.loadStoreReels(
         accessToken: token, storeId: widget.store.id);
@@ -1230,8 +1229,7 @@ class _StoreReelsTabState extends State<_StoreReelsTab>
   }
 
   Future<void> _refresh() async {
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     await context
         .read<ReelsProvider>()
         .loadStoreReels(accessToken: token, storeId: widget.store.id);

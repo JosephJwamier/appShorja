@@ -43,6 +43,18 @@ class AuthProvider extends ChangeNotifier {
 
   User? get user => _user;
   String? get accessToken => _accessToken;
+
+  /// الرمز للقراءات المفتوحة للجميع — فارغٌ للضيف لا `null`.
+  ///
+  /// `ApiClient` يحذف ترويسة `Authorization` كلّها عند الفراغ، فالطلب يصل
+  /// الخادم كزائر فعلاً ويُجاب. استعملها في كل نداء تصفّح (منتجات، فئات،
+  /// متاجر، مزادات، ريلز) بدل حراسة `if (token == null) return` — فتلك
+  /// كانت تمنع الشاشة من المحاولة أصلاً، فتبقى فارغةً للضيف بينما نقاط
+  /// الخادم مفتوحة له (AllowAny) وتنتظر طلباً لا يأتي.
+  ///
+  /// وما يحتاج هوية فعلاً لا يُحرَس بهذه بل بـ`requireAuth` — فتُطلب
+  /// بوضوح بدل أن يضغط المستخدم زرّاً لا يفعل شيئاً.
+  String get browseToken => _accessToken ?? '';
   String? get refreshToken => _refreshToken;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;

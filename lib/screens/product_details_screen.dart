@@ -123,8 +123,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     // flow on the backend yet, so don't offer it in that mode.
     if (widget.representativeAssignmentId != null) return;
     final auth = context.read<AuthProvider>();
-    final token = auth.accessToken;
-    if (token == null) return;
+    final token = auth.browseToken;
     try {
       final store = await StoreService().fetchStoreByUsername(
         accessToken: token,

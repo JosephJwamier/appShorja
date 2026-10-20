@@ -61,8 +61,7 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
   }
 
   Future<void> _load() async {
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     await context.read<ReelsProvider>().loadFeed(accessToken: token);
     if (!mounted) return;
     context.read<StoreProvider>().loadMyStore(accessToken: token);
@@ -110,8 +109,8 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
     final reels = context.read<ReelsProvider>().reels;
     if (index < 0 || index >= reels.length) return;
     final reelId = reels[index].id;
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    // المشاهدة تُسجَّل للضيف أيضاً: النقطة AllowAny على الخادم.
+    final token = context.read<AuthProvider>().browseToken;
     _viewTimer = Timer(const Duration(seconds: 2), () {
       _reelService.recordView(accessToken: token, reelId: reelId);
     });
@@ -211,8 +210,7 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
   }
 
   Future<void> _openStore(Reel reel) async {
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     final store = await StoreService().fetchStoreById(accessToken: token, storeId: reel.store.id);
     if (!mounted || store == null) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => StoreProfileScreen(store: store)));

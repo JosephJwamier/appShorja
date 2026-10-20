@@ -51,8 +51,8 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
 
   Future<void> _initialize() async {
     if (!mounted) return;
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    // الضيف يصل هنا برمز فارغ لا بـnull: كل ما تحته قراءة عامة.
+    final token = context.read<AuthProvider>().browseToken;
     await Future.wait([
       context.read<CategoryProvider>().loadCategories(accessToken: token),
       context.read<HomeItemsProvider>().reset(accessToken: token),
@@ -74,8 +74,7 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
 
   void _onCategorySelected(int? categoryId) {
     if (categoryId == null) {
-      final token = context.read<AuthProvider>().accessToken;
-      if (token == null) return;
+      final token = context.read<AuthProvider>().browseToken;
       context.read<CategoryProvider>().selectCategory(null);
       context.read<HomeItemsProvider>().reset(
         accessToken: token,
@@ -127,8 +126,7 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
   Future<void> refreshTab() => _onRefresh();
 
   Future<void> _onRefresh() async {
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     await Future.wait([
       context.read<HomeItemsProvider>().reset(accessToken: token),
       context.read<FollowingProvider>().load(accessToken: token),
@@ -137,8 +135,7 @@ class _HomeScreenState extends State<HomeScreen> implements RefreshableTab {
   }
 
   Future<void> _openFilterScreen() async {
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     final currentFilters = context.read<HomeItemsProvider>().filters;
 
     final result = await Navigator.push<FilterParams>(

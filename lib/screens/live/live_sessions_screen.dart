@@ -48,8 +48,8 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
 
   void _load() {
     final auth = context.read<AuthProvider>();
-    final token = auth.accessToken;
-    if (token == null) return;
+    // قائمة البثوث تُعرض للضيف؛ المشاهدة نفسها تمرّ بـopenLiveViewer.
+    final token = auth.browseToken;
     context.read<LiveSessionsProvider>().loadSessions(accessToken: token);
     // Fire-and-forget: needed to know whether to show the "go live" FAB.
     context.read<StoreProvider>().loadMyStore(accessToken: token);
@@ -160,11 +160,11 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
                           color: selected ? Colors.white : AppColors.onSurface,
                         ),
                         onSelected: (_) {
-                          final token = auth.accessToken;
-                          if (token == null) return;
                           context
                               .read<LiveSessionsProvider>()
-                              .loadSessions(accessToken: token, ordering: opt.$1);
+                              .loadSessions(
+                                  accessToken: auth.browseToken,
+                                  ordering: opt.$1);
                         },
                       ),
                     );

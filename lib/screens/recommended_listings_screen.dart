@@ -34,8 +34,7 @@ class _RecommendedListingsScreenState
 
   Future<void> _initialize() async {
     if (!mounted) return;
-    final token = context.read<AuthProvider>().accessToken;
-    if (token == null) return;
+    final token = context.read<AuthProvider>().browseToken;
     await context.read<RecommendedListingsProvider>().reset(accessToken: token);
   }
 
@@ -43,10 +42,9 @@ class _RecommendedListingsScreenState
     if (!mounted) return;
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
-      final token = context.read<AuthProvider>().accessToken;
-      if (token != null) {
-        context.read<RecommendedListingsProvider>().loadMore(accessToken: token);
-      }
+      context
+          .read<RecommendedListingsProvider>()
+          .loadMore(accessToken: context.read<AuthProvider>().browseToken);
     }
   }
 
