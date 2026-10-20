@@ -160,9 +160,6 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
     setState(() => _deliveryResult = LocationPickerResult.fromLocation(loc));
   }
 
-  String _fixUrl(String url) =>
-      url.replaceFirst('http://localhost', 'http://10.0.2.2');
-
   String _conditionLabel(String c) {
     switch (c) {
       case 'new': return 'جديد';
@@ -177,7 +174,7 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final imageUrls = item.images.map((i) => _fixUrl(i.image)).toList();
+    final imageUrls = item.images.map((i) => fixMediaUrl(i.image)).toList();
     final auth = context.read<AuthProvider>();
     final isOwner = auth.user?.id == item.owner.id;
     final isAvailable = item.status == 'active';

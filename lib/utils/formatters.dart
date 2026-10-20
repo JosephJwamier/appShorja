@@ -1,11 +1,31 @@
-/// Rewrites localhost media URLs to the Android-emulator host address.
-/// The Django backend returns absolute URLs using its own hostname (localhost),
-/// but inside the emulator that address points to the emulator itself.
+import '../config/api_config.dart';
+
+/// المضيف المحلّي في بداية الرابط — بأي مخطّط ومنفذ.
+///
+/// `10.0.2.2` ضمنه: لو أعاد خادمٌ محلّي رابطاً بعنوان المحاكي، فالمضيف
+/// الصحيح يبقى هو المضبوط في [ApiConfig] لا المكتوب في الرابط.
+/// النظرة الأمامية `(?=[/?#]|$)` تُنهي المضيف عند حدّه.
+/// بدونها يُطابق `localhost` بدايةَ `localhost.example.com` — وهو مضيف
+/// حقيقي — فيصير الرابط `api.shorjeh.com.example.com`.
+final _localHost = RegExp(
+    r'^https?://(?:localhost|127\.0\.0\.1|10\.0\.2\.2)(?::\d+)?(?=[/?#]|$)');
+
+/// يُصلح روابط الوسائط التي يبنيها الخادم بعنوانه هو.
+///
+/// Django يبني روابط مطلقة من المضيف الذي وصله الطلب. في الإنتاج هذا
+/// `api.shorjeh.com` فالرابط سليم ويمرّ كما هو. وفي التطوير قد يكون
+/// `localhost`، وهو داخل المحاكي يشير إلى المحاكي نفسه لا إلى الخادم —
+/// فيُستبدل بما بُني عليه التطبيق فعلاً.
+///
+/// كانت الوجهة مكتوبة بخط اليد (`10.0.2.2`)، فتظلّ النسخة المُوزَّعة تحمل
+/// عنوان جهاز المطوّر. صارت من [ApiConfig]، فتتبع ما بُني عليه التطبيق
+/// بلا أن يتذكّرها أحد.
+///
+/// ويُستبدل المضيف المحلّي وحده: روابط الريلز تأتي من نطاق Cloudflare R2
+/// المستقلّ، وإعادة بنائها جميعاً على مضيف الـAPI كانت ستكسرها.
 String fixMediaUrl(String? url) {
   if (url == null || url.isEmpty) return '';
-  return url
-      .replaceFirst('http://localhost:', 'http://10.0.2.2:')
-      .replaceFirst('https://localhost:', 'https://10.0.2.2:');
+  return url.replaceFirst(_localHost, ApiConfig.mediaBaseUrl);
 }
 
 /// عدد أيام بصيغة عربية صحيحة (مفرد/جمع) — مثال: 1 -> "يوم واحد"، 3 -> "3 أيام".

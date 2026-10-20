@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
 import '../../models/nearby_item_model.dart';
 import '../../../../theme/app_colors.dart';
-
-// ── URL helper ───────────────────────────────────────────────────────────────
-String _fixUrl(String url) =>
-    url.replaceFirst('http://localhost', 'http://10.0.2.2');
+import '../../../../utils/formatters.dart';
 
 // ── Triangle pin painter ──────────────────────────────────────────────────────
 class _PinPainter extends CustomPainter {
@@ -46,7 +43,7 @@ class ItemMarkerWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     const double size = 46;
     final imageUrl =
-        item.firstImageUrl != null ? _fixUrl(item.firstImageUrl!) : null;
+        item.firstImageUrl != null ? fixMediaUrl(item.firstImageUrl!) : null;
 
     return GestureDetector(
       onTap: onTap,
@@ -311,7 +308,7 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl =
-        item.firstImageUrl != null ? _fixUrl(item.firstImageUrl!) : null;
+        item.firstImageUrl != null ? fixMediaUrl(item.firstImageUrl!) : null;
 
     return InkWell(
       onTap: onTap,
