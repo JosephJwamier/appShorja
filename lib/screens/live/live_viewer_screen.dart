@@ -17,6 +17,7 @@ import '../../providers/live_sessions_provider.dart';
 import '../../services/auction_service.dart';
 import '../../services/live_media_client.dart';
 import '../../services/live_session_service.dart';
+import '../../utils/auth_gate.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
@@ -43,6 +44,25 @@ const _maxCoverCropFactor = 1.35;
 /// video frame as proof, charges the deposit immediately), live comments,
 /// and likes. Real-time events arrive over the ws/live/ socket, same
 /// connection pattern as StoreChatScreen/AuctionDetailsScreen.
+/// الطريق الوحيد إلى [LiveViewerScreen] — يطلب الحساب أولاً.
+///
+/// المشاهدة تحتاج حساباً، وهذا قرار على الخادم لا في الواجهة: `_may_play`
+/// في `core/live_hooks.py` يرفض أي رمز بلا مستخدم، لأن الحظر والعدّادات
+/// و«من حجز أثناء البث» تفقد معناها إن استطاع المحظور أن يعود مجهولاً.
+///
+/// وقبل هذه الدالّة كان لكل مدخل سلوكه: بطاقة البث لا تفعل شيئاً عند الضغط
+/// للضيف، وصورة المتجر البائث ورابط المشاركة يفتحان الشاشة فتسقط على
+/// `accessToken!` فتُعرض رسالة Dart إنجليزية لمستخدم عربي. ثلاثة مداخل
+/// وثلاثة سلوكيات، ولا واحد منها يطلب تسجيل الدخول.
+Future<void> openLiveViewer(BuildContext context, int sessionId) async {
+  if (!await requireAuth(context, reason: 'لمشاهدة البث المباشر')) return;
+  if (!context.mounted) return;
+  await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => LiveViewerScreen(sessionId: sessionId)),
+  );
+}
+
 class LiveViewerScreen extends StatefulWidget {
   final int sessionId;
   const LiveViewerScreen({super.key, required this.sessionId});
@@ -82,7 +102,9 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   Timer? _cooldownTimer;
   bool _banned = false;
 
-  String get _accessToken => context.read<AuthProvider>().accessToken!;
+  /// [openLiveViewer] يضمن وجود حساب قبل الوصول إلى هنا؛ وهذا الاحتياط
+  /// لئلّا تُعرض رسالة Dart إنجليزية لو انتهت الجلسة أثناء المشاهدة.
+  String get _accessToken => context.read<AuthProvider>().accessToken ?? '';
   int? get _currentUserId => context.read<AuthProvider>().user?.id;
   String? get _currentUsername => context.read<AuthProvider>().user?.username;
 
@@ -93,6 +115,10 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   }
 
   Future<void> _init() async {
+    if (_accessToken.isEmpty) {
+      setState(() => _loadError = 'يجب تسجيل الدخول لمشاهدة البث المباشر');
+      return;
+    }
     try {
       final session = await _service.fetchLiveSessionDetail(
         accessToken: _accessToken,
@@ -214,18 +240,36 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
       ? error.message
       : 'تعذّر الاتصال بالبث: $error';
 
+  /// يُسقط المقبس الحالي واشتراكه. يُنادى قبل كل محاولة اتصال جديدة وعند
+  /// التخلّص، فلا يبقى اشتراكٌ قديم يُطلق onDone بعد أن قام بديله.
+  void _closeSocket() {
+    _subscription?.cancel();
+    _subscription = null;
+    _channel?.sink.close();
+    _channel = null;
+  }
+
   void _connectWebSocket() {
     try {
       final url = Uri.parse(
         ApiConfig.wsUrl('/ws/live/${widget.sessionId}/?token=$_accessToken'),
       );
+      // إلغاء السابق أولاً: مسار onError لا يُغلق القناة، فكان الاشتراك
+      // القديم يبقى حيّاً ويُطلق onDone لاحقاً — فتنشأ سلسلة إعادة اتصال
+      // ثانية بالتوازي، ومقبسان على نفس الجلسة يعدّان مشاهدَين.
+      _closeSocket();
+
       _channel = WebSocketChannel.connect(url);
       _subscription = _channel!.stream.listen(
         _handleWsMessage,
         onError: (_) => _scheduleReconnect(),
         onDone: _handleWsDone,
       );
-      _reconnectAttempts = 0;
+      // لا تصفير هنا: `WebSocketChannel.connect` كسولة و`listen` لا تعني
+      // أن الاتصال نجح. التصفير في هذا الموضع كان يُبقي التراجع على
+      // ثانيتين إلى الأبد — جهاز بلا شبكة يطرق الخادم كل ثانيتين بلا توقّف
+      // رغم أن التعليق يقول «حتى 30 ثانية». يُصفَّر عند أول رسالة تصل،
+      // وهي الدليل الوحيد على اتصال قائم.
     } catch (_) {
       // Screen still shows the last-known session state — just retry quietly.
       _scheduleReconnect();
@@ -261,6 +305,9 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
   }
 
   void _handleWsMessage(dynamic raw) {
+    // وصلت رسالة، فالاتصال قائم فعلاً — وهنا وحده يُصفَّر
+    // التراجع.
+    _reconnectAttempts = 0;
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final payload = data['data'] as Map<String, dynamic>? ?? {};
@@ -351,8 +398,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     if (_banned || _streamEnded) return;
     _banned = true;
     _reconnectTimer?.cancel();
-    _subscription?.cancel();
-    _channel?.sink.close();
+    _closeSocket();
     if (!mounted) return;
     showDialog(
       context: context,
@@ -691,8 +737,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     _cooldownTimer?.cancel();
     _auctionTicker?.cancel();
     _reconnectTimer?.cancel();
-    _subscription?.cancel();
-    _channel?.sink.close();
+    _closeSocket();
     _pictureTimeout?.cancel();
     _watch?.dispose();
     _remoteRenderer.dispose();

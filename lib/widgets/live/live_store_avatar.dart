@@ -49,10 +49,9 @@ class _LiveStoreAvatarState extends State<LiveStoreAvatar>
   }
 
   void _openLive(BuildContext context, int sessionId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => LiveViewerScreen(sessionId: sessionId)),
-    );
+    // عبر البوابة: هذه الحلقة تظهر في الصفحة الرئيسية وفي ملف المتجر،
+    // وكلاهما مفتوح للضيوف الآن.
+    openLiveViewer(context, sessionId);
   }
 
   @override

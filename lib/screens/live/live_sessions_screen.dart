@@ -205,7 +205,6 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
                     );
                   }
 
-                  final token = auth.accessToken;
                   return RefreshIndicator(
                     onRefresh: () async => _load(),
                     child: GridView.builder(
@@ -222,14 +221,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen>
                         final session = provider.sessions[index];
                         return LiveSessionCard(
                           session: session,
-                          onTap: token == null
-                              ? () {}
-                              : () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => LiveViewerScreen(sessionId: session.id),
-                                    ),
-                                  ),
+                          // كان `token == null ? () {}` — بطاقة تبدو قابلة
+                          // للضغط ولا تفعل شيئاً. البوابة تطلب الحساب وتشرح.
+                          onTap: () => openLiveViewer(context, session.id),
                         );
                       },
                     ),

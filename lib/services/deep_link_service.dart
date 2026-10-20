@@ -104,9 +104,9 @@ class DeepLinkService {
         break;
 
       case 'l':
-        navigator.push(
-          MaterialPageRoute(builder: (_) => LiveViewerScreen(sessionId: id)),
-        );
+        // رابط بث يفتحه ضيف هو الطريق الأكثر احتمالاً لوصول مستخدم جديد —
+        // فيُطلب منه الحساب، لا أن تُعرض له رسالة خطأ بالإنجليزية.
+        await openLiveViewer(context, id);
         break;
     }
   }

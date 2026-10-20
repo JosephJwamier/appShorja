@@ -135,18 +135,36 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
       ? error.message
       : 'تعذّر بدء البث: $error';
 
+  /// يُسقط المقبس الحالي واشتراكه. يُنادى قبل كل محاولة اتصال جديدة وعند
+  /// التخلّص، فلا يبقى اشتراكٌ قديم يُطلق onDone بعد أن قام بديله.
+  void _closeSocket() {
+    _subscription?.cancel();
+    _subscription = null;
+    _channel?.sink.close();
+    _channel = null;
+  }
+
   void _connectWebSocket() {
     try {
       final url = Uri.parse(
         ApiConfig.wsUrl('/ws/live/${widget.sessionId}/?token=$_accessToken'),
       );
+      // إلغاء السابق أولاً: مسار onError لا يُغلق القناة، فكان الاشتراك
+      // القديم يبقى حيّاً ويُطلق onDone لاحقاً — فتنشأ سلسلة إعادة اتصال
+      // ثانية بالتوازي، ومقبسان على نفس الجلسة يعدّان مشاهدَين.
+      _closeSocket();
+
       _channel = WebSocketChannel.connect(url);
       _subscription = _channel!.stream.listen(
         _handleWsMessage,
         onError: (_) => _scheduleReconnect(),
         onDone: _scheduleReconnect,
       );
-      _reconnectAttempts = 0;
+      // لا تصفير هنا: `WebSocketChannel.connect` كسولة و`listen` لا تعني
+      // أن الاتصال نجح. التصفير في هذا الموضع كان يُبقي التراجع على
+      // ثانيتين إلى الأبد — جهاز بلا شبكة يطرق الخادم كل ثانيتين بلا توقّف
+      // رغم أن التعليق يقول «حتى 30 ثانية». يُصفَّر عند أول رسالة تصل،
+      // وهي الدليل الوحيد على اتصال قائم.
     } catch (_) {
       // REST controls still work without the live feed — just retry quietly.
       _scheduleReconnect();
@@ -169,6 +187,9 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   }
 
   void _handleWsMessage(dynamic raw) {
+    // وصلت رسالة، فالاتصال قائم فعلاً — وهنا وحده يُصفَّر
+    // التراجع.
+    _reconnectAttempts = 0;
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final payload = data['data'] as Map<String, dynamic>? ?? {};
@@ -440,8 +461,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   void dispose() {
     _reconnectTimer?.cancel();
     _auctionTicker?.cancel();
-    _subscription?.cancel();
-    _channel?.sink.close();
+    _closeSocket();
     _broadcast?.dispose();
     _localRenderer.dispose();
     super.dispose();
