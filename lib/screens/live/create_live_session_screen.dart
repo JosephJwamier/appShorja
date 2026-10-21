@@ -49,7 +49,15 @@ class _CreateLiveSessionScreenState extends State<CreateLiveSessionScreen> {
     if (result.success && result.session != null) {
       // أول بث ناجح هو أول لحظة يصبح فيها إشعار المزايدات/التعليقات أثناء
       // البث مفيدًا للبائع — نطلب إذن الإشعارات هنا بدل أول فتحة للتطبيق.
-      NotificationService.requestPermissionIfNeeded();
+      //
+      // وبانتظارٍ لا إطلاقاً: أندرويد يعرض حوار إذن واحداً في كل مرّة،
+      // وشاشة البثّ تطلب الكاميرا والميكروفون فور فتحها. فإطلاق هذا الطلب
+      // بلا انتظار يجعل طلب الكاميرا يصل وحوار الإشعارات معروض — فيُسقطه
+      // النظام بلا حوار ويعود «مرفوض». وكان أثره أن أول بثّ لا يُسأل فيه
+      // البائع عن الكاميرا أبداً فيفشل، ثم يُسأل في البثّ التالي حين يكون
+      // إذن الإشعارات قد حُسم.
+      await NotificationService.requestPermissionIfNeeded();
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
