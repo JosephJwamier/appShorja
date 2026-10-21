@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/password_strength.dart';
+import '../widgets/password_strength_bar.dart';
 import '../services/legal_service.dart';
 import 'interests_selection_screen.dart';
 import '../utils/formatters.dart';
@@ -26,6 +28,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // الموافقة الإلزامية على الشروط وسياسة الخصوصية قبل إنشاء الحساب.
   bool _acceptedTerms = false;
+
+  bool _obscurePassword = true;
+  bool _obscurePassword2 = true;
+
+  /// حكم القوة الحالي — يُعاد حسابه مع كل حرف، ومع كل تغيّر في الاسم أو
+  /// الهاتف أو البريد، لأن «تشبه بياناتك» تتبدّل بتبدّلها.
+  PasswordVerdict _verdict = const PasswordVerdict(
+      strength: PasswordStrength.none, meetsMinimum: false);
+
+  void _rate() {
+    setState(() {
+      _verdict = ratePassword(
+        _passwordController.text,
+        personal: [
+          _firstNameController.text,
+          _lastNameController.text,
+          _emailController.text,
+          _phoneController.text,
+        ],
+      );
+    });
+  }
+
+  /// عينٌ لإظهار كلمة المرور. وزرّ لا أيقونة: مساحة اللمس 48 نقطة، وهي
+  /// أصغر ما يُعتمد عليه بإبهام على هاتف.
+  Widget _eye(bool obscured, VoidCallback onTap) => IconButton(
+        icon: Icon(
+          obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          color: AppColors.onSurfaceVariant,
+        ),
+        tooltip: obscured ? 'إظهار كلمة المرور' : 'إخفاء كلمة المرور',
+        onPressed: onTap,
+      );
 
   @override
   void dispose() {
@@ -214,29 +249,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // كلمة المرور
                           TextFormField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             textAlign: TextAlign.right,
                             style: const TextStyle(color: AppColors.onSurface),
-                            decoration: _fieldDecoration('كلمة المرور'),
+                            onChanged: (_) => _rate(),
+                            decoration: _fieldDecoration('كلمة المرور').copyWith(
+                              suffixIcon: _eye(
+                                _obscurePassword,
+                                () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'كلمة المرور مطلوبة';
                               }
-                              if (value.length < 8) {
-                                return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+                              // نفس حكم الشريط: ما يرفضه الخادم يُوقفه
+                              // النموذج هنا، فلا يرسل المستخدم ويُردّ.
+                              final v = ratePassword(value, personal: [
+                                _firstNameController.text,
+                                _lastNameController.text,
+                                _emailController.text,
+                                _phoneController.text,
+                              ]);
+                              if (!v.meetsMinimum) {
+                                return v.hint ??
+                                    'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
                               }
                               return null;
                             },
                           ),
+                          PasswordStrengthBar(verdict: _verdict),
                           const SizedBox(height: 16),
 
                           // تأكيد كلمة المرور
                           TextFormField(
                             controller: _password2Controller,
-                            obscureText: true,
+                            obscureText: _obscurePassword2,
                             textAlign: TextAlign.right,
                             style: const TextStyle(color: AppColors.onSurface),
-                            decoration: _fieldDecoration('تأكيد كلمة المرور'),
+                            decoration:
+                                _fieldDecoration('تأكيد كلمة المرور').copyWith(
+                              suffixIcon: _eye(
+                                _obscurePassword2,
+                                () => setState(() =>
+                                    _obscurePassword2 = !_obscurePassword2),
+                              ),
+                            ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'تأكيد كلمة المرور مطلوب';
