@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/reservation.dart';
 import '../models/delivery_order.dart';
 import '../models/dispute.dart';
+import '../models/installment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/reservations_badge_provider.dart';
 import '../services/delivery_service.dart';
+import '../services/installment_service.dart';
 import '../services/item_service.dart';
 import '../services/reservation_service.dart';
 import '../theme/app_colors.dart';
@@ -18,6 +20,7 @@ import '../features/location/screens/add_edit_location_screen.dart';
 import '../features/location/screens/location_picker_sheet.dart';
 import 'file_dispute_screen.dart';
 import 'disputes_screen.dart';
+import 'payment/installment_sheet.dart';
 import 'print_delivery_label_screen.dart';
 import 'product_details_screen.dart';
 import 'reservation_detail_screen.dart';
@@ -38,6 +41,25 @@ class _ReservationsScreenState extends State<ReservationsScreen>
   bool _isLoading = true;
   String? _error;
   int _currentUserId = -1;
+
+  // شروط التقسيط تُجلب مرّة لكل دخول للشاشة لا مرّة لكل حجز: الجواب واحد
+  // لكل الحجوزات، و`null` تعني «لا مموّل مُهيّأ» فلا يُعرض خيار التقسيط
+  // أصلاً بدل أن يُعرض ثم يُرفض.
+  InstallmentOptions? _installmentOptions;
+  bool _installmentOptionsLoaded = false;
+
+  Future<InstallmentOptions?> _loadInstallmentOptions() async {
+    if (_installmentOptionsLoaded) return _installmentOptions;
+    try {
+      _installmentOptions = await InstallmentService().fetchOptions();
+    } catch (_) {
+      // التقسيط إضافة لا شرط: تعذّر جلب شروطه يُخفي الخيار ولا يمنع
+      // المشتري من إكمال حجزه من محفظته.
+      _installmentOptions = null;
+    }
+    _installmentOptionsLoaded = true;
+    return _installmentOptions;
+  }
 
   @override
   void initState() {
@@ -117,8 +139,16 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       }
     }
 
-    final paymentType = await _pickPaymentType(r);
+    final options = await _loadInstallmentOptions();
+    if (!mounted) return;
+
+    final paymentType = await _pickPaymentType(r, options);
     if (paymentType == null) return;
+
+    if (paymentType == 'installments') {
+      await _completeWithInstallments(r, options!, deliveryLocationId);
+      return;
+    }
 
     try {
       await ReservationService().completeReservation(
@@ -159,6 +189,35 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         ),
       );
     }
+  }
+
+  /// شراء بالتقسيط: الورقة تحمل الفحص والتأكيد معاً، وعودتها بخطة تعني
+  /// أن الحجز اكتمل على الخادم — فلا نداء `complete` بعدها، التأكيد هو
+  /// الذي أكمله.
+  Future<void> _completeWithInstallments(
+    Reservation r,
+    InstallmentOptions options,
+    int? deliveryLocationId,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final plan = await showInstallmentSheet(
+      context,
+      reservation: r,
+      options: options,
+      deliveryLocationId: deliveryLocationId,
+    );
+    if (!mounted || plan == null) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'تم الشراء بالتقسيط — ${formatIqd(plan.monthlyAmount)} شهرياً '
+          'لمدة ${plan.months} أشهر',
+        ),
+        backgroundColor: AppColors.success,
+      ),
+    );
+    _load();
   }
 
   /// رصيد لا يكفي: يُعرض الطريق لا العائق.
@@ -283,7 +342,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     await prefs.setBool(_paymentExplainerSeenKey, true);
   }
 
-  /// Returns 'deposit', 'full', or null if the user backed out.
+  /// Returns 'deposit', 'full', 'installments', or null if the user backed out.
   ///
   /// للخيارين ترتيب لا تساوٍ. ما حدّده البائع (عربون أو لا شيء) هو
   /// الإجراء الأساسي في زرّ بارز، والدفع الكامل بديل في زرّ عادي —
@@ -292,11 +351,19 @@ class _ReservationsScreenState extends State<ReservationsScreen>
   ///
   /// 'deposit' مع depositAmount = 0 تعني «لا تقبض شيئاً الآن»: قيمة
   /// صالحة في الخادم لا حالة ناقصة.
-  Future<String?> _pickPaymentType(Reservation r) async {
+  Future<String?> _pickPaymentType(
+      Reservation r, InstallmentOptions? options) async {
     await _maybeShowPaymentExplainer();
     if (!mounted) return null;
 
     final hasDeposit = r.depositAmount > 0;
+    // التقسيط يُعرض حين يكون متاحاً لهذا المبلغ تحديداً. ومزادات لا:
+    // عربون المزايدة خُصم من المحفظة أصلاً، فالشراء مشطور بين مموّلين
+    // (يرفضه الخادم كذلك — انظر service._assert_financeable).
+    final financedTotal = r.totalPrice + r.deliveryFee;
+    final canFinance = options != null &&
+        !r.isFromAuction &&
+        options.allows(financedTotal);
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -326,6 +393,59 @@ class _ReservationsScreenState extends State<ReservationsScreen>
                 'كامل المبلغ ${formatIqd(r.totalPrice)} كاش عند التوصيل',
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.onSurfaceVariant),
+              ),
+            ],
+            // خيارٌ في المحتوى لا زرٌّ رابع: أزرار الحوار ثلاثة، وزيادة
+            // رابع تجعل المشتري يقارن أربعة احتمالات وهو يحاول إنهاء
+            // حجز. والسطر هنا يحمل الرقم الذي يبيع فعلاً — القسط
+            // الشهري، لا السعر الكامل.
+            if (canFinance) ...[
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: () => Navigator.pop(dialogContext, 'installments'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryFixed,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.credit_card_rounded,
+                          size: 18, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'أو قسّطها: '
+                              '${formatIqd(options.monthlyFor(financedTotal))}'
+                              ' شهرياً',
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.onPrimaryFixed),
+                            ),
+                            Text(
+                              '${options.months} أشهر عبر ${options.labelAr}'
+                              ' — بلا دفعة أولى',
+                              style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.onPrimaryFixedVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_left_rounded,
+                          color: AppColors.primary),
+                    ],
+                  ),
+                ),
               ),
             ],
           ],
@@ -1501,6 +1621,33 @@ class _ReservationCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (r.installment != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.credit_card_rounded,
+                            size: 13,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'مقسّطة — '
+                              '${formatIqd(r.installment!.monthlyAmount)}'
+                              ' شهرياً، بقي '
+                              '${r.installment!.remainingCount} من '
+                              '${r.installment!.months}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (awaitingCashOnDelivery) ...[
                       const SizedBox(height: 6),
                       Row(

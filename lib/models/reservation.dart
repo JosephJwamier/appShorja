@@ -1,6 +1,7 @@
 import '../features/location/models/location_model.dart';
 import '../utils/formatters.dart';
 import 'delivery_order.dart';
+import 'installment.dart';
 import 'product.dart';
 import 'user.dart';
 
@@ -37,6 +38,12 @@ class Reservation {
   final double deliveryFee;
   final int warrantyDays;
   final int? auctionId;
+
+  /// التمويل القائم على هذا الحجز، إن كان مقسّطاً — يأتي جاهزاً مع الحجز
+  /// (لا نداء إضافي) لأن بطاقة الطلب تحتاج أربع قيم منه فقط.
+  final ReservationInstallment? installment;
+
+  bool get isFinanced => installment != null;
 
   /// Platform commission frozen on this sale (taken from the seller at
   /// release) and what the seller actually nets after it and any
@@ -104,6 +111,7 @@ class Reservation {
     this.platformCommissionPercent = 0,
     this.platformCommissionAmount = 0,
     this.sellerNet = 0,
+    this.installment,
   });
 
   /// Remaining amount to be collected in cash at delivery (only meaningful
@@ -173,6 +181,10 @@ class Reservation {
       platformCommissionPercent: _toDouble(json['platform_commission_percent']),
       platformCommissionAmount: _toDouble(json['platform_commission_amount']),
       sellerNet: _toDouble(json['seller_net']),
+      installment: json['installment'] is Map<String, dynamic>
+          ? ReservationInstallment.fromJson(
+              json['installment'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
