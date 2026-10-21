@@ -20,12 +20,17 @@ class LiveCommentsPanel extends StatefulWidget {
   final ValueChanged<LiveComment>? onBan;
   final bool canComment;
 
+  /// مشاركة رابط البثّ. اختياري: مُضيفٌ لا يمرّره لا يعرض الزرّ بدل أن
+  /// يعرض زرّاً لا يفعل شيئاً.
+  final VoidCallback? onShare;
+
   const LiveCommentsPanel({
     super.key,
     required this.comments,
     required this.currentUserId,
     this.isModerator = false,
     required this.onSend,
+    this.onShare,
     this.onDelete,
     this.onBan,
     this.canComment = true,
@@ -220,15 +225,20 @@ class _LiveCommentsPanelState extends State<LiveCommentsPanel> {
             ),
           ),
         ),
-        if (widget.canComment)
+        // الشريط يظهر إن كان هناك ما يُعرض فيه: حقل تعليق أو زرّ مشاركة.
+        // ربطُه بـcanComment وحده كان سيُخفي المشاركة عمّن لا يستطيع
+        // التعليق — ومشاركة البثّ ليست تعليقاً عليه.
+        if (widget.canComment || widget.onShare != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _submit,
-                ),
+                if (widget.canComment)
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _submit,
+                  ),
+                if (widget.canComment)
                 Expanded(
                   child: TextField(
                     controller: _controller,
@@ -249,6 +259,17 @@ class _LiveCommentsPanelState extends State<LiveCommentsPanel> {
                     onSubmitted: (_) => _submit(),
                   ),
                 ),
+                if (!widget.canComment) const Spacer(),
+                // الطرف المقابل لزرّ الإرسال: الصفّ يُرتَّب من اليمين في
+                // RTL، فالإرسال أوّلاً عند اليمين والمشاركة آخراً عند
+                // اليسار — طرفان متباعدان لا زرّان متجاوران يُضغط أحدهما
+                // بدل الآخر.
+                if (widget.onShare != null)
+                  IconButton(
+                    icon: const Icon(Icons.share, color: Colors.white),
+                    tooltip: 'مشاركة البث',
+                    onPressed: widget.onShare,
+                  ),
               ],
             ),
           ),

@@ -451,6 +451,18 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     }
   }
 
+  /// انتقل من الشريط العلوي إلى شريط التعليق، في الطرف المقابل لزرّ
+  /// الإرسال — زرّ مشاركة واحد في الشاشة لا اثنان.
+  void _shareLive() {
+    final session = _session;
+    if (session == null) return;
+    shareLink(
+      context,
+      text: DeepLinkConfig.liveLink(session.id),
+      subject: session.title,
+    );
+  }
+
   Future<void> _sendComment(String content) async {
     await _service.postComment(accessToken: _accessToken, sessionId: widget.sessionId, content: content);
   }
@@ -789,6 +801,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
                     currentUserId: _currentUserId,
                     isModerator: session.isModerator,
                     onSend: _sendComment,
+                    onShare: _session == null ? null : _shareLive,
                     onDelete: _deleteComment,
                     onBan: _banCommentAuthor,
                   ),
@@ -887,14 +900,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
             ),
           ),
           const SizedBox(width: 6),
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () => shareLink(
-              context,
-              text: DeepLinkConfig.liveLink(session.id),
-              subject: session.title,
-            ),
-          ),
           session.isModerator
               ? GestureDetector(
                   onTap: _openViewersSheet,

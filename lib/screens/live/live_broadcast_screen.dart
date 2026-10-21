@@ -6,12 +6,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../config/api_config.dart';
+import '../../config/deep_link_config.dart';
 import '../../models/live_comment.dart';
 import '../../models/live_session.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auction_service.dart';
 import '../../services/live_media_client.dart';
 import '../../services/live_session_service.dart';
+import '../../utils/share_helper.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/live/live_comments_panel.dart';
@@ -445,6 +447,20 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     }
   }
 
+  /// يدعو البائع الناس إلى بثّه وهو يبثّ.
+  ///
+  /// لم يكن للبائع طريق إلى هذا أصلاً — زرّ المشاركة كان في شاشة المشاهد
+  /// وحدها، أي أن من يملك سبباً للدعوة هو الوحيد الذي لا يستطيعها.
+  void _shareLive() {
+    final session = _session;
+    if (session == null) return;
+    shareLink(
+      context,
+      text: DeepLinkConfig.liveLink(session.id),
+      subject: session.title,
+    );
+  }
+
   Future<void> _endSession() async {
     setState(() => _isEnding = true);
     final result = await _service.endSession(accessToken: _accessToken, sessionId: widget.sessionId);
@@ -514,6 +530,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
                       onSend: _sendComment,
                       onDelete: _deleteComment,
                       onBan: _banCommentAuthor,
+                      onShare: _session == null ? null : _shareLive,
                     ),
                     _buildBottomControls(),
                   ],
