@@ -293,12 +293,17 @@ class ReelService {
   /// Fire-and-forget view tracking — swallows failures on purpose (a failed
   /// view ping should never surface an error to someone just scrolling the
   /// feed).
+  /// [completed] يعني أن المشاهد بلغ نهاية الريل. الخادم يرفعه ولا يخفضه
+  /// (من أكمل مرّة أكملها)، ويستعمله في ترتيب الخلاصة وفي اهتمامات
+  /// التصنيفات — وهو مشترك مع توصيات المنتجات.
   Future<void> recordView({
     required String accessToken,
     required int reelId,
+    bool completed = false,
   }) async {
     try {
-      await _client.post('/reels/$reelId/view/');
+      await _client.post('/reels/$reelId/view/',
+          body: {'completed': completed});
     } catch (_) {
       // best-effort only
     }

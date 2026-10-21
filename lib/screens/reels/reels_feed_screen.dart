@@ -104,6 +104,22 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
     }
   }
 
+  List<Reel> _reelsForIndex() => context.read<ReelsProvider>().reels;
+
+  /// بلغ المشاهد نهاية الريل — أقوى إشارة اهتمام نملكها.
+  ///
+  /// يُرسَل فوراً لا بعد تأخير: المؤقّت أسفله يحمي من تسجيل مشاهدة لمن
+  /// مرّ مسرعاً، ومن بلغ النهاية ليس كذلك بالتعريف.
+  void _onCompleted(int index) {
+    final reels = _reelsForIndex();
+    if (index < 0 || index >= reels.length) return;
+    _reelService.recordView(
+      accessToken: context.read<AuthProvider>().browseToken,
+      reelId: reels[index].id,
+      completed: true,
+    );
+  }
+
   void _scheduleViewRecord(int index) {
     _viewTimer?.cancel();
     final reels = context.read<ReelsProvider>().reels;
@@ -285,6 +301,7 @@ class _ReelsFeedScreenState extends State<ReelsFeedScreen>
                   reels: provider.reels,
                   isActive: _isTabVisible,
                   onPageChanged: _onPageChanged,
+                  onCompleted: _onCompleted,
                   overlayBuilder: (context, info) => ReelOverlay(
                     reel: info.reel,
                     isMuted: info.isMuted,

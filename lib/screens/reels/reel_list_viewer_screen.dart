@@ -125,6 +125,22 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
 
   /// نفس تأخير الخلاصة: المشاهدة تُسجَّل بعد ثانيتين من استقرار الريل، فلا
   /// يُحسب لمن مرّ عليه مسرعاً. والخادم يتجاهل مشاهدة صاحب الريل نفسه.
+  List<Reel> _reelsForIndex() => _reelsOf(context.read<ReelsProvider>());
+
+  /// بلغ المشاهد نهاية الريل — أقوى إشارة اهتمام نملكها.
+  ///
+  /// يُرسَل فوراً لا بعد تأخير: المؤقّت أسفله يحمي من تسجيل مشاهدة لمن
+  /// مرّ مسرعاً، ومن بلغ النهاية ليس كذلك بالتعريف.
+  void _onCompleted(int index) {
+    final reels = _reelsForIndex();
+    if (index < 0 || index >= reels.length) return;
+    _reelService.recordView(
+      accessToken: context.read<AuthProvider>().browseToken,
+      reelId: reels[index].id,
+      completed: true,
+    );
+  }
+
   void _scheduleViewRecord(int index) {
     _viewTimer?.cancel();
     final reels = _reelsOf(context.read<ReelsProvider>());
@@ -300,6 +316,7 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
                   initialIndex: widget.initialIndex.clamp(0, reels.length - 1),
                   isActive: _isActive,
                   onPageChanged: _onPageChanged,
+                  onCompleted: _onCompleted,
                   overlayBuilder: (context, info) => ReelOverlay(
                     reel: info.reel,
                     isMuted: info.isMuted,

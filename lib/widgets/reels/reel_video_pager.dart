@@ -51,6 +51,15 @@ class ReelVideoPager extends StatefulWidget {
   final int initialIndex;
   final bool isActive;
   final ValueChanged<int>? onPageChanged;
+
+  /// يُنادى مرّة واحدة حين يبلغ المشاهد نهاية ريل.
+  ///
+  /// أقوى إشارة اهتمام وأرخصها: الإعجاب والتعليق فعلان واعيان يفعلهما
+  /// قلّة، وإكمال المشاهدة يفعله كل من أعجبه الريل بلا أن يُطلب منه شيء.
+  /// والفيديو يُعاد تلقائياً (`setLooping`)، فلولا حارسٌ لتكرّر النداء مع
+  /// كل دورة.
+  final ValueChanged<int>? onCompleted;
+
   final ReelOverlayBuilder overlayBuilder;
 
   const ReelVideoPager({
@@ -60,6 +69,7 @@ class ReelVideoPager extends StatefulWidget {
     this.initialIndex = 0,
     this.isActive = true,
     this.onPageChanged,
+    this.onCompleted,
   });
 
   @override
@@ -165,11 +175,39 @@ class _ReelVideoPagerState extends State<ReelVideoPager>
       }
       await controller.setLooping(true);
       await controller.setVolume(_isMuted ? 0 : 1);
+      controller.addListener(() => _checkCompleted(index, controller));
       if (index == _currentIndex && widget.isActive) controller.play();
       if (mounted) setState(() {});
     } catch (_) {
       _controllers.remove(index);
       controller.dispose();
+    }
+  }
+
+  /// الريلز التي بُلّغ عن إكمالها في هذه الجلسة — فلا يتكرّر البلاغ مع
+  /// كل دورة إعادة ولا مع كل مرور على الصفحة.
+  final Set<int> _completedReelIds = {};
+
+  /// بلغ المشاهد النهاية؟
+  ///
+  /// بهامش نصف ثانية لا بتطابق تامّ: آخر إطار قد لا يُبلَّغ عنه بدقّة،
+  /// ومع `setLooping` يقفز الموضع إلى الصفر فور الانتهاء — فانتظار
+  /// التساوي التامّ يعني ألّا يُحتسب إكمال أبداً.
+  void _checkCompleted(int index, VideoPlayerController controller) {
+    if (widget.onCompleted == null) return;
+    if (index < 0 || index >= widget.reels.length) return;
+
+    final value = controller.value;
+    if (!value.isInitialized) return;
+    final duration = value.duration;
+    if (duration <= Duration.zero) return;
+
+    final reelId = widget.reels[index].id;
+    if (_completedReelIds.contains(reelId)) return;
+
+    if (value.position >= duration - const Duration(milliseconds: 500)) {
+      _completedReelIds.add(reelId);
+      widget.onCompleted!(index);
     }
   }
 
