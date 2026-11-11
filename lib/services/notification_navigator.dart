@@ -66,6 +66,9 @@ Future<void> navigateForNotificationTap(
     case 'reservation_confirmed':
     case 'reservation_expiring':
     case 'reservation_completed':
+    case 'installment_requested':
+    case 'installment_approved':
+    case 'installment_rejected':
     case 'payment_release_requested':
     case 'representative_sale':
     case 'representative_commission_paid':

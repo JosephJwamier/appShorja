@@ -21,6 +21,9 @@ class NotificationsScreen extends StatelessWidget {
       case 'reservation_confirmed': return Icons.bookmark_added_outlined;
       case 'reservation_expiring': return Icons.timer_outlined;
       case 'reservation_completed': return Icons.check_circle_outline;
+      case 'installment_requested': return Icons.phone_in_talk_outlined;
+      case 'installment_approved': return Icons.credit_score_outlined;
+      case 'installment_rejected': return Icons.credit_card_off_outlined;
       case 'payment_release_requested': return Icons.campaign_outlined;
       case 'delivery_assigned': return Icons.local_shipping_outlined;
       case 'delivery_arrived': return Icons.local_shipping_outlined;

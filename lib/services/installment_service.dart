@@ -73,6 +73,48 @@ class InstallmentService {
     throw Exception(_message(body, 'تعذّر فحص التقسيط'));
   }
 
+  /// طلب تقسيط يدوي: يُرسل رقم حساب كي كارد، والإدارة تتصل بالمشتري
+  /// لإكمال التفعيل. لا يُكمل الحجز ولا يحرّك مالاً — الحجز يبقى بانتظار
+  /// قرار الإدارة، ولا تنتهي مهلته خلال ذلك.
+  ///
+  /// يرمي [InstallmentRefused] لرفض مُسبَّب (رقم غير صالح، مبلغ خارج
+  /// الحدود…)، و[Exception] للعطل.
+  Future<InstallmentPlan> request({
+    required int reservationId,
+    required String accountNumber,
+    int? deliveryLocationId,
+  }) async {
+    final response = await _client.post(
+      '/installments/request/',
+      body: {
+        'reservation_id': reservationId,
+        'account_number': accountNumber,
+        'delivery_location_id': ?deliveryLocationId,
+      },
+    );
+    final body = _decode(response.body);
+    if (response.statusCode == 200 && body['eligible'] == true) {
+      return InstallmentPlan.fromJson(body['data'] as Map<String, dynamic>);
+    }
+    if (response.statusCode == 200) {
+      throw InstallmentRefused(
+        _message(body, 'تعذّر إرسال طلب التقسيط'),
+        code: body['code'] as String? ?? 'not_eligible',
+      );
+    }
+    if (response.statusCode == 429) {
+      throw Exception('محاولات كثيرة — حاول بعد ساعة');
+    }
+    throw Exception(_message(body, 'تعذّر إرسال طلب التقسيط'));
+  }
+
+  /// سحب طلب تقسيط لم تقرّر فيه الإدارة بعد — ليدفع المشتري بطريقة أخرى.
+  Future<void> cancelRequest({required String reference}) async {
+    final response = await _client.post('/installments/$reference/cancel/');
+    if (response.statusCode == 200) return;
+    throw Exception(_message(_decode(response.body), 'تعذّر إلغاء طلب التقسيط'));
+  }
+
   /// تأكيد الشراء بالتقسيط: يُنشئ الخطة عند المموّل ويُكمل الحجز في نداء
   /// واحد — مكافئ `complete` للدفع من المحفظة.
   Future<InstallmentPlan> confirm({required String reference}) async {

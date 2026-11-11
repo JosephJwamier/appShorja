@@ -20,6 +20,7 @@ import '../features/location/screens/add_edit_location_screen.dart';
 import '../features/location/screens/location_picker_sheet.dart';
 import 'file_dispute_screen.dart';
 import 'disputes_screen.dart';
+import 'payment/installment_request_sheet.dart';
 import 'payment/installment_sheet.dart';
 import 'print_delivery_label_screen.dart';
 import 'product_details_screen.dart';
@@ -111,6 +112,14 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       _all.where((r) => r.item.owner.id == _currentUserId).toList();
 
   Future<void> _complete(Reservation r) async {
+    // طلب تقسيط مفتوح: الحجز بانتظار مكالمة الإدارة، والدفع بطريقة أخرى
+    // ممنوع حتى يُسحب الطلب (وإلا دُفع مرّتين).
+    final pendingRequest = r.installment;
+    if (pendingRequest != null && pendingRequest.isRequested) {
+      await _showInstallmentRequest(pendingRequest);
+      return;
+    }
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
 
@@ -191,15 +200,37 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     }
   }
 
-  /// شراء بالتقسيط: الورقة تحمل الفحص والتأكيد معاً، وعودتها بخطة تعني
-  /// أن الحجز اكتمل على الخادم — فلا نداء `complete` بعدها، التأكيد هو
-  /// الذي أكمله.
+  /// شراء بالتقسيط.
+  ///
+  /// المسار اليدوي: ورقة رقم الحساب، وعودتها بطلب تعني «سيتم الاتصال بك» —
+  /// الحجز يبقى بانتظار الإدارة ولا يكتمل الآن.
+  ///
+  /// المسار الآلي: الورقة تحمل الفحص والتأكيد معاً، وعودتها بخطة تعني أن
+  /// الحجز اكتمل على الخادم — فلا نداء `complete` بعدها.
   Future<void> _completeWithInstallments(
     Reservation r,
     InstallmentOptions options,
     int? deliveryLocationId,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
+    if (options.isManual) {
+      final request = await showInstallmentRequestSheet(
+        context,
+        reservation: r,
+        options: options,
+        deliveryLocationId: deliveryLocationId,
+      );
+      if (!mounted || request == null) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('أُرسل طلب التقسيط — سيتم الاتصال بك لإكمال الإجراءات'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _load();
+      return;
+    }
+
     final plan = await showInstallmentSheet(
       context,
       reservation: r,
@@ -218,6 +249,55 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       ),
     );
     _load();
+  }
+
+  /// حالة طلب التقسيط المفتوح، مع سحبه لمن غيّر رأيه أو يريد الدفع بطريقة
+  /// أخرى.
+  Future<void> _showInstallmentRequest(ReservationInstallment request) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final withdraw = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('طلب التقسيط قيد المراجعة'),
+        content: Text(
+          'سيتم الاتصال بك لإكمال الإجراءات: ستصلك رسالة من كي كارد فيها رمز، '
+          'تخبرنا به خلال المكالمة. بعد تفعيل التقسيط يكتمل حجزك تلقائياً.\n\n'
+          '${formatIqd(request.monthlyAmount)} شهرياً × ${request.months} أشهر'
+          '${request.cardLast4.isNotEmpty ? ' · الحساب ****${request.cardLast4}' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('سحب الطلب'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+    if (withdraw != true || !mounted) return;
+    try {
+      await InstallmentService().cancelRequest(reference: request.reference);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('سُحب طلب التقسيط — يمكنك الآن إكمال الحجز بطريقة أخرى'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   /// رصيد لا يكفي: يُعرض الطريق لا العائق.
@@ -1409,6 +1489,11 @@ class _ReservationCard extends StatelessWidget {
     // to the hold expiring). Paying to complete the reservation is a
     // buyer-only action.
     final canComplete = isBuyer && r.status == 'pending';
+    // A pending reservation whose buyer already asked for installments: the
+    // complete button opens the request's status instead of the payment
+    // picker, and the expiry countdown is hidden — it is paused server-side.
+    final awaitingInstallmentCall =
+        canComplete && (r.installment?.isRequested ?? false);
     // Backend-computed: seller, payment still held. The backend flag alone
     // doesn't check delivery-company progress, so gate it further here so
     // the seller can only nudge the buyer once the item has actually
@@ -1602,7 +1687,7 @@ class _ReservationCard extends StatelessWidget {
                             color: AppColors.onSurfaceVariant,
                           ),
                         ),
-                        if (canComplete) ...[
+                        if (canComplete && !awaitingInstallmentCall) ...[
                           const Spacer(),
                           const Icon(
                             Icons.timer_outlined,
@@ -1625,19 +1710,23 @@ class _ReservationCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(
-                            Icons.credit_card_rounded,
+                          Icon(
+                            r.installment!.isRequested
+                                ? Icons.phone_in_talk_rounded
+                                : Icons.credit_card_rounded,
                             size: 13,
                             color: AppColors.primary,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              'مقسّطة — '
-                              '${formatIqd(r.installment!.monthlyAmount)}'
-                              ' شهرياً، بقي '
-                              '${r.installment!.remainingCount} من '
-                              '${r.installment!.months}',
+                              r.installment!.isRequested
+                                  ? 'طلب تقسيط قيد المراجعة — سيتم الاتصال بك'
+                                  : 'مقسّطة — '
+                                      '${formatIqd(r.installment!.monthlyAmount)}'
+                                      ' شهرياً، بقي '
+                                      '${r.installment!.remainingCount} من '
+                                      '${r.installment!.months}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.primary,
@@ -1702,11 +1791,15 @@ class _ReservationCard extends StatelessWidget {
                             Expanded(
                               child: FilledButton.icon(
                                 onPressed: () => onComplete(r),
-                                icon: const Icon(
-                                  Icons.check_circle_outline,
+                                icon: Icon(
+                                  awaitingInstallmentCall
+                                      ? Icons.phone_in_talk_rounded
+                                      : Icons.check_circle_outline,
                                   size: 16,
                                 ),
-                                label: const Text('إكمال'),
+                                label: Text(awaitingInstallmentCall
+                                    ? 'طلب التقسيط'
+                                    : 'إكمال'),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppColors.success,
                                   foregroundColor: Colors.white,
