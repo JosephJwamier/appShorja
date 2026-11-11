@@ -33,6 +33,16 @@ class AuctionDetailsScreen extends StatefulWidget {
 class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
   late Auction _auction;
   bool _isPlacingBid = false;
+
+  /// قفل متزامن ضد الضغط المزدوج. `_isPlacingBid` لا يكفي وحده: يُضبط بعد
+  /// `await requireAuth(...)`، فضغطتان سريعتان تعبران الحارس معاً قبل أن
+  /// يُضبط أيٌّ منهما، وتُرسَل مزايدتان. هذا الحقل يُضبط في أول سطر بلا أي
+  /// `await` قبله، ويُحرَّر في `finally` مهما انتهى الطلب.
+  bool _bidInFlight = false;
+
+  /// معرّفات المزايدات التي وصلت عبر WebSocket، حتى لا تُعرض الرسالة نفسها
+  /// مرتين عند إعادة الاتصال أو وصول البث مكرراً.
+  final Set<int> _seenBidIds = <int>{};
   bool _isRefreshing = false;
   bool _isCancelling = false;
   bool _isEndingEarly = false;
@@ -120,15 +130,28 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
         final bidData = data['data'] as Map<String, dynamic>;
         final bidAmount = double.parse(bidData['bid_amount'].toString());
         final bidderUsername = bidData['bidder_username'] as String;
+        final bidId = int.tryParse('${bidData['bid_id']}');
 
-        // منع التكرار مع مزايدتنا التفاؤليّة
-        if (_auction.bids.isNotEmpty) {
-          final latest = _auction.bids.first;
-          if (latest.bidder.username == bidderUsername &&
-              (latest.amount - bidAmount).abs() < 0.01) {
-            return;
-          }
-        }
+        // البثّ نفسه وصل من قبل (إعادة اتصال، أو رسالة مكرّرة).
+        if (bidId != null && !_seenBidIds.add(bidId)) return;
+
+        // منع التكرار مع مزايدتنا التفاؤليّة. لا يكفي فحص أول عنصر: إن
+        // سبقت مزايدةُ شخصٍ آخر بثَّ مزايدتنا، تنزل مزايدتنا للمرتبة الثانية
+        // وتُضاف مرة أخرى. والمبالغ في المزاد تصاعدية بالضرورة، فالزوج
+        // (المزايد، المبلغ) يعرّف المزايدة دون لبس.
+        final alreadyShown = _auction.bids.any(
+          (b) =>
+              b.bidder.username == bidderUsername &&
+              (b.amount - bidAmount).abs() < 0.01,
+        );
+        if (alreadyShown) return;
+
+        // مزايدة أقدم من السعر المعروض (وصلت متأخرة) لا تُوضع في الأعلى.
+        if (bidAmount + 0.01 < _auction.currentPrice) return;
+
+        final serverTotal = int.tryParse('${bidData['total_bids']}');
+        final serverMinimum =
+            double.tryParse('${bidData['minimum_next_bid']}');
 
         final newBid = Bid(
           id: -DateTime.now().millisecondsSinceEpoch,
@@ -147,9 +170,10 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
           _auction = _auction.copyWith(
             currentPrice: bidAmount,
             bids: [newBid, ...previousBids],
-            bidCount: _auction.bidCount + 1,
+            bidCount: serverTotal ?? _auction.bidCount + 1,
           );
-          _minimumNextBid = bidAmount + _auction.minimumIncrement;
+          _minimumNextBid =
+              serverMinimum ?? bidAmount + _auction.minimumIncrement;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -350,7 +374,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
   }
 
   Future<void> _placeBidFromBar() async {
-    if (_isPlacingBid) return;
+    if (_bidInFlight) return;
     final calculatedMin = _auction.currentPrice + _auction.minimumIncrement;
     final minimumBid =
         _minimumNextBid != null && _minimumNextBid! > calculatedMin
@@ -376,18 +400,27 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
       }
       amount = value;
     }
-    await _placeBid(amount);
-    _bidController.clear();
+    final placed = await _placeBid(amount);
+    if (placed && mounted) _bidController.clear();
   }
 
-  Future<void> _placeBid(double amount) async {
-    if (_isPlacingBid) return;
+  /// يُرجع `true` إن قبل الخادم المزايدة.
+  Future<bool> _placeBid(double amount) async {
+    if (_bidInFlight) return false;
+    _bidInFlight = true;
+    try {
+      return await _submitBid(amount);
+    } finally {
+      _bidInFlight = false;
+    }
+  }
 
-    if (!await requireAuth(context, reason: 'للمزايدة')) return;
-    if (!mounted) return;
+  Future<bool> _submitBid(double amount) async {
+    if (!await requireAuth(context, reason: 'للمزايدة')) return false;
+    if (!mounted) return false;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.user == null) return;
+    if (auth.user == null) return false;
 
     // Optimistic update BEFORE the network request so that when the server
     // broadcasts a WebSocket event for this same bid, the guard in
@@ -407,7 +440,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
         amount: amount,
       );
 
-      if (!mounted) return;
+      if (!mounted) return result.success;
 
       if (!result.success) {
         setState(() {
@@ -440,8 +473,9 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
           backgroundColor: result.success ? AppColors.primary : AppColors.error,
         ),
       );
+      return result.success;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _auction = rollbackAuction;
         _isPlacingBid = false;
@@ -449,6 +483,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error),
       );
+      return false;
     }
   }
 

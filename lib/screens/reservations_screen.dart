@@ -243,7 +243,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       SnackBar(
         content: Text(
           'تم الشراء بالتقسيط — ${formatIqd(plan.monthlyAmount)} شهرياً '
-          'لمدة ${plan.months} أشهر',
+          'لمدة ${formatMonthsAr(plan.months)}',
         ),
         backgroundColor: AppColors.success,
       ),
@@ -262,7 +262,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         content: Text(
           'سيتم الاتصال بك لإكمال الإجراءات: ستصلك رسالة من كي كارد فيها رمز، '
           'تخبرنا به خلال المكالمة. بعد تفعيل التقسيط يكتمل حجزك تلقائياً.\n\n'
-          '${formatIqd(request.monthlyAmount)} شهرياً × ${request.months} أشهر'
+          '${formatIqd(request.monthlyAmount)} شهرياً × ${formatMonthsAr(request.months)}'
           '${request.cardLast4.isNotEmpty ? ' · الحساب ****${request.cardLast4}' : ''}',
         ),
         actions: [
@@ -512,7 +512,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
                                   color: AppColors.onPrimaryFixed),
                             ),
                             Text(
-                              '${options.months} أشهر عبر ${options.labelAr}'
+                              '${formatMonthsAr(options.months)} عبر ${options.labelAr}'
                               ' — بلا دفعة أولى',
                               style: const TextStyle(
                                   fontSize: 11.5,

@@ -307,7 +307,7 @@ class _InstallmentSheetState extends State<_InstallmentSheet> {
         Expanded(
           child: Text(
             'تقديراً: ${formatIqd(monthly)} شهرياً لمدة '
-            '${widget.options.months} أشهر',
+            '${formatMonthsAr(widget.options.months)}',
             style: const TextStyle(
                 fontSize: 12, color: AppColors.onSurfaceVariant),
           ),
@@ -370,7 +370,7 @@ class _InstallmentSheetState extends State<_InstallmentSheet> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
-                  '× ${quote.months} أشهر',
+                  '× ${formatMonthsAr(quote.months)}',
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -383,7 +383,8 @@ class _InstallmentSheetState extends State<_InstallmentSheet> {
           _row('سعر المنتج', formatIqd(quote.principal)),
           _row('رسوم التقسيط (كي كارد والمنصة)', formatIqd(quote.feesAmount)),
           const Divider(height: 16),
-          _row('المجموع على عشرة أشهر', formatIqd(quote.totalPayable),
+          _row('المجموع على ${formatMonthsAr(quote.months)}',
+              formatIqd(quote.totalPayable),
               bold: true),
           if (quote.cardHolderName.isNotEmpty) ...[
             const SizedBox(height: 8),
