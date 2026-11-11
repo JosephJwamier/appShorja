@@ -243,7 +243,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       SnackBar(
         content: Text(
           'تم الشراء بالتقسيط — ${formatIqd(plan.monthlyAmount)} شهرياً '
-          'لمدة ${plan.months} أشهر',
+          'لمدة ${formatMonthsAr(plan.months)}',
         ),
         backgroundColor: AppColors.success,
       ),
@@ -512,7 +512,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
                                   color: AppColors.onPrimaryFixed),
                             ),
                             Text(
-                              '${options.months} أشهر عبر ${options.labelAr}'
+                              '${formatMonthsAr(options.months)} عبر ${options.labelAr}'
                               ' — بلا دفعة أولى',
                               style: const TextStyle(
                                   fontSize: 11.5,
