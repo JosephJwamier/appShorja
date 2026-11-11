@@ -249,7 +249,7 @@ class _InstallmentRequestSheetState extends State<_InstallmentRequestSheet> {
       ),
       const SizedBox(height: 14),
       Text(
-        '${formatIqd(plan.monthlyAmount)} شهرياً × ${plan.months} أشهر · '
+        '${formatIqd(plan.monthlyAmount)} شهرياً × ${formatMonthsAr(plan.months)} · '
         'الحساب ****${plan.cardLast4}',
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
@@ -294,7 +294,7 @@ class _InstallmentRequestSheetState extends State<_InstallmentRequestSheet> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
-                  '× ${widget.options.months} أشهر تقريباً',
+                  '× ${formatMonthsAr(widget.options.months)} تقريباً',
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,

@@ -262,7 +262,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         content: Text(
           'سيتم الاتصال بك لإكمال الإجراءات: ستصلك رسالة من كي كارد فيها رمز، '
           'تخبرنا به خلال المكالمة. بعد تفعيل التقسيط يكتمل حجزك تلقائياً.\n\n'
-          '${formatIqd(request.monthlyAmount)} شهرياً × ${request.months} أشهر'
+          '${formatIqd(request.monthlyAmount)} شهرياً × ${formatMonthsAr(request.months)}'
           '${request.cardLast4.isNotEmpty ? ' · الحساب ****${request.cardLast4}' : ''}',
         ),
         actions: [
