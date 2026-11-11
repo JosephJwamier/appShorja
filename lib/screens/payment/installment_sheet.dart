@@ -381,7 +381,7 @@ class _InstallmentSheetState extends State<_InstallmentSheet> {
           ),
           const SizedBox(height: 10),
           _row('سعر المنتج', formatIqd(quote.principal)),
-          _row('إضافة كي كارد للتقسيط', formatIqd(quote.customerFeeAmount)),
+          _row('رسوم التقسيط (كي كارد والمنصة)', formatIqd(quote.feesAmount)),
           const Divider(height: 16),
           _row('المجموع على عشرة أشهر', formatIqd(quote.totalPayable),
               bold: true),

@@ -139,7 +139,7 @@ class _InstallmentRequestSheetState extends State<_InstallmentRequestSheet> {
 
   List<Widget> _form() {
     final monthly = widget.options.monthlyFor(_amount);
-    final total = monthly * widget.options.months;
+    final total = widget.options.totalFor(_amount);
     return [
       Row(
         children: [
@@ -305,17 +305,13 @@ class _InstallmentRequestSheetState extends State<_InstallmentRequestSheet> {
           ),
           const SizedBox(height: 10),
           _row('المبلغ (المنتج + التوصيل)', formatIqd(_amount)),
-          _row('إضافة كي كارد (${_percent(widget.options.customerFeePercent)}%)',
-              formatIqd(total - _amount)),
+          _row('رسوم التقسيط (كي كارد والمنصة)', formatIqd(total - _amount)),
           const Divider(height: 16),
           _row('المجموع', formatIqd(total), bold: true),
         ],
       ),
     );
   }
-
-  String _percent(double value) =>
-      value == value.roundToDouble() ? value.toStringAsFixed(0) : '$value';
 
   Widget _row(String label, String value, {bool bold = false}) {
     final style = TextStyle(
