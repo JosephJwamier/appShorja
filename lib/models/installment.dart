@@ -16,6 +16,10 @@ class InstallmentOptions {
   final double minAmount;
   final double maxAmount;
 
+  /// المضاعف الذي يُدوَّر إليه المبلغ المكتوب في كي كارد (500 افتراضاً).
+  /// يأتي من الخادم ولا يُكتب هنا، فتغييره لا يحتاج إصدار تطبيق.
+  final double roundingStep;
+
   /// 'manual': المشتري يرسل رقم حسابه والإدارة تتصل به لإكمال التفعيل.
   /// 'api': فحص البطاقة والجدول ثم تأكيد فوري.
   final String mode;
@@ -27,6 +31,7 @@ class InstallmentOptions {
     required this.customerFeePercent,
     this.merchantFeePercent = 0,
     this.platformFeePercent = 0,
+    this.roundingStep = 1,
     required this.minAmount,
     required this.maxAmount,
     this.mode = 'manual',
@@ -48,7 +53,11 @@ class InstallmentOptions {
   double qiAmountFor(double amount) {
     final keep = 1 - merchantFeePercent / 100;
     if (keep <= 0) return amount;
-    return (amount * (1 + platformFeePercent / 100) / keep).ceilToDouble();
+    final raw = amount * (1 + platformFeePercent / 100) / keep;
+    if (roundingStep <= 1) return raw.ceilToDouble();
+    // لأعلى مضاعف لـ roundingStep، كما يفعل الخادم بالضبط: تقديرٌ يخالف
+    // الرقم المُلزِم بثلاثمئة دينار يبدو خطأً للمشتري ولو كان تدويراً.
+    return (raw / roundingStep).ceilToDouble() * roundingStep;
   }
 
   /// كل ما يدفعه الزبون: المبلغ المكتوب في كي كارد ونسبتها فوقه.
@@ -72,6 +81,10 @@ class InstallmentOptions {
       customerFeePercent: _toDouble(json['customer_fee_percent']),
       merchantFeePercent: _toDouble(json['merchant_fee_percent']),
       platformFeePercent: _toDouble(json['platform_fee_percent']),
+      // 1 = بلا تدوير، وهي حال نسخة خادم قديمة لا تُرسل الحقل.
+      roundingStep: _toDouble(json['rounding_step']) <= 0
+          ? 1
+          : _toDouble(json['rounding_step']),
       minAmount: _toDouble(json['min_amount']),
       maxAmount: _toDouble(json['max_amount']),
       mode: json['mode'] as String? ?? 'manual',

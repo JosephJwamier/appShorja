@@ -14,6 +14,9 @@ void main() {
     double fee = 10,
     double min = 250000,
     double max = 5000000,
+    double merchant = 0,
+    double platform = 0,
+    double step = 1,
   }) {
     return InstallmentOptions(
       provider: 'qicard',
@@ -22,6 +25,9 @@ void main() {
       customerFeePercent: fee,
       minAmount: min,
       maxAmount: max,
+      merchantFeePercent: merchant,
+      platformFeePercent: platform,
+      roundingStep: step,
     );
   }
 
@@ -29,6 +35,20 @@ void main() {
     test('القسط الشهري يحمل نسبة المموّل فوق السعر', () {
       // مليون + 10% = 1,100,000 على عشرة أشهر.
       expect(options().monthlyFor(1000000), 110000);
+    });
+
+    test('المبلغ المكتوب في كي كارد يُدوَّر لأعلى 500', () {
+      // نفس معادلة الخادم ونفس تدويره: 1,020,000 ÷ 0.95 = 1,073,684.21
+      // ← 1,074,000. تقديرٌ يخالف الرقم المُلزِم يبدو خطأً للمشتري.
+      final o = options(fee: 10, merchant: 5, platform: 2, step: 500);
+      expect(o.qiAmountFor(1000000), 1074000);
+      expect(o.totalFor(1000000), 1181400);
+      expect(o.monthlyFor(1000000), 118140);
+    });
+
+    test('خطوة 1 تعني بلا تدوير — خادم قديم لا يُرسل الحقل', () {
+      final o = options(fee: 10, merchant: 5, platform: 2, step: 1);
+      expect(o.qiAmountFor(1000000), 1073685);
     });
 
     test('مبلغ تحت الحدّ الأدنى لا يُقسَّط', () {
@@ -49,7 +69,9 @@ void main() {
     });
 
     test('أشهر صفر لا تقسم على صفر', () {
-      expect(options(months: 0).monthlyFor(500000), 500000);
+      // الحارس يُعيد كل ما يدفعه الزبون دفعةً واحدة — ومنذ أن صار يحمل
+      // كل الرسوم، هو المبلغ ونسبة كي كارد فوقه لا المبلغ وحده.
+      expect(options(months: 0).monthlyFor(500000), 550000);
     });
 
     test('تُقرأ من جواب الخادم بأرقام نصّية', () {
