@@ -1,3 +1,5 @@
+import '../utils/formatters.dart';
+
 /// التقسيط كما يراه التطبيق.
 ///
 /// لا شيء هنا يعرف «كي كارد» بالاسم: الشروط والنِسَب والتسمية تأتي من
@@ -45,6 +47,21 @@ class InstallmentOptions {
     if (minAmount > 0 && amount < minAmount) return false;
     if (maxAmount > 0 && amount > maxAmount) return false;
     return true;
+  }
+
+  /// لماذا لا يُعرض التقسيط لهذا المبلغ، أو null إن كان متاحاً.
+  ///
+  /// الخيار الغائب بلا سبب يُقرأ «الميزة غير موجودة»، فيكتب المشتري
+  /// للدعم أو يتخلّى عنها نهائياً، حتى في طلبه القادم الذي كان سيُقسَّط.
+  /// والسطر يذكر الحدّ نفسه، فيعرف أيّ منتج يمكن تقسيطه.
+  String? unavailableReason(double amount) {
+    if (minAmount > 0 && amount < minAmount) {
+      return 'التقسيط متاح للطلبات من ${formatIqd(minAmount)} فأكثر';
+    }
+    if (maxAmount > 0 && amount > maxAmount) {
+      return 'التقسيط متاح للطلبات حتى ${formatIqd(maxAmount)}';
+    }
+    return null;
   }
 
   /// ما يُكتب في كي كارد لطلب بهذا المبلغ: يُرفع حتى يبقى للمنصة بعد خصم

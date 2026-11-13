@@ -444,6 +444,11 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     final canFinance = options != null &&
         !r.isFromAuction &&
         options.allows(financedTotal);
+    // المزاد مستثنى من السطر: سببه ليس المبلغ، وجملة «متاح حتى كذا» تعد
+    // بما لن يحدث مهما تغيّر السعر.
+    final financeHint = options == null || r.isFromAuction
+        ? null
+        : options.unavailableReason(financedTotal);
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -526,6 +531,23 @@ class _ReservationsScreenState extends State<ReservationsScreen>
                     ],
                   ),
                 ),
+              ),
+            ],
+            if (financeHint != null) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 16, color: AppColors.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      financeHint,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],

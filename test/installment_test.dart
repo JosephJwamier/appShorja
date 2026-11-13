@@ -155,4 +155,32 @@ void main() {
       expect(summary.remainingCount, 8);
     });
   });
+
+  group('unavailableReason', () {
+    // الحالتان اللتان أخفتا الخيار عن صاحب التطبيق نفسه: عطر بـ200 ألف
+    // وسيارة بـ16 مليون، ولم يظهر أي سبب.
+    test('below the minimum names the minimum', () {
+      final why = options().unavailableReason(200000);
+      expect(why, isNotNull);
+      expect(why, contains('فأكثر'));
+    });
+
+    test('above the maximum names the maximum', () {
+      final why = options().unavailableReason(16000000);
+      expect(why, isNotNull);
+      expect(why, contains('حتى'));
+    });
+
+    test('silent exactly when the option is shown', () {
+      final o = options();
+      for (final amount in [249999.0, 250000.0, 1000000.0, 5000000.0, 5000001.0]) {
+        expect(o.unavailableReason(amount) == null, o.allows(amount),
+            reason: 'amount $amount');
+      }
+    });
+
+    test('no limits configured means no reason', () {
+      expect(options(min: 0, max: 0).unavailableReason(99000000), isNull);
+    });
+  });
 }
