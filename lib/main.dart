@@ -28,6 +28,8 @@ import 'providers/transfers_provider.dart';
 import 'providers/reservations_badge_provider.dart';
 import 'features/location/providers/location_provider.dart';
 import 'theme/app_colors.dart';
+import 'screens/update_required_screen.dart';
+import 'services/app_version_service.dart';
 import 'screens/main_shell.dart';
 import 'services/notification_service.dart';
 import 'services/notification_navigator.dart';
@@ -193,14 +195,38 @@ class AuthGate extends StatefulWidget {
 
 const _onboardingSeenKey = 'has_seen_onboarding';
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   late final Future<void> _initFuture;
   bool _hasSeenOnboarding = false;
+
+  /// غير null حين تكون هذه النسخة أقدم مما يخدمه الخادم.
+  VersionPolicy? _updateRequired;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initFuture = _init();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // يُعاد السؤال عند العودة إلى التطبيق، لا عند الإقلاع وحده: تطبيقٌ
+  // يبقى في الذاكرة أياماً لن يُقلع من جديد، وسيمرّ عليه رفع الحدّ.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkVersion();
+  }
+
+  Future<void> _checkVersion() async {
+    final policy = await AppVersionService().blockingPolicy();
+    if (mounted && policy != _updateRequired) {
+      setState(() => _updateRequired = policy);
+    }
   }
 
   Future<void> _init() async {
@@ -212,8 +238,12 @@ class _AuthGateState extends State<AuthGate> {
         Provider.of<NotificationsProvider>(context, listen: false);
     final chats = Provider.of<ChatsProvider>(context, listen: false);
 
+    // بالتوازي مع الدخول التلقائي لا قبله: لا يُضيف وقتاً إلى الإقلاع.
+    final versionCheck = AppVersionService().blockingPolicy();
     final prefs = await SharedPreferences.getInstance();
     _hasSeenOnboarding = prefs.getBool(_onboardingSeenKey) ?? false;
+    _updateRequired = await versionCheck;
+    if (_updateRequired != null) return;
     await auth.tryAutoLogin(
       notificationsProvider: notifications,
       chatsProvider: chats,
@@ -235,6 +265,12 @@ class _AuthGateState extends State<AuthGate> {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
+        }
+        // قبل كل شيء آخر، حتى شاشة التعريف: نسخة لا يخدمها الخادم لا
+        // تصلح لأي شاشة بعدها.
+        final updateRequired = _updateRequired;
+        if (updateRequired != null) {
+          return UpdateRequiredScreen(policy: updateRequired);
         }
         return Consumer<AuthProvider>(
           builder: (context, auth, _) {
