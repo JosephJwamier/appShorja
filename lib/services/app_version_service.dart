@@ -25,6 +25,15 @@ class VersionPolicy {
   bool blocks(int currentBuild) => currentBuild > 0 && currentBuild < minBuild;
 }
 
+/// رقم البنية كما كُتب في pubspec (`+N`) من versionCode أندرويد.
+///
+/// `flutter build apk --split-per-abi` لا يضع N بل `1000 × رقم المعمارية
+/// + N`: ‏armeabi-v7a ← 1002، و arm64 ← 2002، و x86_64 ← 4002 للبنية 2.
+/// بلا هذا لا تُحجب أي APK أبداً، فـ2002 أكبر من أي حدّ أدنى معقول.
+/// أما حزمة المتجر (.aab) فتحمل N كما هو، والباقي على 1000 يعطي N في
+/// الحالتين ما دامت البنية أقل من 1000.
+int normalizeAndroidBuild(int versionCode) => versionCode % 1000;
+
 /// يسأل الخادم عند الإقلاع إن كانت هذه النسخة ما زالت مدعومة.
 ///
 /// **يفشل مفتوحاً**: انقطاع الشبكة، أو مهلة، أو ردّ غريب، كلها تعني
@@ -53,7 +62,8 @@ class AppVersionService {
   Future<int> currentBuild() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      return int.tryParse(info.buildNumber) ?? 0;
+      final raw = int.tryParse(info.buildNumber) ?? 0;
+      return Platform.isAndroid ? normalizeAndroidBuild(raw) : raw;
     } catch (_) {
       return 0;
     }

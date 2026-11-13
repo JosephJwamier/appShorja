@@ -34,4 +34,12 @@ void main() {
     final empty = VersionPolicy.fromJson({});
     expect((empty.minBuild, empty.storeUrl), (0, ''));
   });
+
+  test('split-per-abi version codes reduce to the pubspec build', () {
+    // الأرقام الفعلية من aapt على بنية 1.0.0+2.
+    expect(normalizeAndroidBuild(1002), 2); // armeabi-v7a
+    expect(normalizeAndroidBuild(2002), 2); // arm64-v8a
+    expect(normalizeAndroidBuild(4002), 2); // x86_64
+    expect(normalizeAndroidBuild(2), 2); // .aab من المتجر
+  });
 }
