@@ -75,6 +75,7 @@ dependencies:
   # there is no vendor SDK here, and HLS through video_player above is the
   # fallback for viewers whose network blocks WebRTC outright.
   flutter_webrtc: ^1.6.2+hotfix.4
+  wakelock_plus: ^1.6.1
 
 dev_dependencies:
   flutter_test:

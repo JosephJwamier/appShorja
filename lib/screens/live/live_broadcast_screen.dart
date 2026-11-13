@@ -5,6 +5,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../config/api_config.dart';
 import '../../config/deep_link_config.dart';
 import '../../models/live_comment.dart';
@@ -63,6 +64,10 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   @override
   void initState() {
     super.initState();
+    // البثّ لا تلمسه يد: التاجر يتكلّم أمام الكاميرا والمشاهد يتفرّج،
+    // فبلا هذا يطفئ النظام الشاشة بعد مهلة السكون (30 ثانية على كثير من
+    // الهواتف). وانطفاؤها عند التاجر يوقف الكاميرا فينقطع البثّ عن الجميع.
+    WakelockPlus.enable();
     _init();
   }
 
@@ -475,6 +480,8 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
   @override
   void dispose() {
+    // يُعاد السكون فور الخروج، وإلا بقيت الشاشة مضاءة في بقية التطبيق.
+    WakelockPlus.disable();
     _reconnectTimer?.cancel();
     _auctionTicker?.cancel();
     _closeSocket();
