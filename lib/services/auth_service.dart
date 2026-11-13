@@ -169,6 +169,19 @@ class AuthService {
       },
     );
     if (response.statusCode == 200) {
+      // الخادم أخرج كل الأجهزة الأخرى وأعطى هذا الجهاز زوجاً جديداً؛ التوكن
+      // القديم في الذاكرة صار مُبطلاً، فلا بد من حفظ الجديد.
+      try {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final access = data is Map ? data['access'] : null;
+        final refresh = data is Map ? data['refresh'] : null;
+        if (access is String && refresh is String) {
+          ApiClient.instance.adoptTokens(access, refresh);
+        }
+      } catch (_) {
+        // جسم غير متوقّع: التغيير نجح على أي حال، وأسوأ ما يحدث تسجيل
+        // دخول من جديد حين تنتهي صلاحية التوكن الحالي.
+      }
       return (success: true, message: 'تم تغيير كلمة المرور بنجاح');
     }
     return (success: false, message: _extractError(response, 'تعذّر تغيير كلمة المرور'));

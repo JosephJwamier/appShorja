@@ -50,6 +50,12 @@ class ApiClient {
     _onSessionExpired = onSessionExpired;
   }
 
+  /// يعتمد زوج توكنات أصدره الخادم خارج مسار التحديث — حين يغيّر المستخدم
+  /// كلمة المرور يُبطل الخادم كل توكنات التحديث القديمة ويعطي هذا الجهاز
+  /// زوجاً جديداً، فإن لم يُحفظ خرج المستخدم من جهازه نفسه بعد دقائق.
+  void adoptTokens(String access, String refresh) =>
+      _onTokensRefreshed?.call(access, refresh);
+
   Future<http.Response> get(String path, {bool auth = true}) =>
       _send('GET', path, auth: auth);
 
