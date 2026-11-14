@@ -20,6 +20,7 @@
     <application
         android:label="الشورجة"
         android:name="${applicationName}"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher">
 
         <activity
