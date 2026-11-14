@@ -6,6 +6,17 @@ import '../config/api_config.dart';
 import '../models/user.dart';
 import 'api_client.dart';
 
+/// رفضُ دخولٍ يشرح الخادم سببه وعلاجه للمستخدم — مثل كلمة مرور صحيحة لم
+/// تعد السياسة تقبلها. رسالته تُعرض كما هي بدل «فشل تسجيل الدخول»، وإلا ظنّ
+/// صاحب الحساب أنه أخطأ الكتابة وأعاد المحاولة بلا نهاية.
+class LoginRefusedException implements Exception {
+  final String message;
+  const LoginRefusedException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   final _client = ApiClient.instance;
 
@@ -28,8 +39,22 @@ class AuthService {
         accessToken: data['tokens']['access'] as String,
         refreshToken: data['tokens']['refresh'] as String,
       );
-    } else {
-      throw Exception('فشل تسجيل الدخول');
+    }
+    if (response.statusCode == 403) {
+      final body = _tryDecode(response.body);
+      if (body?['code'] == 'password_reset_required' && body?['error'] is String) {
+        throw LoginRefusedException(body!['error'] as String);
+      }
+    }
+    throw Exception('فشل تسجيل الدخول');
+  }
+
+  static Map<String, dynamic>? _tryDecode(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
     }
   }
 

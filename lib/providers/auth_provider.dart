@@ -187,7 +187,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _errorMessage = e is NoConnectionException
+      _errorMessage = e is NoConnectionException || e is LoginRefusedException
           ? e.toString()
           : 'فشل تسجيل الدخول، تحقّق من بياناتك';
       _isLoading = false;
