@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/reels_provider.dart';
 import '../screens/active_representatives_screen.dart';
 import '../screens/auction_details_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/received_requests_screen.dart';
 import '../screens/reels/my_reels_screen.dart';
+import '../screens/reels/reel_list_viewer_screen.dart';
 import '../screens/resale_agreements_screen.dart';
 import '../screens/reservations_screen.dart';
 import '../screens/sent_requests_screen.dart';
 import '../screens/store_chat_screen.dart';
 import 'auction_service.dart';
+import 'reel_service.dart';
 
 int? _asInt(dynamic value) =>
     value == null ? null : int.tryParse(value.toString());
@@ -139,6 +142,29 @@ Future<void> navigateForNotificationTap(
         ),
       );
       return;
+
+    case 'reel_comment_reply':
+      // من رُدّ عليه غالباً مشترٍ لا صاحب الريل، فلا «ريلزاتي» هنا: يُفتح
+      // الريل نفسه، ثم تعليقاته مُمرَّرةً إلى الردّ ومظلِّلةً له.
+      final reelId = _asInt(data['reel_id']);
+      final reelsProvider = Provider.of<ReelsProvider>(context, listen: false);
+      final reel =
+          reelId == null ? null : await ReelService().fetchReel(reelId: reelId);
+      if (reel != null) {
+        reelsProvider.showSingleReel(reel);
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => ReelListViewerScreen(
+              source: ReelViewerSource.single,
+              title: reel.store.name,
+              initialIndex: 0,
+              openCommentsHighlightId: _asInt(data['comment_id']),
+            ),
+          ),
+        );
+        return;
+      }
+      break;
   }
 
   navigator.push(

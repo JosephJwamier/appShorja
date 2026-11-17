@@ -117,9 +117,19 @@ class ReelsProvider extends ChangeNotifier {
   /// ريله فيها وفي «ريلزاتي» وفي شبكة صفحة متجره — وقد يكون حفظه فهو في
   /// المفضلة أيضاً. ترقيع واحدة دون أخرى يعني رقمين مختلفين للشيء نفسه على
   /// شاشتين متجاورتين.
+  // ريل واحد يُفتح من إشعار ردّ على تعليق. قائمة لا ريل مفرد كي يقرأه
+  // العارض كما يقرأ القوائم الأخرى، ويُرقَّع إعجابه وعدّاده معها.
+  List<Reel> _singleReels = [];
+  List<Reel> get singleReels => _singleReels;
+
+  void showSingleReel(Reel reel) {
+    _singleReels = [reel];
+    notifyListeners();
+  }
+
   bool _patchEverywhere(int reelId, Reel Function(Reel) transform) {
     var changed = false;
-    for (final list in [_reels, _myReels, _storeReels, _savedReels]) {
+    for (final list in [_reels, _myReels, _storeReels, _savedReels, _singleReels]) {
       final index = list.indexWhere((r) => r.id == reelId);
       if (index != -1) {
         list[index] = transform(list[index]);

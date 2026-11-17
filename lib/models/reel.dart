@@ -51,15 +51,22 @@ class ReelItemRef {
   }
 }
 
-/// A comment on a reel — identical shape to LiveComment
-/// (lib/models/live_comment.dart), since ReelComment is a direct backend
-/// copy of LiveSessionComment (see the reels plan).
+/// تعليق على ريل، أو ردّ على تعليق.
+///
+/// الردود بمستوى واحد كإنستغرام: التعليق الرئيسي يحمل [replies]، والردّ
+/// يحمل [parentId] ومعه [replyToUsername] إن كان ردّاً على ردّ.
 class ReelComment {
   final int id;
   final int userId;
   final String username;
   final String content;
   final DateTime createdAt;
+  final int? parentId;
+  final String? replyToUsername;
+
+  /// صاحب المتجر الذي نشر الريل — يظهر بجانب اسمه وسم «البائع».
+  final bool isStoreOwner;
+  final List<ReelComment> replies;
 
   ReelComment({
     required this.id,
@@ -67,7 +74,25 @@ class ReelComment {
     required this.username,
     required this.content,
     required this.createdAt,
+    this.parentId,
+    this.replyToUsername,
+    this.isStoreOwner = false,
+    this.replies = const [],
   });
+
+  bool get isReply => parentId != null;
+
+  ReelComment copyWith({List<ReelComment>? replies}) => ReelComment(
+        id: id,
+        userId: userId,
+        username: username,
+        content: content,
+        createdAt: createdAt,
+        parentId: parentId,
+        replyToUsername: replyToUsername,
+        isStoreOwner: isStoreOwner,
+        replies: replies ?? this.replies,
+      );
 
   factory ReelComment.fromJson(Map<String, dynamic> json) {
     return ReelComment(
@@ -78,6 +103,12 @@ class ReelComment {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
           : DateTime.now(),
+      parentId: json['parent_id'] as int?,
+      replyToUsername: json['reply_to_username'] as String?,
+      isStoreOwner: json['is_store_owner'] as bool? ?? false,
+      replies: ((json['replies'] as List?) ?? const [])
+          .map((e) => ReelComment.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

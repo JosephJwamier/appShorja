@@ -24,6 +24,9 @@ enum ReelViewerSource {
 
   /// الريلز المحفوظة، تُفتح من تبويب الريلز في شاشة المفضلة.
   saved,
+
+  /// ريل واحد يُفتح من إشعار ردّ على تعليق.
+  single,
 }
 
 /// A visitor watching a bounded list of reels full-screen, opened by tapping
@@ -52,11 +55,16 @@ class ReelListViewerScreen extends StatefulWidget {
 
   final int initialIndex;
 
+  /// يفتح ورقة التعليقات فور الوصول، مُمرَّرة إلى هذا التعليق ومظلّلة له.
+  /// إشعار «ردّ على تعليقك» يعد بالردّ نفسه، لا بالفيديو.
+  final int? openCommentsHighlightId;
+
   const ReelListViewerScreen({
     super.key,
     required this.source,
     required this.title,
     required this.initialIndex,
+    this.openCommentsHighlightId,
   });
 
   @override
@@ -75,9 +83,17 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
   void initState() {
     super.initState();
     // أول ريل لا يمرّ بـ onPageChanged، فمشاهدته تُجدول هنا.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scheduleViewRecord(widget.initialIndex),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleViewRecord(widget.initialIndex);
+      final highlight = widget.openCommentsHighlightId;
+      final reels = _reelsForIndex();
+      if (highlight != null && reels.isNotEmpty) {
+        _openComments(
+          reels[widget.initialIndex.clamp(0, reels.length - 1)],
+          highlightCommentId: highlight,
+        );
+      }
+    });
   }
 
   @override
@@ -96,11 +112,17 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
 
   bool get _isStore => widget.source == ReelViewerSource.store;
 
-  List<Reel> _reelsOf(ReelsProvider p) =>
-      _isStore ? p.storeReels : p.savedReels;
+  List<Reel> _reelsOf(ReelsProvider p) => switch (widget.source) {
+        ReelViewerSource.store => p.storeReels,
+        ReelViewerSource.saved => p.savedReels,
+        ReelViewerSource.single => p.singleReels,
+      };
 
-  bool _hasMoreIn(ReelsProvider p) =>
-      _isStore ? p.storeReelsHasMore : p.savedReelsHasMore;
+  bool _hasMoreIn(ReelsProvider p) => switch (widget.source) {
+        ReelViewerSource.store => p.storeReelsHasMore,
+        ReelViewerSource.saved => p.savedReelsHasMore,
+        ReelViewerSource.single => false,
+      };
 
   bool _isLoadingMoreIn(ReelsProvider p) =>
       _isStore ? p.isLoadingMoreStoreReels : p.isLoadingMoreSavedReels;
@@ -181,7 +203,7 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
     }
   }
 
-  Future<void> _openComments(Reel reel) async {
+  Future<void> _openComments(Reel reel, {int? highlightCommentId}) async {
     if (!await requireAuth(context, reason: 'للتعليق على هذا الريل')) return;
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
@@ -196,6 +218,7 @@ class _ReelListViewerScreenState extends State<ReelListViewerScreen> {
       isStoreOwner: isOwner,
       onCommentPosted: () =>
           context.read<ReelsProvider>().applyCommentPosted(reel.id),
+      highlightCommentId: highlightCommentId,
     );
   }
 

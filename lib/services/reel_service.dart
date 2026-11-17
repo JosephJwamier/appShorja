@@ -270,12 +270,26 @@ class ReelService {
     required String accessToken,
     required int reelId,
     required String content,
+    /// التعليق الذي يُردّ عليه، رئيسياً أو ردّاً — الخادم يضعه تحت
+    /// التعليق الرئيسي في الحالين.
+    int? parentId,
   }) async {
     final response = await _client.post(
       '/reels/$reelId/comments/',
-      body: {'content': content},
+      body: {'content': content, 'parent_id': ?parentId},
     );
     return _parseSuccessMessage(response);
+  }
+
+  /// ريل واحد برقمه — لفتحه من إشعار ردّ، حين لا يكون في أيّ قائمة محمّلة.
+  Future<Reel?> fetchReel({required int reelId}) async {
+    final response = await _client.get('/reels/$reelId/');
+    if (response.statusCode != 200) return null;
+    final body = jsonDecode(response.body);
+    final data = body is Map<String, dynamic> && body['data'] is Map
+        ? body['data'] as Map<String, dynamic>
+        : body as Map<String, dynamic>;
+    return Reel.fromJson(data);
   }
 
   Future<({bool success, String message})> deleteComment({
