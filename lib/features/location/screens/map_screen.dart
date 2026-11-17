@@ -7,12 +7,16 @@ import '../models/iraq_governorate.dart';
 import '../models/nearby_item_model.dart';
 import '../models/nearby_store_model.dart';
 import '../providers/location_provider.dart';
+import '../utils/map_categories.dart';
+import '../../../models/category.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
 import '../../../theme/app_colors.dart';
+import '../../../utils/category_icons.dart';
+import '../../../widgets/app_network_image.dart';
 import '../../../screens/item_from_map_screen.dart';
 import 'widgets/store_marker_widget.dart';
 import 'widgets/item_marker_widget.dart';
-import 'widgets/radius_slider_widget.dart';
 import '../services/gps_service.dart';
 
 class MapScreen extends StatefulWidget {
@@ -28,7 +32,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseAnim;
 
-  bool _searchMode = false; // true when showing governorate-search results
+  /// المحافظة المختارة من البحث؛ null تعني «حول موقعي».
+  IraqGovernorate? _governorate;
+  bool get _searchMode => _governorate != null;
+
+  /// التصنيف المختار. يُحفظ كاملاً لا رقمه فقط، كي يبقى زرّه ظاهراً باسمه
+  /// ولونه حتى لو لم يبقَ له منتج بعد تضييق النطاق.
+  MapCategory? _category;
 
   // Default center: Baghdad
   static const LatLng _baghdad = LatLng(33.3128, 44.3614);
@@ -46,6 +56,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<LocationProvider>();
       final token = context.read<AuthProvider>().accessToken;
+      // أسماء التصنيفات الرئيسية وأيقوناتها للشريط. بدونها نكتفي بما يحمله
+      // كل منتج، فلا ننتظرها قبل تحميل الخريطة.
+      if (token != null) {
+        context.read<CategoryProvider>().loadCategories(accessToken: token);
+      }
       await provider.initGps();
       if (provider.gpsReady &&
           provider.currentLat != null &&
@@ -118,10 +133,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // ── Reload nearby with updated radius ────────────────────────────────────
   Future<void> _reloadNearby() async {
-    if (_searchMode) return;
     final p = context.read<LocationProvider>();
-    if (p.currentLat == null) return;
     final token = context.read<AuthProvider>().accessToken;
+    if (_searchMode) {
+      await p.searchByGovernorate(_governorate!.name, token: token);
+      return;
+    }
+    if (p.currentLat == null) return;
     await p.loadNearby(lat: p.currentLat!, lng: p.currentLng!, token: token);
   }
 
@@ -132,7 +150,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // moves the map to its known center immediately, then loads matching
   // items/stores separately.
   Future<void> _selectGovernorate(IraqGovernorate governorate) async {
-    setState(() => _searchMode = true);
+    FocusScope.of(context).unfocus();
+    setState(() => _governorate = governorate);
     _mapController.move(governorate.center, 11);
     final token = context.read<AuthProvider>().accessToken;
     await context.read<LocationProvider>().searchByGovernorate(
@@ -142,8 +161,47 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   void _clearGovernorateSearch() {
-    setState(() => _searchMode = false);
+    setState(() => _governorate = null);
     _reloadNearby();
+  }
+
+  // ── Category filter ──────────────────────────────────────────────────────
+  void _selectCategory(MapCategory? category, Map<int, Category> byId) {
+    // الضغط على التصنيف المختار نفسه يلغيه — أسرع من البحث عن زرّ «الكل».
+    final next = category?.id == _category?.id ? null : category;
+    setState(() => _category = next);
+    if (next == null) return;
+
+    final matching = context
+        .read<LocationProvider>()
+        .nearbyItems
+        .where((i) => itemMatchesCategory(i, next.id, byId))
+        .toList();
+    _focusOn(matching);
+  }
+
+  /// يقرّب الخريطة لتُظهر منتجات التصنيف المختار كلها دفعةً واحدة، مع ترك
+  /// هامش تحت الشريط العلوي وفوق اللوحة السفلية كي لا تختفي علامة خلفهما.
+  void _focusOn(List<NearbyItem> items) {
+    final points = [
+      for (final i in items)
+        if (i.currentLocation?.latitude != null &&
+            i.currentLocation?.longitude != null)
+          LatLng(i.currentLocation!.latitude!, i.currentLocation!.longitude!),
+    ];
+    if (points.isEmpty) return;
+    if (points.length == 1) {
+      _mapController.move(points.first, 15);
+      return;
+    }
+    final top = MediaQuery.paddingOf(context).top;
+    _mapController.fitCamera(
+      CameraFit.coordinates(
+        coordinates: points,
+        padding: EdgeInsets.fromLTRB(56, top + 140, 56, 300),
+        maxZoom: 16,
+      ),
+    );
   }
 
   // ── Cluster items by rounded coordinates (~50m grid) ────────────────────
@@ -244,7 +302,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         .toList();
   }
 
-  List<Marker> _itemMarkers(List<NearbyItem> items) {
+  List<Marker> _itemMarkers(List<NearbyItem> items, Map<int, Category> byId) {
     final clusters = _clusterItems(items);
     final markers = <Marker>[];
 
@@ -252,6 +310,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       final group = entry.value;
       final loc = group.first.currentLocation!;
       final point = LatLng(loc.latitude!, loc.longitude!);
+      final roots = group.map((i) => rootCategoryIdOf(i, byId)).toSet();
 
       if (group.length == 1) {
         markers.add(
@@ -261,6 +320,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             height: 58,
             child: ItemMarkerWidget(
               item: group.first,
+              accent: colorForCategory(roots.first),
               onTap: () => _showItemSheet(group.first),
             ),
           ),
@@ -273,6 +333,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             height: 48,
             child: ItemClusterMarker(
               count: group.length,
+              // تجمّع مختلط التصنيفات بلون محايد: تلوينه بلون أحدها يكذب.
+              accent: roots.length == 1
+                  ? colorForCategory(roots.first)
+                  : AppColors.inverseSurface,
               onTap: () => _showClusterSheet(group),
             ),
           ),
@@ -285,24 +349,46 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final byId = {
+      for (final c in context.watch<CategoryProvider>().categories) c.id: c,
+    };
+
     return Scaffold(
       body: Consumer<LocationProvider>(
         builder: (context, provider, _) {
           final lat = provider.currentLat;
           final lng = provider.currentLng;
+          final showItems = provider.filter != MapFilter.stores;
+          final showStores = provider.filter != MapFilter.items;
+
+          final categories = mapCategoriesFor(provider.nearbyItems, byId);
+          final visibleItems = provider.nearbyItems
+              .where((i) => itemMatchesCategory(i, _category?.id, byId))
+              .toList();
           final storeMarkers = _storeMarkers(provider.nearbyStores);
-          final itemMarkers = _itemMarkers(provider.nearbyItems);
+          final itemMarkers = _itemMarkers(visibleItems, byId);
+          final itemsOnMap = visibleItems
+              .where((i) =>
+                  i.currentLocation?.latitude != null &&
+                  i.currentLocation?.longitude != null)
+              .length;
+
+          final noGps = !provider.gpsReady &&
+              lat == null &&
+              !provider.isLoadingNearby &&
+              !_searchMode;
 
           return Stack(
             children: [
               // ── Flutter Map ─────────────────────────────────────────────
               FlutterMap(
                 mapController: _mapController,
-                options: const MapOptions(
+                options: MapOptions(
                   initialCenter: _baghdad,
                   initialZoom: 12,
                   minZoom: 4,
                   maxZoom: 18,
+                  onTap: (_, _) => FocusScope.of(context).unfocus(),
                 ),
                 children: [
                   TileLayer(
@@ -321,7 +407,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                           point: LatLng(lat, lng),
                           radius: provider.radiusKm * 1000,
                           useRadiusInMeter: true,
-                          color: AppColors.primary.withValues(alpha: 0.07),
+                          color: AppColors.primary.withValues(alpha: 0.06),
                           borderColor: AppColors.primary.withValues(
                             alpha: 0.35,
                           ),
@@ -330,13 +416,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       ],
                     ),
 
-                  // Store markers
-                  if (provider.filter != MapFilter.items)
-                    MarkerLayer(markers: storeMarkers),
-
-                  // Item markers
-                  if (provider.filter != MapFilter.stores)
-                    MarkerLayer(markers: itemMarkers),
+                  if (showStores) MarkerLayer(markers: storeMarkers),
+                  if (showItems) MarkerLayer(markers: itemMarkers),
 
                   // Pulsing user location dot
                   if (lat != null && lng != null)
@@ -353,197 +434,170 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ],
               ),
 
-              // ── Loading bar ─────────────────────────────────────────────
-              if (provider.isLoadingNearby)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.primaryFixed,
-                  ),
-                ),
-
-              // ── Search bar ──────────────────────────────────────────────
+              // ── Top: search + categories ───────────────────────────────
               Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 12,
-                right: 12,
-                child: _GovernorateSearchBar(
-                  onSelected: _selectGovernorate,
-                  onClear: _clearGovernorateSearch,
-                ),
-              ),
-
-              // ── Filter toggle ────────────────────────────────────────────
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 70,
+                top: 0,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: _FilterChips(
-                    current: provider.filter,
-                    onChanged: (f) async {
-                      provider.setFilter(f);
-                      await _reloadNearby();
-                    },
-                  ),
-                ),
-              ),
-
-              // ── No-GPS notice ─────────────────────────────────────────────
-              // The governorate search bar above doesn't need GPS at all, so
-              // it's the way to browse when location permission is denied.
-              if (!provider.gpsReady &&
-                  lat == null &&
-                  !provider.isLoadingNearby &&
-                  !_searchMode)
-                Positioned(
-                  bottom: 180,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: const Row(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(
-                          Icons.location_off_rounded,
-                          color: AppColors.error,
-                          size: 18,
-                        ),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'لم يُمنح إذن الموقع — استخدم شريط البحث أعلاه لاختيار محافظتك',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
+                        // شريط السبب: يظهر فقط حين يتعذّر الموقع. بدونه
+                        // تستقرّ الخريطة على بغداد صامتةً، فيظنّ المستخدم
+                        // أن لا بضاعة قربه بينما التطبيق لا يعرف أين هو.
+                        if (provider.gpsDenial != GpsDenial.none)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                            child: _GpsDenialBanner(
+                              denial: provider.gpsDenial,
+                              onFix: () => _fixGps(provider),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // ── Error snack ──────────────────────────────────────────────
-              if (provider.nearbyError != null)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 130,
-                  left: 12,
-                  right: 12,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              provider.nearbyError!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              if (Navigator.canPop(context)) ...[
+                                _RoundIconButton(
+                                  icon: Icons.arrow_back_rounded,
+                                  tooltip: 'رجوع',
+                                  onTap: () => Navigator.maybePop(context),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Expanded(
+                                child: _GovernorateSearchBar(
+                                  loading: provider.isLoadingNearby,
+                                  onSelected: _selectGovernorate,
+                                  onClear: _clearGovernorateSearch,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: provider.clearNearbyError,
+                        ),
+                        if (showItems &&
+                            (categories.isNotEmpty || _category != null)) ...[
+                          const SizedBox(height: 10),
+                          _CategoryStrip(
+                            categories: categories,
+                            selected: _category,
+                            totalCount: provider.nearbyItems.length,
+                            onSelected: (c) => _selectCategory(c, byId),
                           ),
                         ],
-                      ),
+                        if (provider.nearbyError != null)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                            child: _ErrorBanner(
+                              message: provider.nearbyError!,
+                              onClose: provider.clearNearbyError,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
+              ),
 
-              // ── Stats bubble ─────────────────────────────────────────────
-              if (!provider.isLoadingNearby)
-                Positioned(
-                  bottom: 170,
-                  left: 12,
-                  child: _StatsBubble(
-                    storeCount: storeMarkers.length,
-                    itemCount: itemMarkers.length,
-                    totalStores: provider.nearbyStores.length,
-                    totalItems: provider.nearbyItems.length,
-                    filter: provider.filter,
-                  ),
-                ),
-
-              // ── Radius slider ─────────────────────────────────────────────
+              // ── Bottom: recenter + control panel ───────────────────────
               Positioned(
-                bottom: 0,
                 left: 0,
                 right: 0,
-                child: RadiusSliderWidget(
-                  radiusKm: provider.radiusKm,
-                  onChanged: (v) => provider.setRadius(v),
-                  onChangeEnd: _reloadNearby,
+                bottom: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: _RoundIconButton(
+                        icon: Icons.my_location_rounded,
+                        tooltip: 'موقعي الحالي',
+                        iconColor: AppColors.primary,
+                        size: 48,
+                        onTap: _reCenter,
+                      ),
+                    ),
+                    // إذن الموقع ممنوح لكن القراءة فشلت: البحث بالمحافظة
+                    // لا يحتاج GPS، فهو الطريق للتصفّح في هذه الحالة.
+                    if (noGps && provider.gpsDenial == GpsDenial.none)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        child: _NoGpsNotice(),
+                      ),
+                    _ControlPanel(
+                      summary: _summary(
+                        provider: provider,
+                        storeCount: showStores ? storeMarkers.length : 0,
+                        itemCount: showItems ? itemsOnMap : 0,
+                      ),
+                      filter: provider.filter,
+                      onFilterChanged: (f) async {
+                        provider.setFilter(f);
+                        await _reloadNearby();
+                      },
+                      showRadius: !_searchMode,
+                      radiusKm: provider.radiusKm,
+                      onRadiusChanged: provider.setRadius,
+                      onRadiusChangeEnd: _reloadNearby,
+                    ),
+                  ],
                 ),
               ),
-              // شريط السبب: يظهر فقط حين يتعذّر الموقع. بدونه تستقرّ
-              // الخريطة على بغداد صامتةً، فيظنّ المستخدم أن لا بضاعة
-              // قربه بينما التطبيق لا يعرف أين هو أصلاً.
-              if (provider.gpsDenial != GpsDenial.none)
-                PositionedDirectional(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  start: 12,
-                  end: 12,
-                  child: _GpsDenialBanner(
-                    denial: provider.gpsDenial,
-                    onFix: () => _fixGps(provider),
-                  ),
-                ),
             ],
           );
         },
       ),
+    );
+  }
 
-      // ── FAB: re-center ──────────────────────────────────────────────────
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 165),
-        child: FloatingActionButton(
-          mini: true,
-          onPressed: _reCenter,
-          backgroundColor: Colors.white,
-          foregroundColor: AppColors.primary,
-          elevation: 4,
-          tooltip: 'موقعي الحالي',
-          child: const Icon(Icons.my_location_rounded),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+  /// سطرا اللوحة السفلية: ماذا يظهر الآن، وأين، وماذا يفعل المستخدم إن
+  /// كانت الخريطة فارغة — لا «لا توجد نتائج» وحدها.
+  (String, String) _summary({
+    required LocationProvider provider,
+    required int storeCount,
+    required int itemCount,
+  }) {
+    if (provider.isLoadingNearby) return ('جارٍ البحث…', 'نحمّل ما حولك');
+
+    final where = _searchMode
+        ? 'في ${_governorate!.name}'
+        : 'ضمن ${provider.radiusKm.toInt()} كم منك';
+    final parts = [
+      if (itemCount > 0) '$itemCount منتج',
+      if (storeCount > 0) '$storeCount متجر',
+    ];
+    final cat = provider.filter != MapFilter.stores ? _category : null;
+
+    if (parts.isNotEmpty) {
+      return (
+        parts.join(' · '),
+        cat != null ? 'من «${cat.name}» $where' : where,
+      );
+    }
+    if (cat != null) {
+      return (
+        'لا منتجات من «${cat.name}» $where',
+        _searchMode
+            ? 'اختر تصنيفاً آخر أو محافظة أخرى'
+            : 'وسّع النطاق أو اختر تصنيفاً آخر',
+      );
+    }
+    final loadedSomething =
+        provider.nearbyItems.isNotEmpty || provider.nearbyStores.isNotEmpty;
+    if (loadedSomething) {
+      return ('النتائج بلا موقع على الخريطة', 'لم يحدّد أصحابها مكانها بعد');
+    }
+    if (!_searchMode && provider.currentLat == null) {
+      return ('لا نعرف موقعك بعد', 'اختر محافظة من البحث للتصفّح');
+    }
+    return (
+      'لا شيء $where',
+      _searchMode ? 'جرّب محافظة أخرى' : 'وسّع النطاق أو اختر محافظة',
     );
   }
 }
@@ -587,16 +641,71 @@ class _PulsingDot extends AnimatedWidget {
   }
 }
 
+// ── Shared floating surface ──────────────────────────────────────────────────
+// ظلّ واحد لكل ما يطفو فوق الخريطة، كي تبدو الطبقات من عائلة واحدة.
+List<BoxShadow> get _floatShadow => [
+  BoxShadow(
+    color: Colors.black.withValues(alpha: 0.10),
+    blurRadius: 12,
+    offset: const Offset(0, 3),
+  ),
+];
+
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color iconColor;
+  final double size;
+
+  const _RoundIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.iconColor = AppColors.onSurface,
+    this.size = 48,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 0,
+        child: Ink(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: _floatShadow,
+          ),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Search bar ───────────────────────────────────────────────────────────────
 // Restricted to the fixed governorate list (see [iraqGovernorates]) instead
 // of free text, so a selection is guaranteed to recenter the map and match
 // real search results — typing an arbitrary city name used to silently do
 // nothing when it didn't happen to match any stored location text exactly.
 class _GovernorateSearchBar extends StatelessWidget {
+  final bool loading;
   final ValueChanged<IraqGovernorate> onSelected;
   final VoidCallback onClear;
 
   const _GovernorateSearchBar({
+    required this.loading,
     required this.onSelected,
     required this.onClear,
   });
@@ -607,35 +716,45 @@ class _GovernorateSearchBar extends StatelessWidget {
       displayStringForOption: (g) => g.name,
       optionsBuilder: (textEditingValue) {
         final q = textEditingValue.text.trim();
-        if (q.isEmpty) return const Iterable<IraqGovernorate>.empty();
+        // حقل فارغ مركَّز يعرض المحافظات كلها: كثيرون لا يعرفون أن عليهم
+        // الكتابة أولاً، والقائمة 18 اسماً فقط.
+        if (q.isEmpty) return iraqGovernorates;
         return iraqGovernorates.where((g) => g.name.contains(q));
       },
       onSelected: onSelected,
       optionsViewBuilder: (context, onSelectedOption, options) {
         return Align(
-          alignment: Alignment.topRight,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(14),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final g = options.elementAt(index);
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(
-                      Icons.location_city_rounded,
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
-                    title: Text(g.name, textDirection: TextDirection.rtl),
-                    onTap: () => onSelectedOption(g),
-                  );
-                },
+          alignment: AlignmentDirectional.topStart,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Material(
+              elevation: 6,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280, maxWidth: 360),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final g = options.elementAt(index);
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(
+                        Icons.location_city_rounded,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(
+                        g.name,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      onTap: () => onSelectedOption(g),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -643,44 +762,65 @@ class _GovernorateSearchBar extends StatelessWidget {
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return Container(
+          height: 48,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: _floatShadow,
           ),
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            textDirection: TextDirection.rtl,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'اختر محافظة...',
-              hintTextDirection: TextDirection.rtl,
-              prefixIcon: const Icon(
-                Icons.search_rounded,
-                color: AppColors.primary,
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) => TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 14.5),
+                  decoration: InputDecoration(
+                    hintText: 'ابحث في محافظة أخرى',
+                    hintStyle: const TextStyle(
+                      color: AppColors.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.primary,
+                    ),
+                    suffixIcon: value.text.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'العودة إلى ما حولي',
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            onPressed: () {
+                              controller.clear();
+                              focusNode.unfocus();
+                              onClear();
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 13,
+                    ),
+                  ),
+                ),
               ),
-              suffixIcon: controller.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      onPressed: () {
-                        controller.clear();
-                        onClear();
-                      },
-                    )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 13,
-              ),
-            ),
+              // شريط التحميل داخل حافة البحث السفلية بدل خطّ عائم أعلى
+              // الشاشة يختفي تحت شريط الحالة.
+              if (loading)
+                const Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 0,
+                  child: LinearProgressIndicator(
+                    minHeight: 2.5,
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.primaryFixed,
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -688,61 +828,464 @@ class _GovernorateSearchBar extends StatelessWidget {
   }
 }
 
-// ── Filter chips ──────────────────────────────────────────────────────────────
-class _FilterChips extends StatelessWidget {
+// ── Category strip ───────────────────────────────────────────────────────────
+class _CategoryStrip extends StatelessWidget {
+  final List<MapCategory> categories;
+  final MapCategory? selected;
+  final int totalCount;
+  final ValueChanged<MapCategory?> onSelected;
+
+  const _CategoryStrip({
+    required this.categories,
+    required this.selected,
+    required this.totalCount,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // التصنيف المختار يبقى في الشريط وإن لم يعد له منتج في النطاق الجديد،
+    // وإلا اختفى الزرّ الذي يُلغيه.
+    final list = [
+      if (selected != null && categories.every((c) => c.id != selected!.id))
+        MapCategory(
+          id: selected!.id,
+          name: selected!.name,
+          iconCode: selected!.iconCode,
+          iconUrl: selected!.iconUrl,
+          color: selected!.color,
+          count: 0,
+        ),
+      ...categories,
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: list.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return _CategoryChip(
+              label: 'الكل',
+              count: totalCount,
+              color: AppColors.inverseSurface,
+              leading: const Icon(Icons.apps_rounded, size: 17),
+              selected: selected == null,
+              onTap: () => onSelected(null),
+            );
+          }
+          final c = list[i - 1];
+          return _CategoryChip(
+            label: c.name,
+            count: c.count,
+            color: c.color,
+            leading: _categoryLeading(c),
+            selected: selected?.id == c.id,
+            onTap: () => onSelected(c),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget? _categoryLeading(MapCategory c) {
+    if (c.iconUrl != null) {
+      return ClipOval(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: AppNetworkImage(
+            c.iconUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+        ),
+      );
+    }
+    final icon = categoryIconFor(c.iconCode);
+    return icon != null ? Icon(icon, size: 17) : null;
+  }
+}
+
+/// زرّ تصنيف. لونه هو لون علامات منتجاته على الخريطة نفسه، فيعرف المستخدم
+/// بنظرة أيّ علامة تنتمي لأيّ تصنيف حتى قبل أن يختار.
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final Widget? leading;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.leading,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : AppColors.onSurface;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label، $count منتج',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsetsDirectional.only(start: 10, end: 6),
+          decoration: BoxDecoration(
+            color: selected ? color : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _floatShadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconTheme(
+                data: IconThemeData(color: selected ? Colors.white : color),
+                child:
+                    leading ??
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: selected ? Colors.white : color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+              ),
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                constraints: const BoxConstraints(minWidth: 22),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bottom control panel ─────────────────────────────────────────────────────
+class _ControlPanel extends StatelessWidget {
+  final (String, String) summary;
+  final MapFilter filter;
+  final ValueChanged<MapFilter> onFilterChanged;
+  final bool showRadius;
+  final double radiusKm;
+  final ValueChanged<double> onRadiusChanged;
+  final VoidCallback onRadiusChangeEnd;
+
+  const _ControlPanel({
+    required this.summary,
+    required this.filter,
+    required this.onFilterChanged,
+    required this.showRadius,
+    required this.radiusKm,
+    required this.onRadiusChanged,
+    required this.onRadiusChangeEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final (title, subtitle) = summary;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        12 + MediaQuery.paddingOf(context).bottom,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Column(
+              key: ValueKey(title + subtitle),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _LayerToggle(current: filter, onChanged: onFilterChanged),
+          if (showRadius) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.radar_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: AppColors.primaryFixed,
+                      thumbColor: AppColors.primary,
+                      overlayColor: AppColors.primary.withValues(alpha: 0.12),
+                      trackHeight: 4,
+                    ),
+                    child: Slider(
+                      min: 1,
+                      max: 50,
+                      divisions: 49,
+                      value: radiusKm,
+                      label: '${radiusKm.toInt()} كم',
+                      onChanged: onRadiusChanged,
+                      onChangeEnd: (_) => onRadiusChangeEnd(),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 58,
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryFixed,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${radiusKm.toInt()} كم',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// ماذا تعرض الخريطة: متاجر، منتجات، أو كلاهما.
+class _LayerToggle extends StatelessWidget {
   final MapFilter current;
   final ValueChanged<MapFilter> onChanged;
 
-  const _FilterChips({required this.current, required this.onChanged});
+  const _LayerToggle({required this.current, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      height: 42,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8),
-        ],
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          _chip(MapFilter.stores, 'متاجر', Icons.store_rounded),
-          _chip(MapFilter.both, 'الاثنين', Icons.layers_rounded),
-          _chip(MapFilter.items, 'منتجات', Icons.sell_rounded),
+          _segment(MapFilter.items, 'المنتجات', Icons.sell_rounded),
+          _segment(MapFilter.both, 'الكل', Icons.layers_rounded),
+          _segment(MapFilter.stores, 'المتاجر', Icons.storefront_rounded),
         ],
       ),
     );
   }
 
-  Widget _chip(MapFilter f, String label, IconData icon) {
+  Widget _segment(MapFilter f, String label, IconData icon) {
     final selected = current == f;
-    return GestureDetector(
-      onTap: () => onChanged(f),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+    final color = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: GestureDetector(
+          onTap: () => onChanged(f),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Notices ──────────────────────────────────────────────────────────────────
+class _NoGpsNotice extends StatelessWidget {
+  const _NoGpsNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: _floatShadow,
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.location_off_rounded, color: AppColors.error, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'تعذّر تحديد موقعك — اختر محافظتك من شريط البحث',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onClose;
+
+  const _ErrorBanner({required this.message, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.errorContainer,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(start: 14, end: 4),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? Colors.white : Colors.grey[600],
+            const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.onErrorContainer,
+              size: 18,
             ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                color: selected ? Colors.white : Colors.grey[700],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: AppColors.onErrorContainer,
+                  fontSize: 13,
+                ),
               ),
+            ),
+            IconButton(
+              tooltip: 'إغلاق',
+              icon: const Icon(
+                Icons.close_rounded,
+                color: AppColors.onErrorContainer,
+                size: 18,
+              ),
+              onPressed: onClose,
             ),
           ],
         ),
@@ -750,73 +1293,6 @@ class _FilterChips extends StatelessWidget {
     );
   }
 }
-
-// ── Stats bubble ──────────────────────────────────────────────────────────────
-class _StatsBubble extends StatelessWidget {
-  final int storeCount;
-  final int itemCount;
-  final int totalStores;
-  final int totalItems;
-  final MapFilter filter;
-
-  const _StatsBubble({
-    required this.storeCount,
-    required this.itemCount,
-    required this.totalStores,
-    required this.totalItems,
-    required this.filter,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = <String>[];
-    if (filter != MapFilter.items) {
-      parts.add(storeCount > 0 ? '$storeCount متجر' : '');
-    }
-    if (filter != MapFilter.stores) {
-      parts.add(itemCount > 0 ? '$itemCount منتج' : '');
-    }
-    final visibleParts = parts.where((p) => p.isNotEmpty).toList();
-
-    // Nothing loaded at all
-    final nothingLoaded = totalItems == 0 && totalStores == 0;
-    // Loaded but nothing has coordinates
-    final noCoords = !nothingLoaded && visibleParts.isEmpty;
-
-    String label;
-    Color bg;
-    if (visibleParts.isNotEmpty) {
-      label = visibleParts.join(' · ');
-      bg = Colors.white;
-    } else if (noCoords) {
-      label = 'المنتجات المحملة لا تحتوي موقعاً';
-      bg = Colors.orange.shade50;
-    } else {
-      label = 'لا توجد نتائج قريبة';
-      bg = Colors.white;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6),
-        ],
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: noCoords ? Colors.orange.shade800 : AppColors.onSurface,
-        ),
-      ),
-    );
-  }
-}
-
 
 /// شريط يشرح لماذا لا يُعرف الموقع، ويحمل زرّ العلاج المناسب لكل سبب.
 class _GpsDenialBanner extends StatelessWidget {

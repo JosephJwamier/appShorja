@@ -33,10 +33,14 @@ class ItemMarkerWidget extends StatelessWidget {
   final NearbyItem item;
   final VoidCallback onTap;
 
+  /// لون تصنيف المنتج — يربط العلامة بزرّ تصنيفها في الشريط العلوي.
+  final Color accent;
+
   const ItemMarkerWidget({
     super.key,
     required this.item,
     required this.onTap,
+    this.accent = const Color(0xFF2E7D32),
   });
 
   @override
@@ -56,8 +60,7 @@ class ItemMarkerWidget extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
-              border: Border.all(
-                  color: Colors.green.shade700, width: 2.5),
+              border: Border.all(color: accent, width: 3),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.22),
@@ -78,7 +81,7 @@ class ItemMarkerWidget extends StatelessWidget {
           ),
           CustomPaint(
             size: const Size(12, 7),
-            painter: _PinPainter(color: Colors.green.shade700),
+            painter: _PinPainter(color: accent),
           ),
         ],
       ),
@@ -86,9 +89,8 @@ class ItemMarkerWidget extends StatelessWidget {
   }
 
   Widget _iconPlaceholder() => Container(
-        color: Colors.green.shade50,
-        child: Icon(Icons.sell_rounded,
-            color: Colors.green.shade700, size: 22),
+        color: accent.withValues(alpha: 0.12),
+        child: Icon(Icons.sell_rounded, color: accent, size: 22),
       );
 }
 
@@ -99,10 +101,14 @@ class ItemClusterMarker extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
 
+  /// لون التصنيف إن كانت منتجات التجمّع كلها منه، وإلا لون محايد.
+  final Color accent;
+
   const ItemClusterMarker({
     super.key,
     required this.count,
     required this.onTap,
+    this.accent = const Color(0xFF2E7D32),
   });
 
   @override
@@ -115,11 +121,12 @@ class ItemClusterMarker extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.green.shade700,
+              color: accent,
+              border: Border.all(color: Colors.white, width: 2),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.green.withValues(alpha: 0.4),
+                  color: accent.withValues(alpha: 0.4),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -144,7 +151,7 @@ class ItemClusterMarker extends StatelessWidget {
           ),
           CustomPaint(
             size: const Size(12, 7),
-            painter: _PinPainter(color: Colors.green.shade700),
+            painter: _PinPainter(color: accent),
           ),
         ],
       ),
