@@ -48,7 +48,9 @@
       "Bash(python scripts/search.py \"bottom nav limit tab hierarchy back behavior deep link\" --domain ux -n 8)",
       "Bash(python scripts/search.py \"IndexedStack video lifecycle dispose state preserve\" --stack flutter -n 6)",
       "mcp__visualize__show_widget",
-      "Bash(Out-String -Width 200)"
+      "Bash(Out-String -Width 200)",
+      "Bash(sort -u -t\"'\" -k2)",
+      "Bash(flutter clean *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Eng_Joseph\\PycharmProjects\\balla\\balla\\core"
