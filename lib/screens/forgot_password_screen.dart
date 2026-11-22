@@ -229,7 +229,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         const SizedBox(height: 20),
         Text(
           _byPhone
-              ? 'أدخل رقم هاتفك وسيصلك رمز برسالة نصية'
+              ? 'أدخل رقم هاتفك وسيصلك رمز على واتساب'
               : 'أدخل بريدك الإلكتروني وسنرسل لك رمزاً لإعادة تعيين كلمة المرور',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
