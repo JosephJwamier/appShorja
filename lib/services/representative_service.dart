@@ -273,15 +273,14 @@ class RepresentativeService {
     required bool canList,
     required bool canNegotiate,
     required bool canCompleteSale,
-    required double commissionPercentage,
   }) async {
+    // بلا النسبة: تثبت عند الموافقة، والسيرفر يرفض تغييرها.
     final response = await _client.patch(
       '/representatives/$requestId/update_permissions/',
       body: {
         'can_list': canList,
         'can_negotiate': canNegotiate,
         'can_complete_sale': canCompleteSale,
-        'commission_percentage': commissionPercentage.toString(),
       },
     );
 

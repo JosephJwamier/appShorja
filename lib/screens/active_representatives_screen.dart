@@ -473,7 +473,6 @@ class _EditPermissionsDialog extends StatefulWidget {
 }
 
 class _EditPermissionsDialogState extends State<_EditPermissionsDialog> {
-  late TextEditingController _commissionController;
   late bool _canList;
   late bool _canNegotiate;
   late bool _canCompleteSale;
@@ -484,27 +483,12 @@ class _EditPermissionsDialogState extends State<_EditPermissionsDialog> {
   void initState() {
     super.initState();
     final r = widget.representation;
-    _commissionController = TextEditingController(
-      text: r.commissionPercentage.toStringAsFixed(1),
-    );
     _canList = r.canList;
     _canNegotiate = r.canNegotiate;
     _canCompleteSale = r.canCompleteSale;
   }
 
-  @override
-  void dispose() {
-    _commissionController.dispose();
-    super.dispose();
-  }
-
   Future<void> _submit() async {
-    final commission = double.tryParse(_commissionController.text);
-    if (commission == null || commission <= 0 || commission > 100) {
-      setState(() => _errorMessage = 'النسبة بين 0 و 100');
-      return;
-    }
-
     if (!_canList && !_canNegotiate && !_canCompleteSale) {
       setState(() => _errorMessage = 'اختر صلاحيّة واحدة على الأقل');
       return;
@@ -527,7 +511,6 @@ class _EditPermissionsDialogState extends State<_EditPermissionsDialog> {
       canList: _canList,
       canNegotiate: _canNegotiate,
       canCompleteSale: _canCompleteSale,
-      commissionPercentage: commission,
     );
 
     if (!mounted) return;
@@ -554,12 +537,16 @@ class _EditPermissionsDialogState extends State<_EditPermissionsDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _commissionController,
-              keyboardType: TextInputType.number,
+            // النسبة اتُّفق عليها عند الموافقة ولا تُعدَّل بعدها؛ تُعرض فقط.
+            InputDecorator(
               decoration: const InputDecoration(
                 labelText: 'النسبة (٪)',
+                helperText: 'اتُّفق عليها عند الموافقة ولا يمكن تعديلها',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock_outline, size: 18),
+              ),
+              child: Text(
+                widget.representation.commissionPercentage.toStringAsFixed(1),
               ),
             ),
             const SizedBox(height: 16),

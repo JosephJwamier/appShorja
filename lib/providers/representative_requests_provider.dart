@@ -183,7 +183,6 @@ class RepresentativeRequestsProvider extends ChangeNotifier {
     required bool canList,
     required bool canNegotiate,
     required bool canCompleteSale,
-    required double commissionPercentage,
   }) async {
     final result = await _service.updatePermissions(
       accessToken: accessToken,
@@ -191,7 +190,6 @@ class RepresentativeRequestsProvider extends ChangeNotifier {
       canList: canList,
       canNegotiate: canNegotiate,
       canCompleteSale: canCompleteSale,
-      commissionPercentage: commissionPercentage,
     );
 
     if (result.success && result.request != null) {
