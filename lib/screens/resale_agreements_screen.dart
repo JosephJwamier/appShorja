@@ -487,6 +487,15 @@ class _AgreementCardState extends State<_AgreementCard> {
                 label: formatIqd(a.totalWholesalePrice),
                 color: AppColors.primaryContainer,
               ),
+              // البائع يرى ما وصله فعلاً؛ المشتري دفع الثمن كما هو فلا يعنيه.
+              if (a.platformCommissionAmount > 0 &&
+                  a.ownerNetAmount != null &&
+                  context.read<AuthProvider>().user?.id == a.owner.id)
+                _Pill(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'وصلك ${formatIqd(a.ownerNetAmount!)} '
+                      '(عمولة ${formatIqd(a.platformCommissionAmount)})',
+                ),
               if (a.durationDays != null)
                 _Pill(
                   icon: Icons.calendar_month_outlined,

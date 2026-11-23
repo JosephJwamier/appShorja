@@ -48,6 +48,11 @@ class ResaleAgreement {
   final int quantity;
   final double wholesalePricePerUnit;
   final double totalWholesalePrice;
+
+  /// عمولة المنصة المقتطعة من البائع عند الموافقة، وما وصله بعدها.
+  /// صفر و null قبل الموافقة أو من سيرفر أقدم.
+  final double platformCommissionAmount;
+  final double? ownerNetAmount;
   final ResaleItem? resultingItem;
   final String storageFeeType;
   final double? storageFeeAmount;
@@ -82,6 +87,8 @@ class ResaleAgreement {
     required this.quantity,
     required this.wholesalePricePerUnit,
     required this.totalWholesalePrice,
+    this.platformCommissionAmount = 0.0,
+    this.ownerNetAmount,
     this.resultingItem,
     required this.storageFeeType,
     this.storageFeeAmount,
@@ -133,6 +140,12 @@ class ResaleAgreement {
             json['total_wholesale_price']?.toString() ?? '',
           ) ??
           0.0,
+      platformCommissionAmount: double.tryParse(
+            json['platform_commission_amount']?.toString() ?? '',
+          ) ??
+          0.0,
+      ownerNetAmount:
+          double.tryParse(json['owner_net_amount']?.toString() ?? ''),
       resultingItem: json['resulting_item'] != null
           ? ResaleItem.fromJson(json['resulting_item'] as Map<String, dynamic>)
           : null,
