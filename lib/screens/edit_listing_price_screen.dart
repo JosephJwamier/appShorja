@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../services/item_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../utils/amount_input.dart';
 
 class EditListingPriceScreen extends StatefulWidget {
   final Product product;
@@ -37,10 +38,10 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
     _discountEnabled = (p.originalPrice ?? 0) > currentPrice;
     final basePrice = _discountEnabled ? p.originalPrice! : currentPrice;
     _originalPriceController = TextEditingController(
-      text: basePrice > 0 ? basePrice.toStringAsFixed(0) : '',
+      text: basePrice > 0 ? amountText(basePrice) : '',
     );
     _currentPriceController = TextEditingController(
-      text: _discountEnabled ? currentPrice.toStringAsFixed(0) : '',
+      text: _discountEnabled ? amountText(currentPrice) : '',
     );
   }
 
@@ -52,9 +53,9 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
   }
 
   double? get _originalPrice =>
-      double.tryParse(_originalPriceController.text.trim());
+      parseAmount(_originalPriceController.text);
   double? get _currentPrice =>
-      double.tryParse(_currentPriceController.text.trim());
+      parseAmount(_currentPriceController.text);
 
   int? get _discountPct {
     final original = _originalPrice;
@@ -128,6 +129,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                   TextFormField(
                     controller: _originalPriceController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: const [AmountInputFormatter()],
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       labelText: 'السعر (IQD)',
@@ -135,7 +137,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                       border: _inputBorder,
                     ),
                     validator: (v) {
-                      final n = double.tryParse((v ?? '').trim());
+                      final n = parseAmount(v);
                       if (n == null || n <= 0) return 'أدخل سعراً صحيحاً';
                       return null;
                     },
@@ -164,6 +166,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                     TextFormField(
                       controller: _currentPriceController,
                       keyboardType: TextInputType.number,
+                      inputFormatters: const [AmountInputFormatter()],
                       onChanged: (_) => setState(() {}),
                       decoration: const InputDecoration(
                         labelText: 'السعر الحالي بعد الخصم (IQD)',
@@ -173,7 +176,7 @@ class _EditListingPriceScreenState extends State<EditListingPriceScreen> {
                       ),
                       validator: (v) {
                         if (!_discountEnabled) return null;
-                        final n = double.tryParse((v ?? '').trim());
+                        final n = parseAmount(v);
                         if (n == null || n <= 0) return 'أدخل سعراً صحيحاً';
                         final original = _originalPrice;
                         if (original != null && n >= original) {

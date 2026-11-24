@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/wallet.dart';
 import '../providers/auth_provider.dart';
@@ -11,6 +10,7 @@ import '../widgets/payment/payment_method_sheet.dart';
 import '../widgets/wallet/sync_refresh_button.dart';
 import 'payment/payment_checkout_screen.dart';
 import 'wallet_activity_screen.dart';
+import '../utils/amount_input.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -63,7 +63,7 @@ class _WalletScreenState extends State<WalletScreen> {
   /// method only picks a provider, opens the payment, and hands off to
   /// [PaymentCheckoutScreen], which confirms the outcome with the server.
   Future<void> _deposit() async {
-    final amount = double.tryParse(_amountController.text.trim());
+    final amount = parseAmount(_amountController.text);
     if (amount == null || amount <= 0) {
       _toast('أدخل مبلغاً صحيحاً', AppColors.error);
       return;
@@ -335,10 +335,8 @@ class _DepositCard extends StatelessWidget {
           const SizedBox(height: 14),
           TextField(
             controller: amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-            ],
+            keyboardType: TextInputType.number,
+            inputFormatters: const [AmountInputFormatter()],
             decoration: InputDecoration(
               hintText: 'المبلغ',
               prefixIcon: const Icon(Icons.attach_money,

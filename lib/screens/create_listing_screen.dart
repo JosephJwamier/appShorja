@@ -5,6 +5,7 @@ import '../providers/items_provider.dart';
 import '../providers/auctions_provider.dart';
 import '../services/item_service.dart';
 import '../services/notification_service.dart';
+import '../utils/amount_input.dart';
 
 class CreateListingScreen extends StatefulWidget {
   final int itemId;
@@ -120,9 +121,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         await service.createAuction(
           accessToken: auth.accessToken!,
           itemId: widget.itemId,
-          startingPrice: double.parse(_startingPriceController.text),
-          minimumIncrement: double.parse(_incrementController.text),
-          bidDeposit: double.parse(_bidDepositController.text),
+          startingPrice: parseAmount(_startingPriceController.text)!,
+          minimumIncrement: parseAmount(_incrementController.text)!,
+          bidDeposit: parseAmount(_bidDepositController.text)!,
           startTime: _startTime,
           endTime: _endTime,
         );
@@ -130,7 +131,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         await service.createFixedListing(
           accessToken: auth.accessToken!,
           itemId: widget.itemId,
-          price: double.parse(_priceController.text),
+          price: parseAmount(_priceController.text)!,
           // بلا عربون = صفر: الخادم يقبلها (MinValueValidator(0))
           // ويحسب deposit_amount = price * 0 / 100.
           depositPercentage: _hasDeposit
@@ -274,13 +275,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       TextFormField(
         controller: _priceController,
         keyboardType: TextInputType.number,
+        inputFormatters: const [AmountInputFormatter()],
         decoration: const InputDecoration(
           labelText: 'السعر (IQD)',
           border: OutlineInputBorder(),
         ),
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'السعر مطلوب';
-          final n = double.tryParse(v);
+          final n = parseAmount(v);
           if (n == null || n <= 0) return 'يجب أن يكون رقماً موجباً';
           return null;
         },
@@ -334,13 +336,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       TextFormField(
         controller: _startingPriceController,
         keyboardType: TextInputType.number,
+        inputFormatters: const [AmountInputFormatter()],
         decoration: const InputDecoration(
           labelText: 'السعر الافتتاحي (IQD)',
           border: OutlineInputBorder(),
         ),
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'السعر الافتتاحي مطلوب';
-          final n = double.tryParse(v);
+          final n = parseAmount(v);
           if (n == null || n <= 0) return 'يجب أن يكون رقماً موجباً';
           return null;
         },
@@ -349,6 +352,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       TextFormField(
         controller: _incrementController,
         keyboardType: TextInputType.number,
+        inputFormatters: const [AmountInputFormatter()],
         decoration: const InputDecoration(
           labelText: 'الحدّ الأدنى للزيادة (IQD)',
           border: OutlineInputBorder(),
@@ -356,7 +360,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         ),
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'الحدّ الأدنى مطلوب';
-          final n = double.tryParse(v);
+          final n = parseAmount(v);
           if (n == null || n <= 0) return 'يجب أن يكون رقماً موجباً';
           return null;
         },
@@ -365,6 +369,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       TextFormField(
         controller: _bidDepositController,
         keyboardType: TextInputType.number,
+        inputFormatters: const [AmountInputFormatter()],
         decoration: const InputDecoration(
           labelText: 'عربون المزايدة (IQD)',
           border: OutlineInputBorder(),
@@ -372,7 +377,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         ),
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'العربون مطلوب';
-          final n = double.tryParse(v);
+          final n = parseAmount(v);
           if (n == null || n < 0) return 'يجب أن يكون رقماً غير سالب';
           return null;
         },

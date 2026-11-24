@@ -11,6 +11,7 @@ import '../../providers/my_items_provider.dart';
 import '../../services/ledger_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
+import '../../utils/amount_input.dart';
 
 /// The "write it in the book" sheet. Opened with a preset kind from the
 /// dashboard's big buttons, or blank from the ledger screen. Returns the
@@ -70,11 +71,11 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
     super.dispose();
   }
 
-  double get _amountValue => double.tryParse(_amount.text.replaceAll(',', '')) ?? 0;
+  double get _amountValue => parseAmount(_amount.text) ?? 0;
 
   void _bump(int by) {
     final next = _amountValue + by;
-    _amount.text = next.toStringAsFixed(0);
+    _amount.text = amountText(next);
     _amount.selection = TextSelection.collapsed(offset: _amount.text.length);
     setState(() {});
   }
@@ -100,7 +101,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
     final unit = v?.effectivePrice ?? _item?.price;
     final qty = int.tryParse(_qty.text) ?? 1;
     if (unit != null && unit > 0) {
-      _amount.text = (unit * qty).toStringAsFixed(0);
+      _amount.text = amountText(unit * qty);
     }
   }
 
@@ -262,7 +263,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                       TextField(
                         controller: _amount,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: const [AmountInputFormatter()],
                         autofocus: widget.initialKind != null,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),

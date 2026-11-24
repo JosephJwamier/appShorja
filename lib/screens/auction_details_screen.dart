@@ -21,6 +21,7 @@ import '../utils/share_helper.dart';
 import 'store_profile_screen.dart' show VisitStoreButton;
 import 'reservations_screen.dart';
 import '../utils/auth_gate.dart';
+import '../utils/amount_input.dart';
 
 class AuctionDetailsScreen extends StatefulWidget {
   final Auction auction;
@@ -386,7 +387,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
       // حقل فارغ → نزايد بأدنى مبلغ ممكن تلقائياً
       amount = minimumBid;
     } else {
-      final value = double.tryParse(typed);
+      final value = parseAmount(typed);
       if (value == null || value < minimumBid) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -887,6 +888,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
                   child: TextField(
                     controller: _bidController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: const [AmountInputFormatter()],
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 18,

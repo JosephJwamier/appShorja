@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../services/store_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../utils/amount_input.dart';
 
 const _months = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -330,17 +331,12 @@ class _CouponFormSheetState extends State<_CouponFormSheet> {
     final c = widget.coupon;
     _codeController = TextEditingController(text: c?.code ?? '');
     _amountController =
-        TextEditingController(text: c != null ? _trimZeros(c.amount) : '');
+        TextEditingController(text: amountText(c?.amount));
     _minOrderController = TextEditingController(
-        text: c != null ? _trimZeros(c.minOrderAmount) : '0');
+        text: amountText(c?.minOrderAmount ?? 0));
     _descriptionController = TextEditingController(text: c?.description ?? '');
     _isActive = c?.isActive ?? true;
     _expiresAt = c?.expiresAt;
-  }
-
-  String _trimZeros(double v) {
-    if (v == v.roundToDouble()) return v.toInt().toString();
-    return v.toString();
   }
 
   @override
@@ -375,8 +371,8 @@ class _CouponFormSheetState extends State<_CouponFormSheet> {
       _error = null;
     });
 
-    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
-    final minOrder = double.tryParse(_minOrderController.text.trim()) ?? 0;
+    final amount = parseAmount(_amountController.text) ?? 0;
+    final minOrder = parseAmount(_minOrderController.text) ?? 0;
     final service = StoreService();
 
     final result = _isEditing
@@ -463,13 +459,14 @@ class _CouponFormSheetState extends State<_CouponFormSheet> {
               TextFormField(
                 controller: _amountController,
                 textAlign: TextAlign.right,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [AmountInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'قيمة الخصم (د.ع)',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) {
-                  final n = double.tryParse((v ?? '').trim());
+                  final n = parseAmount(v);
                   if (n == null || n <= 0) return 'أدخل قيمة خصم صحيحة';
                   return null;
                 },
@@ -478,14 +475,15 @@ class _CouponFormSheetState extends State<_CouponFormSheet> {
               TextFormField(
                 controller: _minOrderController,
                 textAlign: TextAlign.right,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [AmountInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'الحد الأدنى للطلب (اختياري)',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  final n = double.tryParse(v.trim());
+                  final n = parseAmount(v);
                   if (n == null || n < 0) return 'قيمة غير صالحة';
                   return null;
                 },

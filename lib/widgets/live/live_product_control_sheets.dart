@@ -4,6 +4,7 @@ import '../../models/live_session.dart';
 import '../../services/live_session_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
+import '../../utils/amount_input.dart';
 
 /// "Show a product" controls shared by the store owner's broadcast screen
 /// and a session moderator's viewer screen (see LiveViewerScreen) — both
@@ -211,13 +212,15 @@ class _LiveQuickShowDialogState extends State<LiveQuickShowDialog> {
             TextField(
               controller: _priceController,
               textAlign: TextAlign.right,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: const [AmountInputFormatter()],
               decoration: const InputDecoration(labelText: 'السعر'),
             ),
             TextField(
               controller: _depositController,
               textAlign: TextAlign.right,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: const [AmountInputFormatter()],
               decoration: const InputDecoration(labelText: 'العربون'),
             ),
             const SizedBox(height: 12),
@@ -247,8 +250,8 @@ class _LiveQuickShowDialogState extends State<LiveQuickShowDialog> {
           ElevatedButton(
             onPressed: () {
               final title = _titleController.text.trim();
-              final price = double.tryParse(_priceController.text.trim());
-              final deposit = double.tryParse(_depositController.text.trim());
+              final price = parseAmount(_priceController.text);
+              final deposit = parseAmount(_depositController.text);
               if (title.isEmpty || price == null || deposit == null) {
                 ScaffoldMessenger.of(context)
                     .showSnackBar(const SnackBar(content: Text('أكمل جميع الحقول بشكل صحيح')));
@@ -330,19 +333,22 @@ class _LiveQuickAuctionDialogState extends State<LiveQuickAuctionDialog> {
               TextField(
                 controller: _priceController,
                 textAlign: TextAlign.right,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [AmountInputFormatter()],
                 decoration: const InputDecoration(labelText: 'سعر الافتتاح'),
               ),
               TextField(
                 controller: _incrementController,
                 textAlign: TextAlign.right,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [AmountInputFormatter()],
                 decoration: const InputDecoration(labelText: 'الحد الأدنى لزيادة كل مزايدة'),
               ),
               TextField(
                 controller: _depositController,
                 textAlign: TextAlign.right,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [AmountInputFormatter()],
                 decoration: const InputDecoration(labelText: 'عربون المشاركة بالمزايدة'),
               ),
               const SizedBox(height: 12),
@@ -373,9 +379,9 @@ class _LiveQuickAuctionDialogState extends State<LiveQuickAuctionDialog> {
           ElevatedButton(
             onPressed: () {
               final title = _titleController.text.trim();
-              final price = double.tryParse(_priceController.text.trim());
-              final increment = double.tryParse(_incrementController.text.trim());
-              final deposit = double.tryParse(_depositController.text.trim());
+              final price = parseAmount(_priceController.text);
+              final increment = parseAmount(_incrementController.text);
+              final deposit = parseAmount(_depositController.text);
               if (title.isEmpty || price == null || increment == null || deposit == null) {
                 ScaffoldMessenger.of(context)
                     .showSnackBar(const SnackBar(content: Text('أكمل جميع الحقول بشكل صحيح')));

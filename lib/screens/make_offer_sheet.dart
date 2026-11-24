@@ -7,6 +7,7 @@ import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'store_chat_screen.dart';
+import '../utils/amount_input.dart';
 
 /// Small sheet that lets a buyer propose a total price for a quantity of an
 /// item, shown when they tap "قدّم عرضاً" on the product page. Sends the
@@ -58,7 +59,7 @@ class _MakeOfferSheetState extends State<_MakeOfferSheet> {
   }
 
   Future<void> _submit() async {
-    final amount = double.tryParse(_amountController.text.trim());
+    final amount = parseAmount(_amountController.text);
     if (amount == null || amount <= 0) {
       setState(() => _error = 'أدخل مبلغاً صحيحاً للعرض');
       return;
@@ -218,7 +219,8 @@ class _MakeOfferSheetState extends State<_MakeOfferSheet> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   textAlign: TextAlign.right,
                   decoration: InputDecoration(
                     hintText: 'مثال: ${formatNum(_listingTotal * 0.85)}',

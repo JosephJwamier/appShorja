@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/auction.dart';
 import '../providers/auth_provider.dart';
 import '../services/item_service.dart';
+import '../utils/amount_input.dart';
 
 class EditAuctionScreen extends StatefulWidget {
   final Auction auction;
@@ -29,11 +30,11 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
     super.initState();
     final a = widget.auction;
     _startingPriceController =
-        TextEditingController(text: a.startingPrice.toStringAsFixed(0));
+        TextEditingController(text: amountText(a.startingPrice));
     _incrementController =
-        TextEditingController(text: a.minimumIncrement.toStringAsFixed(0));
+        TextEditingController(text: amountText(a.minimumIncrement));
     _bidDepositController =
-        TextEditingController(text: a.bidDeposit.toStringAsFixed(0));
+        TextEditingController(text: amountText(a.bidDeposit));
     _startTime = a.startTime;
     _endTime = a.endTime;
   }
@@ -100,9 +101,9 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
         accessToken: auth.accessToken!,
         itemId: widget.auction.item.id,
         auctionId: widget.auction.id,
-        startingPrice: double.parse(_startingPriceController.text),
-        minimumIncrement: double.parse(_incrementController.text),
-        bidDeposit: double.parse(_bidDepositController.text),
+        startingPrice: parseAmount(_startingPriceController.text)!,
+        minimumIncrement: parseAmount(_incrementController.text)!,
+        bidDeposit: parseAmount(_bidDepositController.text)!,
         startTime: _startTime,
         endTime: _endTime,
       );
@@ -165,6 +166,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                 TextFormField(
                   controller: _startingPriceController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'السعر الافتتاحي (IQD)',
                     border: OutlineInputBorder(),
@@ -173,7 +175,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                     if (v == null || v.trim().isEmpty) {
                       return 'السعر الافتتاحي مطلوب';
                     }
-                    final n = double.tryParse(v);
+                    final n = parseAmount(v);
                     if (n == null || n <= 0) return 'يجب أن يكون رقماً موجباً';
                     return null;
                   },
@@ -182,6 +184,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                 TextFormField(
                   controller: _incrementController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'الحدّ الأدنى للزيادة (IQD)',
                     border: OutlineInputBorder(),
@@ -191,7 +194,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                     if (v == null || v.trim().isEmpty) {
                       return 'الحدّ الأدنى مطلوب';
                     }
-                    final n = double.tryParse(v);
+                    final n = parseAmount(v);
                     if (n == null || n <= 0) return 'يجب أن يكون رقماً موجباً';
                     return null;
                   },
@@ -200,6 +203,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                 TextFormField(
                   controller: _bidDepositController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'عربون المزايدة (IQD)',
                     border: OutlineInputBorder(),
@@ -207,7 +211,7 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'العربون مطلوب';
-                    final n = double.tryParse(v);
+                    final n = parseAmount(v);
                     if (n == null || n < 0) return 'يجب أن يكون رقماً غير سالب';
                     return null;
                   },

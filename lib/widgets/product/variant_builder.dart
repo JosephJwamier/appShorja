@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/product.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/amount_input.dart';
 
 /// What the seller defines: the axes, and stock/price per combination.
 ///
@@ -377,10 +378,10 @@ class _VariantRowFieldsState extends State<_VariantRowFields> {
     text: widget.row.quantity?.toString() ?? '',
   );
   late final _price = TextEditingController(
-    text: widget.row.price?.toStringAsFixed(0) ?? '',
+    text: amountText(widget.row.price),
   );
   late final _cost = TextEditingController(
-    text: widget.row.costPrice?.toStringAsFixed(0) ?? '',
+    text: amountText(widget.row.costPrice),
   );
 
   @override
@@ -431,12 +432,8 @@ class _VariantRowFieldsState extends State<_VariantRowFields> {
                 flex: 4,
                 child: TextFormField(
                   controller: _price,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     labelText: 'السعر',
@@ -444,7 +441,7 @@ class _VariantRowFieldsState extends State<_VariantRowFields> {
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (v) {
-                    row.price = double.tryParse(v);
+                    row.price = parseAmount(v);
                     widget.onChanged();
                   },
                 ),
@@ -454,12 +451,8 @@ class _VariantRowFieldsState extends State<_VariantRowFields> {
                 flex: 4,
                 child: TextFormField(
                   controller: _cost,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [AmountInputFormatter()],
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
                     labelText: 'الكلفة',
@@ -467,7 +460,7 @@ class _VariantRowFieldsState extends State<_VariantRowFields> {
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (v) {
-                    row.costPrice = double.tryParse(v);
+                    row.costPrice = parseAmount(v);
                     widget.onChanged();
                   },
                 ),

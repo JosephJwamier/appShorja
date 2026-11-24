@@ -5,6 +5,7 @@ import '../providers/transfers_provider.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../utils/amount_input.dart';
 
 class ResaleRequestScreen extends StatefulWidget {
   final int itemId;
@@ -92,7 +93,7 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
         storageFeeType: _storageFeeType,
         storageFeeAmount: _storageFeeType == 'none'
             ? null
-            : double.tryParse(_storageFeeAmountController.text),
+            : parseAmount(_storageFeeAmountController.text),
         storageFeePeriodDays:
             int.tryParse(_storageFeePeriodController.text.trim()) ?? 30,
         durationDays: durationText.isEmpty ? null : int.parse(durationText),
@@ -210,7 +211,11 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
                     ],
                     selected: {_storageFeeType},
                     onSelectionChanged: (s) =>
-                        setState(() => _storageFeeType = s.first),
+                        setState(() {
+                          // ما كُتب نسبةً ليس مبلغاً، والعكس.
+                          _storageFeeAmountController.clear();
+                          _storageFeeType = s.first;
+                        }),
                   ),
                   if (_storageFeeType != 'none') ...[
                     const SizedBox(height: 14),
@@ -226,6 +231,10 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
                           TextFormField(
                             controller: _storageFeeAmountController,
                             keyboardType: TextInputType.number,
+                            // النسبة قد تحمل كسراً، فالفواصل للمبلغ وحده.
+                            inputFormatters: _storageFeeType == 'percentage'
+                                ? null
+                                : const [AmountInputFormatter()],
                             decoration: InputDecoration(
                               labelText: _storageFeeType == 'percentage'
                                   ? 'نسبة رسوم التخزين (٪)'
@@ -242,7 +251,9 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
                               if (v == null || v.trim().isEmpty) {
                                 return 'قيمة الرسوم مطلوبة';
                               }
-                              final n = double.tryParse(v);
+                              final n = _storageFeeType == 'percentage'
+                                  ? double.tryParse(v)
+                                  : parseAmount(v);
                               if (n == null || n <= 0) return 'أدخل قيمة صحيحة';
                               if (_storageFeeType == 'percentage' && n > 100) {
                                 return 'النسبة بين 0 و 100';
