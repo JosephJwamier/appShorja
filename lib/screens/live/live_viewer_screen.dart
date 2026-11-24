@@ -1252,6 +1252,10 @@ class _ReserveSheetState extends State<_ReserveSheet> {
           Text('العربون المستحق الآن: ${formatIqd(totalDeposit)}',
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          const SizedBox(height: 4),
+          const Text('يُدفع باقي الثمن وأجرة التوصيل نقداً عند الاستلام',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 12),
           if (_resolvingLocation)
             const Padding(

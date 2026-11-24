@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -114,19 +115,29 @@ class ApiClient {
     try {
       switch (method) {
         case 'GET':
-          return await http.get(uri, headers: headers);
+          return await http.get(uri, headers: headers).timeout(_timeout);
         case 'POST':
-          return await http.post(uri, headers: headers, body: encodedBody);
+          return await http
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout);
         case 'PATCH':
-          return await http.patch(uri, headers: headers, body: encodedBody);
+          return await http
+              .patch(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout);
         case 'PUT':
-          return await http.put(uri, headers: headers, body: encodedBody);
+          return await http
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout);
         case 'DELETE':
-          return await http.delete(uri, headers: headers, body: encodedBody);
+          return await http
+              .delete(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout);
         default:
           throw ArgumentError('Unsupported method: $method');
       }
     } on SocketException {
+      throw const NoConnectionException();
+    } on TimeoutException {
       throw const NoConnectionException();
     }
   }
@@ -135,6 +146,9 @@ class ApiClient {
   // fires off a few parallel GETs right as the token expires) — this makes
   // sure they trigger exactly one refresh call instead of a stampede that
   // could each try to rotate the same refresh token.
+  /// بلا مهلة كان الطلب على شبكة ميتة ينتظر إلى الأبد والشاشة تدور.
+  static const _timeout = Duration(seconds: 45);
+
   Future<bool>? _refreshInFlight;
 
   Future<bool> _refresh() {
@@ -151,8 +165,14 @@ class ApiClient {
         Uri.parse('${ApiConfig.baseUrl}/auth/token/refresh/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'refresh': refreshToken}),
-      );
-      if (response.statusCode != 200) return false;
+      ).timeout(_timeout);
+      // الرفض الصريح وحده يُنهي الجلسة. خادمٌ يُعاد تشغيله (502) أو مزدحم
+      // (429) أو شبكة منقطعة لا تعني أن الجلسة انتهت، وإخراج المستخدم
+      // حينها كان يُخرج كل من صادف تجديده لحظة نشر تحديث.
+      if (response.statusCode == 400 || response.statusCode == 401) {
+        return false;
+      }
+      if (response.statusCode != 200) throw const NoConnectionException();
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final newAccess = data['access'] as String?;
       if (newAccess == null) return false;
@@ -162,8 +182,12 @@ class ApiClient {
       final newRefresh = data['refresh'] as String? ?? refreshToken;
       _onTokensRefreshed?.call(newAccess, newRefresh);
       return true;
-    } catch (_) {
-      return false;
+    } on SocketException {
+      throw const NoConnectionException();
+    } on TimeoutException {
+      throw const NoConnectionException();
+    } on http.ClientException {
+      throw const NoConnectionException();
     }
   }
 }
