@@ -115,7 +115,7 @@ class _MakeOfferSheetState extends State<_MakeOfferSheet> {
       MaterialPageRoute(
         builder: (_) => StoreChatScreen(
           chatId: chatResult.chat!.id,
-          title: widget.listing.item.owner.username,
+          title: widget.listing.item.owner.sellerName,
         ),
       ),
     );
