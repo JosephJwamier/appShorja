@@ -74,8 +74,8 @@ void main() {
   });
 
   test('a number too long is refused, not trimmed', () {
-    expect(_type('12345678901'), '1,234,567,890');
-    expect(_edit('5|', '123456789012|'), '5|');
+    expect(_type('1234567890123'), '123,456,789,012');
+    expect(_edit('5|', '1234567890123|'), '5|');
   });
 
   test('what is shown reads back as the same amount', () {

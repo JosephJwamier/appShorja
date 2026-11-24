@@ -7,9 +7,9 @@ import 'package:flutter/services.dart';
 /// الثلاثة معاً: `double.tryParse('1,000')` يعيد null، فحقلٌ يُنسَّق ولا
 /// يُقرأ بـ[parseAmount] يرفض كل مبلغ فوق 999.
 
-/// أطول مبلغ يُقبل (خانات). أعمدة المبالغ في الخادم max_digits=12 منها
+/// أطول مبلغ يُقبل (خانات). أعمدة المبالغ في الخادم max_digits=14 منها
 /// خانتان عشريتان.
-const _maxDigits = 10;
+const _maxDigits = 12;
 
 /// الأرقام العربية والفارسية إلى لاتينية — لوحة المفاتيح العربية تكتبها.
 String _latinDigits(String s) => s.replaceAllMapped(

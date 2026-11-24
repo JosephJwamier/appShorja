@@ -330,13 +330,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
     final picker = ImagePicker();
     if (source == ImageSource.camera) {
       // الكاميرا تُرجع صورة واحدة لكل التقاطة — لا مقابل لـ pickMultiImage.
-      final shot = await picker.pickImage(source: ImageSource.camera);
+      final shot = await picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2000);
       if (shot == null) return;
       setState(() => _images.add(shot));
       return;
     }
 
-    final picked = await picker.pickMultiImage();
+    final picked = await picker.pickMultiImage(imageQuality: 85, maxWidth: 2000);
     if (picked.isEmpty) return;
     setState(() => _images.addAll(picked));
   }

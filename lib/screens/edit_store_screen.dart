@@ -59,7 +59,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
 
   Future<void> _pickLogo() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 2000);
     if (picked != null) {
       setState(() => _newLogo = picked);
     }
@@ -67,7 +67,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
 
   Future<void> _pickCover() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 2000);
     if (picked != null) {
       setState(() => _newCover = picked);
     }

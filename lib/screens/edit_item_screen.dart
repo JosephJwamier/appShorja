@@ -132,7 +132,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
 
   Future<void> _pickImages() async {
     final picker = ImagePicker();
-    final picked = await picker.pickMultiImage();
+    final picked = await picker.pickMultiImage(imageQuality: 85, maxWidth: 2000);
     if (picked.isEmpty) return;
     setState(() => _newImages.addAll(picked));
   }
