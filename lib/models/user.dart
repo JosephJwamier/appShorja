@@ -18,6 +18,10 @@ class User {
   /// server's display order. Empty for users without a store.
   final List<String> storeBadges;
 
+  /// Name of this user's store; empty without an active store, or from an
+  /// older server.
+  final String storeName;
+
   User({
     required this.id,
     required this.username,
@@ -32,6 +36,7 @@ class User {
     this.bio = '',
     this.dateOfBirth,
     this.storeBadges = const [],
+    this.storeName = '',
   });
 
   /// الاسم الأول + الثاني إن أدخلهما المستخدم، وإلا اسم المستخدم — يُستخدم
@@ -39,6 +44,13 @@ class User {
   String get displayName {
     final full = '$firstName $lastName'.trim();
     return full.isNotEmpty ? full : username;
+  }
+
+  /// اسم البائع بجانب ما يبيعه: اسم متجره، وإلا اسمه الشخصي. للعرض فقط —
+  /// فتح المتجر وغيره يبقى على username.
+  String get sellerName {
+    final store = storeName.trim();
+    return store.isNotEmpty ? store : displayName;
   }
 
   /// نفس نمط تحويل الرابط النسبي لمطلق المستخدم في Store.fullLogoUrl.
@@ -75,6 +87,7 @@ class User {
         bio: bio ?? this.bio,
         dateOfBirth: dateOfBirth ?? this.dateOfBirth,
         storeBadges: storeBadges,
+        storeName: storeName,
       );
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -96,6 +109,7 @@ class User {
       storeBadges: (json['store_badges'] as List<dynamic>? ?? const [])
           .map((e) => e.toString())
           .toList(),
+      storeName: json['store_name'] as String? ?? '',
     );
   }
 

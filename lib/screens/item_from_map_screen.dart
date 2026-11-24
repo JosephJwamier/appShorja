@@ -328,7 +328,7 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
                               radius: 26,
                               backgroundColor: AppColors.secondary,
                               child: Text(
-                                item.owner.username.characters.first
+                                item.owner.sellerName.characters.first
                                     .toUpperCase(),
                                 style: const TextStyle(
                                     color: Colors.white,
@@ -342,7 +342,7 @@ class _ItemFromMapScreenState extends State<ItemFromMapScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item.owner.username,
+                                    item.owner.sellerName,
                                     style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold),

@@ -695,7 +695,7 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _SellerCard(
-                  sellerName: item.owner.username,
+                  sellerName: item.owner.sellerName,
                   sellerUsername: item.owner.username,
                 ),
               ),

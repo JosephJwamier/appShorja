@@ -711,9 +711,10 @@ class _ProductDetailsBody extends StatelessWidget {
                               CircleAvatar(
                                 radius: 26,
                                 backgroundColor: AppColors.secondary,
-                                child: item.owner.username.isNotEmpty
+                                child: item.owner.sellerName.isNotEmpty
                                     ? Text(
-                                        item.owner.username[0].toUpperCase(),
+                                        item.owner.sellerName.characters.first
+                                            .toUpperCase(),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 20,
@@ -732,8 +733,8 @@ class _ProductDetailsBody extends StatelessWidget {
                                       children: [
                                         Flexible(
                                           child: Text(
-                                            item.owner.username.isNotEmpty
-                                                ? item.owner.username
+                                            item.owner.sellerName.isNotEmpty
+                                                ? item.owner.sellerName
                                                 : 'بائع خاص',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
