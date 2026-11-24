@@ -657,7 +657,13 @@ class _ReservationsScreenState extends State<ReservationsScreen>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('إلغاء الحجز'),
-        content: Text('هل تريد إلغاء حجز "${r.item.title}"؟'),
+        content: Text(
+          r.isFromAuction && auth.user?.id == r.buyer.id && r.depositAmount > 0
+              ? 'هل تريد إلغاء فوزك بمزاد "${r.item.title}"؟\n'
+                  'إن لم يوافق البائع على الإلغاء، يذهب عربونك '
+                  '(${formatIqd(r.depositAmount)}) للبائع.'
+              : 'هل تريد إلغاء حجز "${r.item.title}"؟',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

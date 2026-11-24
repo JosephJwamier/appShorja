@@ -183,6 +183,7 @@ class ResaleAgreement {
 
 class CreateTransferRequest {
   final int itemId;
+  final int? variantId;
   final int quantity;
   final String storageFeeType;
   final double? storageFeeAmount;
@@ -193,6 +194,7 @@ class CreateTransferRequest {
 
   const CreateTransferRequest({
     required this.itemId,
+    this.variantId,
     this.quantity = 1,
     this.storageFeeType = 'none',
     this.storageFeeAmount,
@@ -204,6 +206,7 @@ class CreateTransferRequest {
 
   Map<String, dynamic> toJson() => {
     'item_id': itemId,
+    if (variantId != null) 'variant_id': variantId,
     'quantity': quantity,
     'storage_fee_type': storageFeeType,
     if (storageFeeType != 'none') 'storage_fee_amount': storageFeeAmount,

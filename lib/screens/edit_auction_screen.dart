@@ -213,6 +213,10 @@ class _EditAuctionScreenState extends State<EditAuctionScreen> {
                     if (v == null || v.trim().isEmpty) return 'العربون مطلوب';
                     final n = parseAmount(v);
                     if (n == null || n < 0) return 'يجب أن يكون رقماً غير سالب';
+                    final start = parseAmount(_startingPriceController.text);
+                    if (start != null && n > start) {
+                      return 'لا يتجاوز العربون السعر الافتتاحي';
+                    }
                     return null;
                   },
                 ),

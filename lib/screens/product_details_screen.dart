@@ -1249,10 +1249,7 @@ class _BottomBar extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => ResaleRequestScreen(
-                              itemId: listing.item.id,
-                              itemTitle: listing.item.title,
-                              unitPrice: listing.item.price,
-                              maxQuantity: listing.item.quantity,
+                              product: listing.item,
                             ),
                           ),
                         );

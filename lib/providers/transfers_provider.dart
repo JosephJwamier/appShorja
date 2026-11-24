@@ -63,6 +63,7 @@ class TransfersProvider extends ChangeNotifier {
   Future<({bool success, String message})> createAgreement({
     required String token,
     required int itemId,
+    int? variantId,
     int quantity = 1,
     String storageFeeType = 'none',
     double? storageFeeAmount,
@@ -74,6 +75,7 @@ class TransfersProvider extends ChangeNotifier {
     final r = await _service.createAgreement(
       CreateTransferRequest(
         itemId: itemId,
+        variantId: variantId,
         quantity: quantity,
         storageFeeType: storageFeeType,
         storageFeeAmount: storageFeeAmount,

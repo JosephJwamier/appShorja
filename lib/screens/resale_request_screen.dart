@@ -6,20 +6,13 @@ import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/amount_input.dart';
+import '../models/product.dart';
+import '../widgets/product/variant_selector.dart';
 
 class ResaleRequestScreen extends StatefulWidget {
-  final int itemId;
-  final String itemTitle;
-  final double? unitPrice;
-  final int maxQuantity;
+  final Product product;
 
-  const ResaleRequestScreen({
-    super.key,
-    required this.itemId,
-    required this.itemTitle,
-    this.unitPrice,
-    required this.maxQuantity,
-  });
+  const ResaleRequestScreen({super.key, required this.product});
 
   @override
   State<ResaleRequestScreen> createState() => _ResaleRequestScreenState();
@@ -44,7 +37,20 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
     borderRadius: BorderRadius.all(Radius.circular(12)),
   );
 
-  double get _totalWholesalePrice => (widget.unitPrice ?? 0) * _quantity;
+  /// الخيار المطلوب (لون/مقاس) لمنتج له خيارات؛ السعر والمخزون منه هو.
+  Map<String, String> _selectedAttrs = {};
+  ProductVariant? get _variant => widget.product.hasOptions
+      ? widget.product.findVariant(_selectedAttrs)
+      : null;
+  double? get _unitPrice => _variant?.effectivePrice ?? widget.product.price;
+  int get _maxQuantity => _variant?.quantity ?? widget.product.quantity;
+
+  double get _totalWholesalePrice => (_unitPrice ?? 0) * _quantity;
+
+  void _onSelectAttrs(Map<String, String> next) {
+    setState(() => _selectedAttrs = next);
+    if (_variant != null && _quantity > _maxQuantity) _setQuantity(_quantity);
+  }
 
   @override
   void initState() {
@@ -67,13 +73,17 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
   }
 
   void _setQuantity(int value) {
-    final clamped = value.clamp(1, widget.maxQuantity == 0 ? 1 : widget.maxQuantity);
+    final clamped = value.clamp(1, _maxQuantity == 0 ? 1 : _maxQuantity);
     _quantityController.text = '$clamped';
     setState(() => _quantity = clamped);
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (widget.product.hasOptions && _variant == null) {
+      setState(() => _errorMessage = 'اختر اللون/المقاس أولاً');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -88,7 +98,8 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
 
       final result = await provider.createAgreement(
         token: auth.accessToken!,
-        itemId: widget.itemId,
+        itemId: widget.product.id,
+        variantId: _variant?.id,
         quantity: int.parse(_quantityController.text.trim()),
         storageFeeType: _storageFeeType,
         storageFeeAmount: _storageFeeType == 'none'
@@ -146,8 +157,16 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroBanner(itemTitle: widget.itemTitle),
+                  _HeroBanner(itemTitle: widget.product.title),
                   const SizedBox(height: 24),
+                  if (widget.product.hasOptions) ...[
+                    VariantSelector(
+                      product: widget.product,
+                      selected: _selectedAttrs,
+                      onChanged: _onSelectAttrs,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   const _SectionTitle(
                     title: 'الكمية المطلوبة',
@@ -156,13 +175,13 @@ class _ResaleRequestScreenState extends State<ResaleRequestScreen> {
                   const SizedBox(height: 10),
                   _QuantityField(
                     controller: _quantityController,
-                    max: widget.maxQuantity,
+                    max: _maxQuantity,
                     onChanged: _setQuantity,
                   ),
                   const SizedBox(height: 8),
-                  _AvailabilityPill(max: widget.maxQuantity),
+                  _AvailabilityPill(max: _maxQuantity),
 
-                  if (widget.unitPrice != null) ...[
+                  if (_unitPrice != null) ...[
                     const SizedBox(height: 16),
                     _WalletPreviewCard(amount: _totalWholesalePrice),
                   ],

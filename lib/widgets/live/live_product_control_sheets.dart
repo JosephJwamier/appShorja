@@ -387,6 +387,11 @@ class _LiveQuickAuctionDialogState extends State<LiveQuickAuctionDialog> {
                     .showSnackBar(const SnackBar(content: Text('أكمل جميع الحقول بشكل صحيح')));
                 return;
               }
+              if (deposit > price) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('لا يتجاوز العربون سعر الافتتاح')));
+                return;
+              }
               Navigator.pop(context, LiveQuickAuctionInput(title, price, increment, deposit, _quantity));
             },
             child: const Text('ابدأ المزاد'),
