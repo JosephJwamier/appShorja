@@ -19,6 +19,39 @@ class Wallet {
       );
 }
 
+class Withdrawal {
+  final int id;
+  final double amount;
+  final String status;
+  final String accountLast4;
+  final String notes;
+  final DateTime createdAt;
+
+  const Withdrawal({
+    required this.id,
+    required this.amount,
+    required this.status,
+    required this.accountLast4,
+    required this.notes,
+    required this.createdAt,
+  });
+
+  factory Withdrawal.fromJson(Map<String, dynamic> json) => Withdrawal(
+        id: json['id'] as int,
+        amount: double.parse(json['amount'].toString()),
+        status: json['status'] as String? ?? 'pending',
+        accountLast4: json['card_last4'] as String? ?? '',
+        notes: json['admin_notes'] as String? ?? '',
+        createdAt: DateTime.parse(json['created_at'] as String),
+      );
+
+  String get statusLabel => switch (status) {
+        'approved' => 'حُوّل',
+        'rejected' => 'مرفوض',
+        _ => 'قيد المراجعة',
+      };
+}
+
 class Deposit {
   final int id;
   final double amount;

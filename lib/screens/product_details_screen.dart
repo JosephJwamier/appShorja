@@ -45,6 +45,7 @@ class ProductDetailsScreen extends StatefulWidget {
   final int? acceptedOfferMessageId;
   final double? acceptedOfferAmount;
   final int? acceptedOfferQuantity;
+  final int? acceptedOfferVariantId;
   const ProductDetailsScreen({
     super.key,
     required this.listing,
@@ -52,6 +53,7 @@ class ProductDetailsScreen extends StatefulWidget {
     this.acceptedOfferMessageId,
     this.acceptedOfferAmount,
     this.acceptedOfferQuantity,
+    this.acceptedOfferVariantId,
   });
 
   @override
@@ -110,6 +112,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       contentType: 'listing',
     );
     if (_acceptedOffer != null) {
+      // السعر المقبول لخيار بعينه، فيُختار هو لا غيره.
+      for (final v in widget.listing.item.variants) {
+        if (v.id == widget.acceptedOfferVariantId) {
+          _selectedAttrs = Map.of(v.attributes);
+        }
+      }
       // Skip the normal "reserve" tap — go straight into the locked
       // quantity/price sheet for the accepted offer.
       WidgetsBinding.instance.addPostFrameCallback((_) => _openReservationSheet());
@@ -867,6 +875,7 @@ class _ProductDetailsBody extends StatelessWidget {
           isOwner: isOwner,
           inStock: inStock,
           needsPick: needsPick,
+          variant: selectedVariant,
           isReserving: isReserving,
           onReserve: onReserve,
           eligibleCoupons: eligibleCoupons,
@@ -1010,6 +1019,7 @@ class _BottomBar extends StatelessWidget {
   final bool isOwner;
   final bool inStock;
   final bool needsPick;
+  final ProductVariant? variant;
   final bool isReserving;
   final VoidCallback onReserve;
   final List<CouponCollection> eligibleCoupons;
@@ -1023,6 +1033,7 @@ class _BottomBar extends StatelessWidget {
     required this.isOwner,
     required this.inStock,
     required this.needsPick,
+    this.variant,
     required this.isReserving,
     required this.onReserve,
     required this.eligibleCoupons,
@@ -1220,7 +1231,11 @@ class _BottomBar extends StatelessWidget {
                       icon: Icons.local_offer_outlined,
                       label: 'قدّم عرضاً',
                       color: AppColors.success,
-                      onTap: () => showMakeOfferSheet(context, listing: listing),
+                      onTap: () => showMakeOfferSheet(
+                        context,
+                        listing: listing,
+                        variant: variant,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     _SquareAction(

@@ -8,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../widgets/payment/payment_method_sheet.dart';
 import '../widgets/wallet/sync_refresh_button.dart';
+import '../widgets/wallet/withdraw_sheet.dart';
 import 'payment/payment_checkout_screen.dart';
 import 'wallet_activity_screen.dart';
 import '../utils/amount_input.dart';
@@ -185,6 +186,13 @@ class _WalletScreenState extends State<WalletScreen> {
                   depositing: _depositing,
                   onDeposit: _deposit,
                 ),
+                if (provider.wallet != null) ...[
+                  const SizedBox(height: 12),
+                  WithdrawCard(
+                    available: provider.wallet!.availableBalance,
+                    onChanged: _load,
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const Text(
                   'سجل الإيداعات',

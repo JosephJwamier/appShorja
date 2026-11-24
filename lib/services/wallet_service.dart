@@ -26,6 +26,45 @@ class WalletService {
     }
     throw Exception('فشل جلب سجل الإيداعات');
   }
+
+  Future<List<Withdrawal>> fetchWithdrawals() async {
+    final response = await _client.get('/wallet/my_withdrawals/');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (data['data'] as List<dynamic>)
+          .map((w) => Withdrawal.fromJson(w as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('فشل جلب طلبات السحب');
+  }
+
+  /// يحجز [amount] من الرصيد حتى تحوّله الإدارة أو ترفض الطلب.
+  Future<void> withdraw({
+    required double amount,
+    required String accountNumber,
+    required String holderName,
+  }) async {
+    final response = await _client.post('/wallet/withdraw/', body: {
+      'amount': amount.toStringAsFixed(0),
+      'account_number': accountNumber,
+      'holder_name': holderName,
+    });
+    if (response.statusCode == 201) return;
+    String? message;
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final errors = data['errors'];
+      if (errors is Map && errors.isNotEmpty) {
+        final first = errors.values.first;
+        message = first is List ? first.first.toString() : first.toString();
+      } else {
+        message = data['message'] as String?;
+      }
+    } catch (_) {
+      message = null;
+    }
+    throw Exception(message ?? 'تعذّر إرسال طلب السحب');
+  }
 }
 extension WalletActivityApi on WalletService {
   Future<WalletActivity> fetchActivity({required String accessToken}) async {

@@ -161,6 +161,7 @@ class ChatService {
     required int chatId,
     required double offerAmount,
     required int quantity,
+    int? variantId,
     String message = '',
   }) async {
     final response = await _client.post(
@@ -168,6 +169,7 @@ class ChatService {
       body: {
         'offer_amount': offerAmount,
         'quantity': quantity,
+        'variant_id': ?variantId,
         'message': message,
       },
     );

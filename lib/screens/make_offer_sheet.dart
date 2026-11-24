@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/listing.dart';
+import '../models/product.dart';
 import '../providers/auth_provider.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
@@ -16,18 +17,20 @@ import '../utils/amount_input.dart';
 Future<void> showMakeOfferSheet(
   BuildContext context, {
   required FixedListing listing,
+  ProductVariant? variant,
 }) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _MakeOfferSheet(listing: listing),
+    builder: (_) => _MakeOfferSheet(listing: listing, variant: variant),
   );
 }
 
 class _MakeOfferSheet extends StatefulWidget {
   final FixedListing listing;
-  const _MakeOfferSheet({required this.listing});
+  final ProductVariant? variant;
+  const _MakeOfferSheet({required this.listing, this.variant});
 
   @override
   State<_MakeOfferSheet> createState() => _MakeOfferSheetState();
@@ -40,8 +43,9 @@ class _MakeOfferSheetState extends State<_MakeOfferSheet> {
   bool _sending = false;
   String? _error;
 
-  int get _maxQty => widget.listing.item.quantity;
-  double get _listingTotal => widget.listing.price * _quantity;
+  int get _maxQty => widget.variant?.quantity ?? widget.listing.item.quantity;
+  double get _listingTotal =>
+      (widget.variant?.effectivePrice ?? widget.listing.price) * _quantity;
 
   @override
   void dispose() {
@@ -95,6 +99,7 @@ class _MakeOfferSheetState extends State<_MakeOfferSheet> {
       chatId: chatResult.chat!.id,
       offerAmount: amount,
       quantity: _quantity,
+      variantId: widget.variant?.id,
       message: _messageController.text.trim(),
     );
     if (!mounted) return;

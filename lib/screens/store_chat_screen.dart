@@ -489,6 +489,7 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
           acceptedOfferMessageId: m.id,
           acceptedOfferAmount: m.offerAmount,
           acceptedOfferQuantity: m.offerQuantity,
+          acceptedOfferVariantId: m.offerVariantId,
         ),
       ),
     );

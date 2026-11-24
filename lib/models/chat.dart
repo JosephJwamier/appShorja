@@ -17,6 +17,9 @@ class ChatMessage {
   final DateTime createdAt;
   final double? offerAmount;
   final int? offerQuantity;
+
+  /// الخيار (لون/مقاس) الذي قُدّم السعر عليه؛ null لمنتج بلا خيارات.
+  final int? offerVariantId;
   final String? offerStatus;
   final bool isRedeemed;
   final bool isPending;
@@ -32,6 +35,7 @@ class ChatMessage {
     required this.createdAt,
     this.offerAmount,
     this.offerQuantity,
+    this.offerVariantId,
     this.offerStatus,
     this.isRedeemed = false,
     this.isPending = false,
@@ -71,6 +75,7 @@ class ChatMessage {
         createdAt: createdAt,
         offerAmount: offerAmount,
         offerQuantity: offerQuantity,
+        offerVariantId: offerVariantId,
         offerStatus: offerStatus ?? this.offerStatus,
         isRedeemed: isRedeemed ?? this.isRedeemed,
         isPending: isPending,
@@ -96,6 +101,7 @@ class ChatMessage {
       createdAt: DateTime.parse(json['created_at'] as String),
       offerAmount: _toDoubleOrNull(json['offer_amount']),
       offerQuantity: json['offer_quantity'] as int?,
+      offerVariantId: json['offer_variant'] as int?,
       offerStatus: json['offer_status'] as String?,
       isRedeemed: json['is_redeemed'] as bool? ?? false,
     );
@@ -115,6 +121,7 @@ class ChatMessage {
           DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
       offerAmount: _toDoubleOrNull(json['offer_amount']),
       offerQuantity: json['offer_quantity'] as int?,
+      offerVariantId: json['offer_variant'] as int?,
       offerStatus: json['offer_status'] as String?,
     );
   }
