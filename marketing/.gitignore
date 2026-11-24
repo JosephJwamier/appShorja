@@ -1,0 +1,7 @@
+out/_chrome/
+out/*.html
+out/img/
+__pycache__/
+preview/
+out/img/
+out/*.png
