@@ -292,15 +292,17 @@ class AuthProvider extends ChangeNotifier {
   /// this returns its message instead of clearing anything) while a wallet
   /// balance or an open reservation/dispute still exists. Returns `null` on
   /// success.
-  Future<String?> deleteAccount({
+  Future<({String message, String? code})?> deleteAccount({
     NotificationsProvider? notificationsProvider,
+    Map<String, String> proof = const {},
   }) async {
     final token = _accessToken;
     if (token == null) return null;
 
-    final result = await _authService.deleteAccount(accessToken: token);
+    final result =
+        await _authService.deleteAccount(accessToken: token, proof: proof);
     if (!result.success) {
-      return result.message;
+      return (message: result.message, code: result.code);
     }
 
     if (notificationsProvider != null && _user != null) {

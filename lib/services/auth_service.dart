@@ -128,7 +128,19 @@ class AuthService {
   /// needs a file field — same reasoning as StoreService.updateStore
   /// (see StoreService's note on bypassing ApiClient directly). Text fields
   /// go through fine as regular multipart fields either way.
-  Future<({bool success, String message, User? user})> updateProfile({
+  /// The `code` of an error body: 'proof_required' asks for the password or a
+  /// WhatsApp code (core/identity_proof.py).
+  String? _errorCode(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+      return body is Map<String, dynamic> ? body['code'] as String? : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<({bool success, String message, String? code, User? user})>
+      updateProfile({
     required String accessToken,
     String? username,
     String? firstName,
@@ -138,11 +150,13 @@ class AuthService {
     String? bio,
     DateTime? dateOfBirth,
     XFile? avatar,
+    Map<String, String> proof = const {},
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/auth/profile/update/');
     final request = http.MultipartRequest('PATCH', uri);
     request.headers['Authorization'] = 'Bearer $accessToken';
 
+    request.fields.addAll(proof);
     if (username != null) request.fields['username'] = username;
     if (firstName != null) request.fields['first_name'] = firstName;
     if (lastName != null) request.fields['last_name'] = lastName;
@@ -170,10 +184,16 @@ class AuthService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return (success: true, message: 'تم تحديث البيانات', user: User.fromJson(data));
+      return (
+        success: true,
+        message: 'تم تحديث البيانات',
+        code: null,
+        user: User.fromJson(data),
+      );
     }
     return (
       success: false,
+      code: _errorCode(response),
       message: _extractError(response, 'تعذّر تحديث البيانات'),
       user: null,
     );
@@ -418,14 +438,20 @@ class AuthService {
   /// Permanently deletes (deactivates) the current user's account. The
   /// backend refuses with an explanatory message while a wallet balance or
   /// an open reservation/dispute still exists.
-  Future<({bool success, String message})> deleteAccount({
+  Future<({bool success, String message, String? code})> deleteAccount({
     required String accessToken,
+    Map<String, String> proof = const {},
   }) async {
-    final response = await _client.post('/users/delete-account/');
+    final response =
+        await _client.post('/users/delete-account/', body: proof);
     if (response.statusCode == 200) {
-      return (success: true, message: 'تم حذف الحساب بنجاح');
+      return (success: true, message: 'تم حذف الحساب بنجاح', code: null);
     }
-    return (success: false, message: _extractError(response, 'تعذّر حذف الحساب'));
+    return (
+      success: false,
+      message: _extractError(response, 'تعذّر حذف الحساب'),
+      code: _errorCode(response),
+    );
   }
 
   /// Mint a Firebase Auth custom token for the current Django user, so the

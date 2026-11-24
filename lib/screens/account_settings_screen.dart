@@ -4,10 +4,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/legal_service.dart';
 import '../theme/app_colors.dart';
 import 'change_password_screen.dart';
+import 'identity_proof_dialog.dart';
 import 'verify_code_sheet.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
@@ -101,7 +103,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       _error = null;
     });
 
-    final result = await _service.updateProfile(
+    Future<({bool success, String message, String? code, User? user})> send(
+            [Map<String, String> proof = const {}]) =>
+        _service.updateProfile(
+      proof: proof,
       accessToken: token,
       username: username != user.username ? username : null,
       firstName: firstName != user.firstName ? firstName : null,
@@ -113,7 +118,18 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       avatar: _avatarFile,
     );
 
+    var result = await send();
     if (!mounted) return;
+    if (result.code == 'proof_required') {
+      final proof = await askIdentityProof(context, phone: user.phone);
+      if (!mounted) return;
+      if (proof == null) {
+        setState(() => _saving = false);
+        return;
+      }
+      result = await send(proof);
+      if (!mounted) return;
+    }
     setState(() {
       _saving = false;
       if (result.success) _avatarFile = null;
@@ -230,15 +246,29 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     setState(() => _deleting = true);
-    final failureMessage = await auth.deleteAccount(
+    var failure = await auth.deleteAccount(
       notificationsProvider: notificationsProvider,
     );
     if (!mounted) return;
+    if (failure?.code == 'proof_required') {
+      final proof =
+          await askIdentityProof(context, phone: auth.user?.phone ?? '');
+      if (!mounted) return;
+      if (proof == null) {
+        setState(() => _deleting = false);
+        return;
+      }
+      failure = await auth.deleteAccount(
+        notificationsProvider: notificationsProvider,
+        proof: proof,
+      );
+      if (!mounted) return;
+    }
     setState(() => _deleting = false);
 
-    if (failureMessage != null) {
+    if (failure != null) {
       messenger.showSnackBar(
-        SnackBar(content: Text(failureMessage), backgroundColor: AppColors.error),
+        SnackBar(content: Text(failure.message), backgroundColor: AppColors.error),
       );
       return;
     }
