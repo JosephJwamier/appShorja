@@ -286,7 +286,7 @@ class _BalanceCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'القابل للسحب الآن ${formatIqd(wallet.withdrawableBalance)} — '
-              'الباقي أرباح لم تنتهِ مهلة النزاع عليها',
+              'الباقي مشحون للشراء أو أرباح لم تكتمل مهلتها',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
