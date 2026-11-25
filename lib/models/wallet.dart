@@ -54,6 +54,7 @@ class Withdrawal {
   String get statusLabel => switch (status) {
         'approved' => 'حُوّل',
         'rejected' => 'مرفوض',
+        'cancelled' => 'ألغيتَه',
         _ => 'قيد المراجعة',
       };
 }

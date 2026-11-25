@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/dispute.dart';
 import '../models/reservation.dart';
 import '../providers/auth_provider.dart';
 import '../services/dispute_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/dispute_images_picker.dart';
 
 class FileDisputeScreen extends StatefulWidget {
   final Reservation reservation;
@@ -19,6 +21,7 @@ class _FileDisputeScreenState extends State<FileDisputeScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   String? _reason;
+  List<XFile> _images = [];
   bool _submitting = false;
   String? _error;
 
@@ -55,13 +58,23 @@ class _FileDisputeScreenState extends State<FileDisputeScreen> {
       reason: _reason!,
     );
 
+    // النزاع فُتح؛ صورٌ لم تصل تُضاف بعده من صفحته، ولا تُلغيه.
+    var imagesSent = true;
+    if (result.dispute != null && _images.isNotEmpty) {
+      final sent = await DisputeService()
+          .reply(disputeId: result.dispute!.id, images: _images);
+      imagesSent = sent.success;
+    }
+
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (result.success) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(result.message.isEmpty
+          content: Text(!imagesSent
+              ? 'أُرسل النزاع، ولم تصل الصور — أضفها من صفحة النزاع'
+              : result.message.isEmpty
               ? 'تم إرسال النزاع — سيراجعه فريق الدعم قريباً'
               : result.message),
           backgroundColor: AppColors.success,
@@ -199,6 +212,11 @@ class _FileDisputeScreenState extends State<FileDisputeScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 14),
+                DisputeImagesPicker(
+                  images: _images,
+                  onChanged: (images) => setState(() => _images = images),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),

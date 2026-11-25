@@ -5,6 +5,7 @@ import '../models/dispute.dart';
 import '../providers/auth_provider.dart';
 import '../services/dispute_service.dart';
 import '../theme/app_colors.dart';
+import 'dispute_detail_screen.dart';
 
 const _months = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -57,6 +58,17 @@ class _DisputesScreenState extends State<DisputesScreen> {
         });
       }
     }
+  }
+
+  Future<void> _openDetails(Dispute d) async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            DisputeDetailScreen(dispute: d, currentUserId: _currentUserId),
+      ),
+    );
+    if (changed == true && mounted) _load();
   }
 
   @override
@@ -245,7 +257,17 @@ class _DisputesScreenState extends State<DisputesScreen> {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, color: AppColors.onSurface)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () => _openDetails(d),
+              icon: const Icon(Icons.forum_outlined, size: 18),
+              label: Text(d.canReply
+                  ? 'الردود والصور (${d.replies.length}) — أضف ردّك'
+                  : 'الردود والصور (${d.replies.length})'),
+            ),
+          ),
           Text('تاريخ الإبلاغ: ${_formatDate(d.createdAt)}',
               style: const TextStyle(
                   fontSize: 11, color: AppColors.onSurfaceVariant)),

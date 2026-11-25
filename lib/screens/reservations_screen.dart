@@ -181,6 +181,27 @@ class _ReservationsScreenState extends State<ReservationsScreen>
         ),
       );
       _load();
+    } on OutOfStockException catch (e) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            icon: const Icon(Icons.remove_shopping_cart_outlined,
+                color: AppColors.error, size: 40),
+            title: const Text('نفدت الكمية'),
+            content: Text(e.message),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('حسناً'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (mounted) _load();
     } on InsufficientBalanceException {
       if (!mounted) return;
       // المبلغ الناقص يتبع ما اختاره المشتري، لا العربون دائماً: من

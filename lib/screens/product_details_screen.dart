@@ -1,3 +1,4 @@
+import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:marketplace_app/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
@@ -1047,7 +1048,8 @@ class _BottomBar extends StatelessWidget {
     final canBuy = inStock && !isOwner;
     final coupon = selectedCoupon;
     final discount =
-        coupon != null ? (coupon.coupon.amount > total ? total : coupon.coupon.amount) : 0.0;
+        // الخادم يحدّ الكوبون بـ70% من الثمن (COUPON_MAX_PERCENT).
+        coupon != null ? min(coupon.coupon.amount, total * 0.7) : 0.0;
     final finalTotal = total - discount;
 
     return Container(

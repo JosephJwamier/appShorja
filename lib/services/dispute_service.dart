@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import '../config/api_config.dart';
 import '../models/dispute.dart';
 import 'api_client.dart';
 
@@ -21,6 +24,34 @@ class DisputeService {
         .cast<Map<String, dynamic>>()
         .map((e) => Dispute.fromJson(e))
         .toList();
+  }
+
+  Future<({bool success, String message, Dispute? dispute})> reply({
+    required int disputeId,
+    String text = '',
+    List<XFile> images = const [],
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+          'POST', Uri.parse('${ApiConfig.baseUrl}/disputes/$disputeId/reply/'));
+      request.fields['text'] = text;
+      for (final image in images) {
+        request.files.add(http.MultipartFile.fromBytes(
+            'images', await image.readAsBytes(),
+            filename: image.name));
+      }
+      final response =
+          await http.Response.fromStream(await _client.sendMultipart(request));
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>?;
+      return (
+        success: body['success'] == true,
+        message: body['message'] as String? ?? 'تعذّر إرسال الرد',
+        dispute: data == null ? null : Dispute.fromJson(data),
+      );
+    } catch (e) {
+      return (success: false, message: e.toString(), dispute: null);
+    }
   }
 
   Future<({bool success, String message, Dispute? dispute})> createDispute({

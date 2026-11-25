@@ -9,6 +9,9 @@ import '../../theme/app_colors.dart';
 import '../../utils/amount_input.dart';
 import '../../utils/formatters.dart';
 
+/// يطابق WITHDRAWAL_MIN على الخادم، وهو الحَكَم.
+const kMinWithdrawal = 5000.0;
+
 /// طلب سحب من المحفظة. يعيد true إن أُرسل الطلب.
 ///
 /// المبلغ يُحجز فور الطلب وتحوّله الإدارة بعد المراجعة. رقم الحساب يُرسل
@@ -108,6 +111,9 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                     final n = parseAmount(v);
                     if (n == null || n <= 0) return 'أدخل مبلغاً صحيحاً';
                     if (n > widget.available) return 'أكبر من رصيدك المتاح';
+                    if (n < kMinWithdrawal) {
+                      return 'أقل مبلغ للسحب ${formatIqd(kMinWithdrawal)}';
+                    }
                     return null;
                   },
                 ),
@@ -198,6 +204,36 @@ class _WithdrawCardState extends State<WithdrawCard> {
     }
   }
 
+  Future<void> _cancel(Withdrawal w) async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('إلغاء طلب السحب؟'),
+          content: Text('يعود ${formatIqd(w.amount)} إلى رصيدك المتاح.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('لا'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('إلغاء الطلب'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (sure != true || !mounted) return;
+    final result = await WalletService().cancelWithdrawal(w.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) widget.onChanged();
+    _load();
+  }
+
   Future<void> _open() async {
     final messenger = ScaffoldMessenger.of(context);
     final sent = await showWithdrawSheet(context, available: widget.available);
@@ -255,6 +291,14 @@ class _WithdrawCardState extends State<WithdrawCard> {
                 ),
               ],
             ),
+            if (w.status == 'pending')
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: () => _cancel(w),
+                  child: const Text('إلغاء الطلب'),
+                ),
+              ),
             if (w.status == 'rejected' && w.notes.isNotEmpty)
               Text(w.notes,
                   style: const TextStyle(

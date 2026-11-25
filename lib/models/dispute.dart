@@ -1,5 +1,29 @@
+import '../utils/formatters.dart';
 import 'product.dart';
 import 'user.dart';
+
+class DisputeReply {
+  final int authorId;
+  final bool isComplainant;
+  final String text;
+  final List<String> images;
+
+  const DisputeReply({
+    required this.authorId,
+    required this.isComplainant,
+    required this.text,
+    required this.images,
+  });
+
+  factory DisputeReply.fromJson(Map<String, dynamic> json) => DisputeReply(
+        authorId: json['author'] as int? ?? 0,
+        isComplainant: json['is_complainant'] as bool? ?? false,
+        text: json['text'] as String? ?? '',
+        images: (json['images'] as List<dynamic>? ?? const [])
+            .map((e) => fixMediaUrl(e as String))
+            .toList(),
+      );
+}
 
 class Dispute {
   final int id;
@@ -17,6 +41,8 @@ class Dispute {
   final DateTime createdAt;
   final DateTime? resolvedAt;
   final bool canResolve;
+  final List<DisputeReply> replies;
+  final bool canReply;
 
   Dispute({
     required this.id,
@@ -34,6 +60,8 @@ class Dispute {
     required this.createdAt,
     this.resolvedAt,
     required this.canResolve,
+    this.replies = const [],
+    this.canReply = false,
   });
 
   bool isPartOf(int userId) => complainant.id == userId || defendant.id == userId;
@@ -59,6 +87,10 @@ class Dispute {
           ? DateTime.parse(json['resolved_at'] as String)
           : null,
       canResolve: json['can_resolve'] as bool? ?? false,
+      replies: (json['replies'] as List<dynamic>? ?? const [])
+          .map((e) => DisputeReply.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      canReply: json['can_reply'] as bool? ?? false,
     );
   }
 }

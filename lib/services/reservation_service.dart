@@ -3,6 +3,14 @@ import '../models/reservation.dart';
 import 'analytics_service.dart';
 import 'api_client.dart';
 
+/// بِيع ما حجزه المشتري قبل أن يُكمل: رسالةٌ تُقرأ، لا شريط يختفي.
+class OutOfStockException implements Exception {
+  final String message;
+  OutOfStockException(this.message);
+  @override
+  String toString() => message;
+}
+
 class ReservationService {
   final _client = ApiClient.instance;
 
@@ -64,6 +72,9 @@ class ReservationService {
       // (شحن المحفظة)، فيُميَّز بنوعه ليستطيع المُستدعي أن يعرضه.
       if (data['code'] == 'insufficient_balance') {
         throw InsufficientBalanceException();
+      }
+      if (data['code'] == 'out_of_stock') {
+        throw OutOfStockException(data['message'] as String? ?? 'نفدت الكمية');
       }
       throw Exception(data['message'] ?? 'فشل إكمال الحجز');
     }

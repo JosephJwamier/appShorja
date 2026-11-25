@@ -38,6 +38,19 @@ class WalletService {
     throw Exception('فشل جلب طلبات السحب');
   }
 
+  Future<({bool success, String message})> cancelWithdrawal(int id) async {
+    try {
+      final response = await _client.post('/wallet/withdrawals/$id/cancel/');
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (
+        success: data['success'] == true,
+        message: data['message'] as String? ?? 'تعذّر الإلغاء',
+      );
+    } catch (e) {
+      return (success: false, message: e.toString());
+    }
+  }
+
   /// يحجز [amount] من الرصيد حتى تحوّله الإدارة أو ترفض الطلب.
   Future<void> withdraw({
     required double amount,
