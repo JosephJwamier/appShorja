@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="wholesale badge">
+  <circle cx="512" cy="512" r="440" fill="#1F6F5C"/>
+  <circle cx="512" cy="512" r="472" fill="none" stroke="#FFDBD0" stroke-width="34"/>
+  <polygon points="884.0,512.0 738.2,738.2 512.0,884.0 285.8,738.2 140.0,512.0 285.8,285.8 512.0,140.0 738.2,285.8" fill="none" stroke="#FFDBD0" stroke-width="10" stroke-linejoin="round" opacity="0.35"/>
+  <g><rect x="420" y="308" width="184" height="168" rx="14" fill="#FFDBD0"/><rect x="316" y="496" width="184" height="168" rx="14" fill="#FFDBD0"/><rect x="524" y="496" width="184" height="168" rx="14" fill="#FFDBD0"/><rect x="494" y="308" width="36" height="66" fill="#1F6F5C"/><rect x="390" y="496" width="36" height="66" fill="#1F6F5C"/><rect x="598" y="496" width="36" height="66" fill="#1F6F5C"/><line x1="308" y1="706" x2="716" y2="706" stroke="#FFDBD0" stroke-width="34" stroke-linecap="round"/></g>
+</svg>

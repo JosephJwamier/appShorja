@@ -400,6 +400,33 @@ class _AuctionDetailsScreenState extends State<AuctionDetailsScreen> {
         return;
       }
       amount = value;
+      // صفر زائد بالخطأ يُنهي المزاد على الجميع.
+      if (value > _auction.currentPrice * 2 && value > minimumBid) {
+        final sure = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text('تأكيد المزايدة'),
+              content: Text(
+                'مزايدتك ${formatIqd(value)}، والسعر الحالي '
+                '${formatIqd(_auction.currentPrice)}. هل المبلغ صحيح؟',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('تعديل'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('نعم، زايد'),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (sure != true || !mounted) return;
+      }
     }
     final placed = await _placeBid(amount);
     if (placed && mounted) _bidController.clear();

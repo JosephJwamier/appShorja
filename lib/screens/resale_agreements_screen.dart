@@ -6,8 +6,11 @@ import '../providers/auth_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/amount_input.dart';
 import '../utils/formatters.dart';
+import '../widgets/store/store_badges.dart';
 import 'create_listing_screen.dart';
+import 'store_chat_screen.dart';
 
 class ResaleAgreementsScreen extends StatefulWidget {
   const ResaleAgreementsScreen({super.key});
@@ -251,9 +254,114 @@ class _AgreementCardState extends State<_AgreementCard> {
     await _doAction(action);
   }
 
+  /// تُعرض مرّة واحدة، قبل أول موافقة (الخادم يقرّر ذلك). يعيد true إن اختار
+  /// المتابعة.
+  Future<bool> _showEscrowNotice(String text) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          icon: const StoreBadgeIcon(kind: 'wholesale', size: 56),
+          title: const Text('كيف يصلك ثمن الجملة؟'),
+          content: SingleChildScrollView(child: Text(text)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'support'),
+              child: const Text('تواصل مع المنصة'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'go'),
+              child: const Text('فهمت، متابعة'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'support' && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const StoreChatScreen(isSupportChat: true),
+        ),
+      );
+    }
+    return choice == 'go';
+  }
+
+  Future<void> _heldAction(String what,
+      {required String title,
+      required String content,
+      required Color color,
+      int? quantity}) {
+    final token = context.read<AuthProvider>().accessToken!;
+    final provider = context.read<TransfersProvider>();
+    return _confirmAction(
+      title: title,
+      content: content,
+      confirmLabel: title,
+      confirmColor: color,
+      action: () => provider.heldAction(
+          token: token, id: a.id, what: what, quantity: quantity),
+    );
+  }
+
+  Future<void> _confirmReceived() async {
+    var quantity = a.heldQuantity;
+    if (a.heldQuantity > 1) {
+      final ctrl = TextEditingController(text: '${a.heldQuantity}');
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (ctx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('كم قطعة استلمت؟'),
+            content: TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.number,
+              decoration:
+                  InputDecoration(helperText: 'من 1 إلى ${a.heldQuantity}'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final n = parseAmount(ctrl.text)?.toInt();
+                  if (n != null && n >= 1 && n <= a.heldQuantity) {
+                    Navigator.pop(ctx, n);
+                  }
+                },
+                child: const Text('التالي'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (picked == null || !mounted) return;
+      quantity = picked;
+    }
+    await _heldAction(
+      'confirm_received',
+      title: 'تأكيد الاستلام',
+      content: 'استلمتَ $quantity قطعة فعلاً؟ يُحرَّر ثمنها للبائع ولا يمكن '
+          'التراجع.',
+      color: AppColors.success,
+      quantity: quantity,
+    );
+  }
+
   Future<void> _showApproveDialog() async {
-    final unitPrice = a.item.price ?? 0;
-    final total = unitPrice * a.quantity;
+    final notice = a.escrowNotice;
+    if (notice != null) {
+      if (!await _showEscrowNotice(notice) || !mounted) return;
+    }
+    final total = a.totalWholesalePrice > 0
+        ? a.totalWholesalePrice
+        : (a.item.price ?? 0) * a.quantity;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -281,7 +389,10 @@ class _AgreementCardState extends State<_AgreementCard> {
             const SizedBox(height: 8),
             _ApprovePreviewRow(
               icon: Icons.account_balance_wallet_outlined,
-              text: 'إيداع ${formatIqd(total)} في محفظتك',
+              text: a.paysImmediately == false
+                  ? 'حجز ${formatIqd(total)} لدى المنصة، ويُحرَّر لك (بعد العمولة) '
+                      'مع كل قطعة تُسلَّم'
+                  : 'إيداع ${formatIqd(total)} في محفظتك (بعد العمولة)',
             ),
             const SizedBox(height: 8),
             _ApprovePreviewRow(
@@ -496,6 +607,23 @@ class _AgreementCardState extends State<_AgreementCard> {
                   label: 'وصلك ${formatIqd(a.ownerNetAmount!)} '
                       '(عمولة ${formatIqd(a.platformCommissionAmount)})',
                 ),
+              if (a.heldQuantity > 0)
+                _Pill(
+                  icon: Icons.lock_clock_outlined,
+                  label: 'محجوز ${formatIqd(a.heldAmount)} '
+                      'لـ${a.heldQuantity} قطعة لم تُسلَّم',
+                ),
+              if (a.heldQuantity > 0 && a.refundRequestedAt != null)
+                const _Pill(
+                  icon: Icons.undo_rounded,
+                  label: 'طلب استرداد قيد النظر',
+                  color: AppColors.error,
+                )
+              else if (a.heldQuantity > 0 && a.handoverClaimedAt != null)
+                const _Pill(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'أعلن البائع التسليم — الاعتراض خلال 7 أيام',
+                ),
               if (a.durationDays != null)
                 _Pill(
                   icon: Icons.calendar_month_outlined,
@@ -544,7 +672,58 @@ class _AgreementCardState extends State<_AgreementCard> {
                     isLoading: _isProcessing,
                     onPressed: _showRejectDialog,
                   ),
-                if (a.status == 'active')
+                if (a.canConfirmReceived)
+                  _ActionBtn(
+                    label: 'استلمت البضاعة',
+                    icon: Icons.inventory_outlined,
+                    color: AppColors.success,
+                    filled: true,
+                    isLoading: _isProcessing,
+                    onPressed: _confirmReceived,
+                  ),
+                if (a.canRequestRefund)
+                  _ActionBtn(
+                    label: 'طلب استرداد',
+                    icon: Icons.undo_rounded,
+                    color: AppColors.error,
+                    isLoading: _isProcessing,
+                    onPressed: () => _heldAction(
+                      'request_refund',
+                      title: 'طلب استرداد',
+                      content: 'يُطلب من البائع ردّ ثمن القطع التي لم تستلمها '
+                          'ولم تبعها. إن رفض فتواصل مع الدعم.',
+                      color: AppColors.error,
+                    ),
+                  ),
+                if (a.canAcceptRefund)
+                  _ActionBtn(
+                    label: 'قبول الاسترداد',
+                    icon: Icons.undo_rounded,
+                    color: AppColors.error,
+                    isLoading: _isProcessing,
+                    onPressed: () => _heldAction(
+                      'accept_refund',
+                      title: 'قبول الاسترداد',
+                      content: 'يُردّ للمشتري ثمن القطع غير المبيعة وتعود إلى '
+                          'مخزونك.',
+                      color: AppColors.error,
+                    ),
+                  ),
+                if (a.canClaimHandover)
+                  _ActionBtn(
+                    label: 'سلّمت الباقي',
+                    icon: Icons.local_shipping_outlined,
+                    color: AppColors.success,
+                    isLoading: _isProcessing,
+                    onPressed: () => _heldAction(
+                      'claim_handover',
+                      title: 'سلّمت الباقي',
+                      content: 'يُبلَّغ المشتري، ويُحرَّر لك ثمن الباقي إن لم '
+                          'يعترض خلال 7 أيام.',
+                      color: AppColors.success,
+                    ),
+                  ),
+                if (a.status == 'active' && a.heldQuantity == 0)
                   _ActionBtn(
                     label: 'إنهاء الاتفاقية',
                     icon: Icons.assignment_turned_in_outlined,
@@ -596,7 +775,14 @@ class _AgreementCardState extends State<_AgreementCard> {
   }
 
   bool get _hasActions =>
-      a.canApprove || a.canReject || a.canCancel || a.status == 'active';
+      a.canApprove ||
+      a.canReject ||
+      a.canCancel ||
+      a.canConfirmReceived ||
+      a.canRequestRefund ||
+      a.canAcceptRefund ||
+      a.canClaimHandover ||
+      (a.status == 'active' && a.heldQuantity == 0);
 
   Widget _placeholder() => Container(
     color: AppColors.surfaceContainer,

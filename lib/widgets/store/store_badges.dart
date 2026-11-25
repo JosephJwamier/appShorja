@@ -16,6 +16,7 @@ class StoreBadgeInfo {
 }
 
 const Map<String, StoreBadgeInfo> kStoreBadges = {
+  'wholesale': StoreBadgeInfo('wholesale', 'متجر جملة', 'تاجر جملة موثوق، تضمنه المنصة'),
   'founder': StoreBadgeInfo('founder', 'مؤسِّس', 'من الخمسين الأوائل — عمولة صفر مدى الحياة'),
   'pioneer': StoreBadgeInfo('pioneer', 'رائد', 'من أوائل المتاجر — نصف العمولة مدى الحياة'),
   'certified': StoreBadgeInfo('certified', 'بائع معتمد', 'خرّيج مدرسة الشورجة'),

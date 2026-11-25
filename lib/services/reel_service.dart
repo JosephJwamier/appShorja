@@ -29,12 +29,16 @@ class ReelService {
   Future<Map<String, dynamic>> requestUploadUrl({
     required String contentType,
     required bool hasThumbnail,
+    required int contentLength,
+    int? thumbnailLength,
   }) async {
     final response = await _client.post(
       '/reels/request_upload_url/',
       body: {
         'content_type': contentType,
         'has_thumbnail': hasThumbnail,
+        'content_length': contentLength,
+        'thumbnail_length': ?thumbnailLength,
       },
     );
     if (response.statusCode == 200 || response.statusCode == 201) {

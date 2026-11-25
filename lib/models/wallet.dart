@@ -2,19 +2,25 @@ class Wallet {
   final double balance;
   final double heldBalance;
   final double availableBalance;
+
+  /// المتاح ناقص أرباح لم تنتهِ مهلة النزاع عليها: تُنفَق ولا تُسحب.
+  final double withdrawableBalance;
   final DateTime updatedAt;
 
   const Wallet({
     required this.balance,
     required this.heldBalance,
     required this.availableBalance,
+    double? withdrawableBalance,
     required this.updatedAt,
-  });
+  }) : withdrawableBalance = withdrawableBalance ?? availableBalance;
 
   factory Wallet.fromJson(Map<String, dynamic> json) => Wallet(
         balance: double.parse(json['balance'].toString()),
         heldBalance: double.parse(json['held_balance'].toString()),
         availableBalance: double.parse(json['available_balance'].toString()),
+        withdrawableBalance:
+            double.tryParse(json['withdrawable_balance']?.toString() ?? ''),
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
 }

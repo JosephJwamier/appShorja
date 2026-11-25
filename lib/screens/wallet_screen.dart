@@ -189,7 +189,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 if (provider.wallet != null) ...[
                   const SizedBox(height: 12),
                   WithdrawCard(
-                    available: provider.wallet!.availableBalance,
+                    available: provider.wallet!.withdrawableBalance,
                     onChanged: _load,
                   ),
                 ],
@@ -282,6 +282,14 @@ class _BalanceCard extends StatelessWidget {
               ),
             ],
           ),
+          if (wallet.withdrawableBalance < wallet.availableBalance) ...[
+            const SizedBox(height: 12),
+            Text(
+              'القابل للسحب الآن ${formatIqd(wallet.withdrawableBalance)} — '
+              'الباقي أرباح لم تنتهِ مهلة النزاع عليها',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
         ],
       ),
     );

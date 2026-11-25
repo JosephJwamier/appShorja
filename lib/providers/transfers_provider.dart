@@ -99,6 +99,19 @@ class TransfersProvider extends ChangeNotifier {
     return (success: r.success, message: r.message);
   }
 
+  Future<({bool success, String message})> heldAction({
+    required String token,
+    required int id,
+    required String what,
+    int? quantity,
+  }) async {
+    final r = await _service.heldAction(
+        token: token, id: id, what: what, quantity: quantity);
+    if (r.success && r.agreement != null) _sync(r.agreement!);
+    notifyListeners();
+    return (success: r.success, message: r.message);
+  }
+
   Future<({bool success, String message})> reject({
     required String token,
     required int id,

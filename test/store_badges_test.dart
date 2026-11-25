@@ -30,7 +30,7 @@ void main() {
 
   group('catalogue', () {
     test('every badge kind the server can send has an asset and an Arabic name', () {
-      const serverKinds = ['founder', 'pioneer', 'certified', 'verified',
+      const serverKinds = ['wholesale', 'founder', 'pioneer', 'certified', 'verified',
                            'bronze', 'silver', 'gold', 'diamond'];
       for (final k in serverKinds) {
         expect(kStoreBadges[k], isNotNull, reason: k);

@@ -173,6 +173,8 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
       final handshake = await _reelService.requestUploadUrl(
         contentType: videoContentType,
         hasThumbnail: true,
+        contentLength: videoBytes.length,
+        thumbnailLength: _thumbnailBytes?.length,
       );
       final reelId = handshake['reel_id'] as int;
       final videoUploadUrl = handshake['video_upload_url'] as String;

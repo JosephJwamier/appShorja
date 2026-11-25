@@ -117,7 +117,19 @@ class TransferService {
   );
 
   Future<TransferActionResult> approve({required String token, required int id}) =>
-      _action('/transfers/$id/approve/', token, {}, 'تمّت الموافقة ونقل الملكية');
+      // escrow_ack: عُرض على البائع أن الثمن يُحجز (أو لا يلزم عرضه).
+      _action('/transfers/$id/approve/', token, {'escrow_ack': true},
+          'تمّت الموافقة ونقل الملكية');
+
+  /// [what]: confirm_received، request_refund، accept_refund، claim_handover.
+  Future<TransferActionResult> heldAction({
+    required String token,
+    required int id,
+    required String what,
+    int? quantity,
+  }) =>
+      _action('/transfers/$id/$what/', token,
+          {'quantity': ?quantity}, 'تمّ');
 
   Future<TransferActionResult> reject({
     required String token,

@@ -78,6 +78,23 @@ class ResaleAgreement {
   final bool canReject;
   final bool canCancel;
 
+  /// ثمنٌ لم يُحرَّر للبائع بعد، ومن يملك أي إجراء عليه (القواعد على
+  /// الخادم: services/wholesale.py).
+  final int heldQuantity;
+  final double heldAmount;
+  final DateTime? refundRequestedAt;
+  final DateTime? handoverClaimedAt;
+
+  /// نصّ التنبيه الذي يراه البائع مرّة واحدة قبل أول موافقة، أو null.
+  final String? escrowNotice;
+
+  /// هل يصل الثمن فوراً عند القبول (متجر جملة)؟ null من سيرفر أقدم.
+  final bool? paysImmediately;
+  final bool canConfirmReceived;
+  final bool canRequestRefund;
+  final bool canAcceptRefund;
+  final bool canClaimHandover;
+
   const ResaleAgreement({
     required this.id,
     required this.item,
@@ -113,6 +130,16 @@ class ResaleAgreement {
     required this.canApprove,
     required this.canReject,
     required this.canCancel,
+    this.heldQuantity = 0,
+    this.heldAmount = 0,
+    this.refundRequestedAt,
+    this.handoverClaimedAt,
+    this.escrowNotice,
+    this.paysImmediately,
+    this.canConfirmReceived = false,
+    this.canRequestRefund = false,
+    this.canAcceptRefund = false,
+    this.canClaimHandover = false,
   });
 
   bool get isPending => status == 'pending';
@@ -177,6 +204,16 @@ class ResaleAgreement {
       canApprove: json['can_approve'] as bool? ?? false,
       canReject: json['can_reject'] as bool? ?? false,
       canCancel: json['can_cancel'] as bool? ?? false,
+      heldQuantity: json['held_quantity'] as int? ?? 0,
+      heldAmount: double.tryParse(json['held_amount']?.toString() ?? '') ?? 0.0,
+      refundRequestedAt: tryParse(json['refund_requested_at']),
+      handoverClaimedAt: tryParse(json['handover_claimed_at']),
+      escrowNotice: json['escrow_notice'] as String?,
+      paysImmediately: json['pays_immediately'] as bool?,
+      canConfirmReceived: json['can_confirm_received'] as bool? ?? false,
+      canRequestRefund: json['can_request_refund'] as bool? ?? false,
+      canAcceptRefund: json['can_accept_refund'] as bool? ?? false,
+      canClaimHandover: json['can_claim_handover'] as bool? ?? false,
     );
   }
 }
