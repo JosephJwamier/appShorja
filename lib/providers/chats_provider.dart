@@ -79,7 +79,8 @@ class ChatsProvider extends ChangeNotifier {
 
     final updated = _chats[idx].copyWith(
       lastMessageContent: data['content']?.toString(),
-      lastMessageType: data['message_type']?.toString(),
+      // msg_type: FCM تحجز message_type لنفسها وترفض الرسالة كلها.
+      lastMessageType: data['msg_type']?.toString(),
       lastMessageAt: DateTime.tryParse(data['created_at']?.toString() ?? ''),
       lastMessageIsRead: false,
       unreadCount: _chats[idx].unreadCount + 1,
