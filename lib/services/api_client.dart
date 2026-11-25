@@ -89,6 +89,55 @@ class ApiClient {
     return _sendOnce(method, path, body: body, auth: auth);
   }
 
+  /// رفع صور وحقول معاً، بما في بقية الطلبات من تجديد للجلسة ومهلة.
+  ///
+  /// كانت هذه الطلبات تُرسل برمز قديم حملته الشاشة منذ فُتحت: من ملأ نموذج
+  /// منتج في أكثر من نصف ساعة رُفض نشره. ولأن الطلب المُرسَل لا يُعاد إرساله
+  /// تُقرأ ملفّاته أوّلاً ويُبنى من جديد لكل محاولة. والإعادة عند 401 وحده:
+  /// طلبٌ انقطعت شبكته قد يكون نُفِّذ.
+  Future<http.StreamedResponse> sendMultipart(
+      http.MultipartRequest request) async {
+    final files = [
+      for (final f in request.files)
+        (
+          field: f.field,
+          name: f.filename,
+          type: f.contentType,
+          bytes: await f.finalize().toBytes(),
+        ),
+    ];
+
+    Future<http.StreamedResponse> attempt() async {
+      final copy = http.MultipartRequest(request.method, request.url)
+        ..headers.addAll(request.headers)
+        ..fields.addAll(request.fields)
+        ..files.addAll([
+          for (final f in files)
+            http.MultipartFile.fromBytes(f.field, f.bytes,
+                filename: f.name, contentType: f.type),
+        ]);
+      final token = _getAccessToken?.call() ?? '';
+      if (token.isNotEmpty) copy.headers['Authorization'] = 'Bearer $token';
+      try {
+        return await copy.send().timeout(_uploadTimeout);
+      } on SocketException {
+        throw const NoConnectionException();
+      } on TimeoutException {
+        throw const NoConnectionException();
+      }
+    }
+
+    final response = await attempt();
+    if (response.statusCode != 401) return response;
+    if (!await _refresh()) {
+      await _onSessionExpired?.call();
+      throw const SessionExpiredException();
+    }
+    return attempt();
+  }
+
+  static const _uploadTimeout = Duration(minutes: 3);
+
   Future<http.Response> _sendOnce(
     String method,
     String path, {

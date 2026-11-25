@@ -200,7 +200,7 @@ class ItemService {
       );
     }
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 201 || response.statusCode == 200) {
@@ -233,7 +233,7 @@ class ItemService {
     request.fields['price'] = price.toString();
     request.fields['deposit_percentage'] = depositPercentage.toString();
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 201 && response.statusCode != 200) {
@@ -256,7 +256,7 @@ class ItemService {
       request.fields['original_price'] = originalPrice.toString();
     }
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200 && response.statusCode != 202) {
@@ -308,7 +308,7 @@ class ItemService {
     request.fields['start_time'] = startTime.toUtc().toIso8601String();
     request.fields['end_time'] = endTime.toUtc().toIso8601String();
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 201 && response.statusCode != 200) {
@@ -337,7 +337,7 @@ class ItemService {
     request.fields['start_time'] = startTime.toUtc().toIso8601String();
     request.fields['end_time'] = endTime.toUtc().toIso8601String();
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
@@ -473,7 +473,7 @@ class ItemService {
       );
     }
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200 && response.statusCode != 202) {

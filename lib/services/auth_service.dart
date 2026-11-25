@@ -179,7 +179,7 @@ class AuthService {
       );
     }
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {

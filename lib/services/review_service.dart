@@ -82,7 +82,7 @@ class ReviewService {
           http.MultipartFile.fromBytes('image', bytes, filename: image.name));
     }
 
-    final response = await http.Response.fromStream(await request.send());
+    final response = await http.Response.fromStream(await ApiClient.instance.sendMultipart(request));
 
     if (response.statusCode == 201) {
       return ProductReview.fromJson(
@@ -110,7 +110,7 @@ class ReviewService {
           http.MultipartFile.fromBytes('image', bytes, filename: image.name));
     }
 
-    final response = await http.Response.fromStream(await request.send());
+    final response = await http.Response.fromStream(await ApiClient.instance.sendMultipart(request));
 
     if (response.statusCode == 200) {
       return ProductReview.fromJson(

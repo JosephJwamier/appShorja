@@ -292,7 +292,7 @@ class LiveSessionService {
       contentType: MediaType('image', 'png'),
     ));
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await ApiClient.instance.sendMultipart(request);
     final response = await http.Response.fromStream(streamedResponse);
     return _parseSuccessMessage(response);
   }

@@ -186,7 +186,7 @@ class LedgerService {
         ..fields.addAll(fields)
         ..files.add(http.MultipartFile.fromBytes(
           'receipt', await receipt.readAsBytes(), filename: receipt.name));
-      r = await http.Response.fromStream(await request.send());
+      r = await http.Response.fromStream(await ApiClient.instance.sendMultipart(request));
     }
     if (r.statusCode == 201) return LedgerEntry.fromJson(_json(r));
     throw _error(r, 'تعذّر تسجيل القيد');
