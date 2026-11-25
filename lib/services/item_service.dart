@@ -357,18 +357,22 @@ class ItemService {
     required String accessToken,
     required String username,
   }) async {
-    final response = await _client
-        .get('/stores/public/$username/items/?include_transferred=true');
-
-    if (response.statusCode == 200) {
+    final products = <Product>[];
+    // الخادم يعطي 100 في الصفحة ويسمّي التالية؛ خادم أقدم يعطي الكل مرّة.
+    for (int? page = 1; page != null && page <= 20;) {
+      final response = await _client.get(
+          '/stores/public/$username/items/?include_transferred=true&page=$page');
+      if (response.statusCode != 200) {
+        if (products.isNotEmpty) break;
+        throw Exception('فشل جلب منتجات المتجر');
+      }
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = (body['data'] ?? []) as List<dynamic>;
-      return data
+      products.addAll(((body['data'] ?? []) as List<dynamic>)
           .cast<Map<String, dynamic>>()
-          .map((e) => Product.fromJson(e))
-          .toList();
+          .map(Product.fromJson));
+      page = body['next_page'] as int?;
     }
-    throw Exception('فشل جلب منتجات المتجر');
+    return products;
   }
 
   /// Items from stores the current user follows (home feed).

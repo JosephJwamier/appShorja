@@ -201,7 +201,8 @@ class LocationApiService {
   }) async {
     final uri = Uri.parse(
       '$_base/stores/',
-    ).replace(queryParameters: {'governorate': governorate});
+    ).replace(
+        queryParameters: {'governorate': governorate, 'page_size': '100'});
     final headers = token != null
         ? _authHeaders(token)
         : const <String, String>{};
