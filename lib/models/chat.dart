@@ -269,6 +269,10 @@ class ChatConversation {
   final bool isSupport;
   final bool isOwnStore;
 
+  /// حظرتُ الطرف الآخر؛ و[canMessage] كاذبة أيضاً إن حظرني هو.
+  final bool blockedByMe;
+  final bool canMessage;
+
   ChatConversation({
     required this.id,
     required this.otherUserId,
@@ -282,6 +286,8 @@ class ChatConversation {
     this.storeLogoUrl,
     this.isSupport = false,
     this.isOwnStore = false,
+    this.blockedByMe = false,
+    this.canMessage = true,
   });
 
   /// Same person-first identity rule as [ChatSummary.displayTitle] — kept
@@ -320,6 +326,8 @@ class ChatConversation {
       storeLogoUrl: store is Map ? store['logo_url'] as String? : null,
       isSupport: json['is_support'] as bool? ?? false,
       isOwnStore: json['is_own_store'] as bool? ?? false,
+      blockedByMe: json['blocked_by_me'] as bool? ?? false,
+      canMessage: json['can_message'] as bool? ?? true,
     );
   }
 }

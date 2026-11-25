@@ -16,6 +16,7 @@ import '../services/item_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import '../widgets/report_bottom_sheet.dart';
 import 'product_details_screen.dart';
 
 /// In-app conversation thread (التواصل مع المتجر / الزبون).
@@ -78,6 +79,8 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
   bool _hasMoreMessages = false;
   bool _loadingOlderMessages = false;
   ChatConversation? _conversation;
+  bool _blockedByMe = false;
+  bool _canMessage = true;
 
   // مؤشر الكتابة: نُرسل حالتنا بعد تهدئة قصيرة (debounce) بدل كل ضغطة زر،
   // ونُخفي مؤشر الطرف الآخر تلقائياً إن لم يصل تحديث جديد خلال 5 ثوانٍ
@@ -206,6 +209,59 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
     }
   }
 
+  void _report() {
+    final id = _conversation?.otherUserId;
+    if (id == null) return;
+    showReportSheet(context,
+        targetType: 'user', targetId: id, targetLabel: _title);
+  }
+
+  Future<void> _toggleBlock() async {
+    final chatId = _chatId;
+    if (chatId == null) return;
+    final block = !_blockedByMe;
+    if (block) {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('حظر المستخدم؟'),
+            content: const Text(
+              'لن يستطيع أيّ منكما مراسلة الآخر حتى تلغي الحظر. طلباتكما '
+              'القائمة لا تتأثر.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                child: const Text('حظر'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (sure != true) return;
+    }
+    final result = await _service.setBlocked(chatId, block);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(result.message)));
+    if (!result.success) return;
+    // What the server says now: lifting mine does not lift theirs.
+    final full = await _service.fetchChat(
+        accessToken: _accessToken ?? '', chatId: chatId);
+    if (!mounted) return;
+    setState(() {
+      _blockedByMe = full?.blockedByMe ?? block;
+      _canMessage = full?.canMessage ?? !block;
+    });
+  }
+
   Future<void> _init() async {
     final token = context.read<AuthProvider>().accessToken ?? '';
     _accessToken = token;
@@ -240,6 +296,8 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
     setState(() {
       _loading = false;
       _conversation = full;
+      _blockedByMe = full?.blockedByMe ?? false;
+      _canMessage = full?.canMessage ?? true;
       _item = full?.item;
       _otherOnline = full?.otherUserOnline ?? false;
       _hasMoreMessages = full?.hasMoreMessages ?? false;
@@ -311,6 +369,12 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
           }
         });
         _scrollToBottom();
+      } else if (data['type'] == 'blocked') {
+        // لم تُحفظ: تُزال الفقاعة المعلّقة ويُغلق حقل الكتابة.
+        setState(() {
+          _messages.removeWhere((m) => m.isPending && m.senderId == _myId);
+          _canMessage = false;
+        });
       } else if (data['type'] == 'typing') {
         // الخادم (ChatConsumer.typing_indicator) لا يعيد بثّ حدث الكتابة إلى
         // مُرسله، فأي حدث نستلمه هنا هو دوماً من الطرف الآخر.
@@ -624,6 +688,23 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
               ),
             ],
           ),
+          actions: [
+            if (_conversation != null && !_isSupportChat)
+              PopupMenuButton<String>(
+                onSelected: (value) =>
+                    value == 'report' ? _report() : _toggleBlock(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'block',
+                    child: Text(_blockedByMe ? 'إلغاء الحظر' : 'حظر المستخدم'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: Text('إبلاغ عن المستخدم'),
+                  ),
+                ],
+              ),
+          ],
         ),
         body: _buildBody(),
       ),
@@ -711,7 +792,33 @@ class _StoreChatScreenState extends State<StoreChatScreen> {
             ],
           ),
         ),
-        _inputBar(),
+        if (_canMessage)
+          _inputBar()
+        else
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _blockedByMe
+                          ? 'حظرتَ هذا المستخدم'
+                          : 'لا يمكن إرسال رسائل في هذه المحادثة',
+                      style: const TextStyle(color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
+                  if (_blockedByMe)
+                    TextButton(
+                      onPressed: _toggleBlock,
+                      child: const Text('إلغاء الحظر'),
+                    ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }

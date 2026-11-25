@@ -7,6 +7,7 @@ import '../providers/chats_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/refreshable_tab.dart';
+import 'blocked_users_screen.dart';
 import 'store_chat_screen.dart';
 
 /// Conversations inbox (المحادثات) — list of all the user's chats
@@ -126,6 +127,16 @@ class _ChatsListScreenState extends State<ChatsListScreen>
                         icon: const Icon(Icons.archive_outlined),
                         tooltip: 'الأرشيف',
                         onPressed: _openArchive,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.block_outlined),
+                        tooltip: 'المحظورون',
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BlockedUsersScreen(),
+                          ),
+                        ),
                       ),
                     ],
             ),

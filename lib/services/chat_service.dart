@@ -77,6 +77,34 @@ class ChatService {
     }
   }
 
+  Future<({bool success, String message})> setBlocked(
+      int chatId, bool blocked) async {
+    try {
+      final response = await _client
+          .post('/chats/$chatId/${blocked ? 'block' : 'unblock'}/');
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return (
+        success: body['success'] == true,
+        message: body['message'] as String? ?? 'تعذّر التنفيذ',
+      );
+    } catch (_) {
+      return (success: false, message: 'تعذّر الاتصال بالخادم');
+    }
+  }
+
+  Future<List<({int? chatId, String name})>> fetchBlocked() async {
+    final response = await _client.get('/chats/blocked/');
+    if (response.statusCode != 200) throw Exception('تعذّر جلب القائمة');
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final e in body['data'] as List<dynamic>)
+        (
+          chatId: (e as Map<String, dynamic>)['chat_id'] as int?,
+          name: e['name'] as String? ?? '',
+        ),
+    ];
+  }
+
   /// Create (or fetch existing) the current user's one support conversation
   /// (التواصل مع الدعم) — no id needed, there's exactly one fixed
   /// counterparty on the backend.
