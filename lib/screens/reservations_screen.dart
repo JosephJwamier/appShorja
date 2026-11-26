@@ -458,6 +458,7 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     if (!mounted) return null;
 
     final hasDeposit = r.depositAmount > 0;
+    final canDeposit = r.canPayDeposit;
     // التقسيط يُعرض حين يكون متاحاً لهذا المبلغ تحديداً. ومزادات لا:
     // عربون المزايدة خُصم من المحفظة أصلاً، فالشراء مشطور بين مموّلين
     // (يرفضه الخادم كذلك — انظر service._assert_financeable).
@@ -473,14 +474,23 @@ class _ReservationsScreenState extends State<ReservationsScreen>
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(hasDeposit ? 'دفع العربون' : 'الدفع عند التوصيل'),
+        title: Text(!canDeposit
+            ? 'إكمال الحجز'
+            : hasDeposit
+                ? 'دفع العربون'
+                : 'الدفع عند التوصيل'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('لإكمال حجز "${r.item.title}":'),
             const SizedBox(height: 12),
-            if (hasDeposit) ...[
+            if (!canDeposit) ...[
+              const Text(
+                'الدفع عند الاستلام غير متاح حالياً — يُدفع المبلغ كاملاً من المحفظة',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ] else if (hasDeposit) ...[
               Text(
                 'يُخصم الآن من محفظتك: ${formatIqd(r.depositAmount)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -585,10 +595,11 @@ class _ReservationsScreenState extends State<ReservationsScreen>
             onPressed: () => Navigator.pop(dialogContext, 'full'),
             child: Text('ادفع كاملاً ${formatIqd(r.totalPrice)}'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, 'deposit'),
-            child: Text(hasDeposit ? 'ادفع العربون' : 'تأكيد الحجز'),
-          ),
+          if (canDeposit)
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'deposit'),
+              child: Text(hasDeposit ? 'ادفع العربون' : 'تأكيد الحجز'),
+            ),
         ],
       ),
     );

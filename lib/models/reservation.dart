@@ -26,6 +26,9 @@ class Reservation {
   final String paymentStatusMessage;
   final int? paymentStatusDaysRemaining;
   final bool isDepositOnly;
+
+  /// خيار العربون: يُعرض فقط حين توجد شركة توصيل تحصّل الباقي.
+  final bool canPayDeposit;
   final double amountCharged;
   final bool hasDispute;
   final int? disputeId;
@@ -96,6 +99,7 @@ class Reservation {
     this.paymentStatusMessage = '',
     this.paymentStatusDaysRemaining,
     this.isDepositOnly = false,
+    this.canPayDeposit = true,
     this.amountCharged = 0,
     this.hasDispute = false,
     this.disputeId,
@@ -159,6 +163,7 @@ class Reservation {
       paymentStatusMessage: payment?['message'] as String? ?? '',
       paymentStatusDaysRemaining: payment?['days_remaining'] as int?,
       isDepositOnly: json['is_deposit_only'] as bool? ?? false,
+      canPayDeposit: json['can_pay_deposit'] as bool? ?? true,
       amountCharged: _toDouble(json['amount_charged']),
       hasDispute: json['has_dispute'] as bool? ?? false,
       disputeId: dispute?['id'] as int?,
