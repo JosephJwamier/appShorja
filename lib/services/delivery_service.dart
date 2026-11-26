@@ -28,6 +28,18 @@ class DeliveryService {
     throw Exception(data['message'] ?? 'فشل إسناد الطلب لشركة التوصيل');
   }
 
+  /// البائع يسجّل أنه سلّم الطلب للمشتري يداً بيد: لا يلغيه المشتري وحده
+  /// بعدها، ويُحوَّل المبلغ بعد مدة الضمان إن لم يُفتح نزاع.
+  Future<String> handOver({required int reservationId}) async {
+    final response =
+        await _client.post('/reservations/$reservationId/hand-over/');
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return data['message'] as String? ?? 'سُجّل التسليم';
+    }
+    throw Exception(data['message'] ?? 'تعذّر تسجيل التسليم');
+  }
+
   /// Seller bundles several paid reservations for the same buyer/address
   /// into as few delivery trips as fit the company's size cap — one
   /// delivery fee per trip instead of one per reservation. The buyer is

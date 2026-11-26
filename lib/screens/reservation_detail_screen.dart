@@ -6,6 +6,7 @@ import '../features/location/models/location_model.dart';
 import '../features/location/screens/widgets/delivery_location_widget.dart';
 import '../models/reservation.dart';
 import '../providers/auth_provider.dart';
+import '../services/delivery_service.dart';
 import '../services/item_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
@@ -186,6 +187,49 @@ class ReservationDetailScreen extends StatelessWidget {
   Future<void> _handleSendToDelivery(BuildContext context) async {
     await onSendToDelivery(reservation);
     if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _handleHandOver(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('سلّمت الطلب يداً بيد؟'),
+        content: Text(
+          'اضغط فقط إن كان "${reservation.item.title}" بيد المشتري الآن. '
+          'بعدها لا يستطيع المشتري الإلغاء وحده، ويُحوَّل المبلغ إليك بعد '
+          '${reservation.warrantyDays} يوم إن لم يفتح نزاعاً.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('لا'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('نعم، سلّمته'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final message =
+          await DeliveryService().handOver(reservationId: reservation.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+      );
+      await onRefresh();
+      if (context.mounted) navigator.pop();
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _handleConfirmDeliveryReceipt(BuildContext context) async {
@@ -714,6 +758,13 @@ class ReservationDetailScreen extends StatelessWidget {
             date: r.completedAt,
             done: r.completedAt != null,
           ),
+          if (r.handedOverAt != null)
+            _timelineItem(
+              icon: Icons.handshake_outlined,
+              label: 'سلّم البائع الطلب يداً بيد',
+              date: r.handedOverAt,
+              done: true,
+            ),
           _timelineItem(
             icon: Icons.verified_outlined,
             label: settledLabel,
@@ -1145,6 +1196,24 @@ class ReservationDetailScreen extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (r.canHandOver) {
+      buttons.add(
+        OutlinedButton.icon(
+          onPressed: () => _handleHandOver(context),
+          icon: const Icon(Icons.handshake_outlined, size: 18),
+          label: const Text('سلّمته للمشتري يداً بيد'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
             minimumSize: const Size.fromHeight(46),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

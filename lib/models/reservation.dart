@@ -37,6 +37,10 @@ class Reservation {
   final LocationModel? deliveryLocation;
   final DeliveryOrder? deliveryOrder;
   final bool canSendToDelivery;
+
+  /// البائع يسجّل أنه سلّم الطلب يداً بيد (بلا شركة توصيل).
+  final bool canHandOver;
+  final DateTime? handedOverAt;
   final bool canRequestPaymentRelease;
   final double deliveryFee;
   final int warrantyDays;
@@ -72,6 +76,7 @@ class Reservation {
     if (isBuyer && status == 'pending') return true;
     if (canApprove) return true;
     if (canSendToDelivery) return true;
+    if (canHandOver) return true;
     if (isBuyer && (deliveryOrder?.awaitingReceiptDecision ?? false)) {
       return true;
     }
@@ -108,6 +113,8 @@ class Reservation {
     this.deliveryLocation,
     this.deliveryOrder,
     this.canSendToDelivery = false,
+    this.canHandOver = false,
+    this.handedOverAt,
     this.canRequestPaymentRelease = false,
     this.deliveryFee = 0,
     this.warrantyDays = 7,
@@ -178,6 +185,10 @@ class Reservation {
           ? DeliveryOrder.fromJson(deliveryOrderJson)
           : null,
       canSendToDelivery: json['can_send_to_delivery'] as bool? ?? false,
+      canHandOver: json['can_hand_over'] as bool? ?? false,
+      handedOverAt: json['handed_over_at'] != null
+          ? DateTime.parse(json['handed_over_at'] as String)
+          : null,
       canRequestPaymentRelease:
           json['can_request_payment_release'] as bool? ?? false,
       deliveryFee: _toDouble(json['delivery_fee']),
