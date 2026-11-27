@@ -275,12 +275,15 @@ class LiveSessionService {
     required int quantity,
     required Uint8List screenshotBytes,
     int? deliveryLocationId,
+    bool payInFull = false,
   }) async {
     final uri = Uri.parse('$baseUrl/live-sessions/$sessionId/reserve/');
     final request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer $accessToken';
     request.fields['queue_item_id'] = queueItemId.toString();
     request.fields['quantity'] = quantity.toString();
+    // يؤكّد للخادم أن المشتري رأى الثمن كاملاً مستحقاً الآن، لا العربون.
+    if (payInFull) request.fields['pay_in_full'] = 'true';
     if (deliveryLocationId != null) {
       request.fields['delivery_location_id'] = deliveryLocationId.toString();
     }

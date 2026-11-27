@@ -33,6 +33,9 @@ class LiveSessionItem {
   final String? itemImageUrl;
   final double price;
   final double depositAmount;
+
+  /// لا شركة توصيل تحصّل الباقي عند الباب: يُدفع الثمن كاملاً الآن.
+  final bool payInFull;
   final int order;
   final String status; // queued / now_showing / sold_out / skipped
 
@@ -43,6 +46,7 @@ class LiveSessionItem {
     this.itemImageUrl,
     required this.price,
     required this.depositAmount,
+    this.payInFull = false,
     required this.order,
     required this.status,
   });
@@ -58,6 +62,7 @@ class LiveSessionItem {
       itemImageUrl: itemImageUrl,
       price: price,
       depositAmount: depositAmount,
+      payInFull: payInFull,
       order: order,
       status: status ?? this.status,
     );
@@ -72,6 +77,7 @@ class LiveSessionItem {
       itemImageUrl: item['image'] as String?,
       price: _toDouble(json['price']),
       depositAmount: _toDouble(json['deposit_amount']),
+      payInFull: json['pay_in_full'] as bool? ?? false,
       order: json['order'] as int? ?? 0,
       status: json['status'] as String? ?? 'queued',
     );

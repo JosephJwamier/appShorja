@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../providers/reels_provider.dart';
 import '../screens/active_representatives_screen.dart';
 import '../screens/auction_details_screen.dart';
+import '../screens/disputes_screen.dart';
+import '../screens/live/live_viewer_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/received_requests_screen.dart';
 import '../screens/reels/my_reels_screen.dart';
@@ -21,11 +23,15 @@ int? _asInt(dynamic value) =>
 /// Routes a tapped push notification to its concrete destination screen
 /// (chat thread, auction, or reservations) based on the FCM `data` payload,
 /// instead of dropping the user on the generic notifications list.
+///
+/// [fallbackToList]: where nothing more specific fits, open the notifications
+/// list. A tap from inside that list passes false — it is already there.
 Future<void> navigateForNotificationTap(
   BuildContext context,
   String type,
-  Map<String, dynamic> data,
-) async {
+  Map<String, dynamic> data, {
+  bool fallbackToList = true,
+}) async {
   final navigator = Navigator.of(context);
 
   switch (type) {
@@ -41,6 +47,9 @@ Future<void> navigateForNotificationTap(
 
     case 'new_bid':
     case 'outbid':
+    case 'auction_ending_soon':
+    case 'auction_lost':
+    case 'auction_no_winner':
       final auctionId = _asInt(data['auction_id']);
       final accessToken =
           Provider.of<AuthProvider>(context, listen: false).accessToken;
@@ -64,6 +73,40 @@ Future<void> navigateForNotificationTap(
       }
       break;
 
+    case 'live_stream_started':
+      // وقت البث محدود: الإشعار يفتح البث نفسه لا قائمة الإشعارات.
+      final sessionId = _asInt(data['live_session_id']);
+      if (sessionId != null) {
+        await openLiveViewer(context, sessionId);
+        return;
+      }
+      break;
+
+    case 'dispute_created':
+    case 'dispute_resolved':
+      // ردّ جديد أو نزاع جديد: النزاعات مرتّبة بالأحدث، فهو أعلاها.
+      navigator.push(
+        MaterialPageRoute(builder: (_) => const DisputesScreen()),
+      );
+      return;
+
+    case 'general':
+      // إشعار عام عن طلب بعينه (إلغاء بعد تسليم يداً بيد، فوز مزاد أُلغي…)
+      // يذهب إلى الطلبات؛ وما سواه إلى القائمة.
+      if (data['reservation_id'] != null) {
+        navigator.push(
+          MaterialPageRoute(builder: (_) => const ReservationsScreen()),
+        );
+        return;
+      }
+      if (data['transfer_id'] != null) {
+        navigator.push(
+          MaterialPageRoute(builder: (_) => const ResaleAgreementsScreen()),
+        );
+        return;
+      }
+      break;
+
     case 'auction_won':
     case 'reservation_created':
     case 'reservation_confirmed':
@@ -75,6 +118,18 @@ Future<void> navigateForNotificationTap(
     case 'payment_release_requested':
     case 'representative_sale':
     case 'representative_commission_paid':
+    case 'handover_reminder':
+    case 'payment_released':
+    case 'reservation_expired':
+    case 'reservation_handed_over':
+    case 'delivery_assigned':
+    case 'delivery_arrived':
+    case 'delivery_refused':
+    case 'delivery_return_scheduled':
+    case 'cash_collected':
+    case 'reservation_cancelled_by_buyer':
+    case 'reservation_cancelled_by_seller':
+    case 'refund_processed':
       // 'auction_won' means a Reservation was created for the winner who
       // must now choose full payment vs. deposit+cash-at-delivery (same
       // choice as any other reservation) — so this lands on the
@@ -143,6 +198,7 @@ Future<void> navigateForNotificationTap(
       );
       return;
 
+    case 'reel_posted':
     case 'reel_comment_reply':
       // من رُدّ عليه غالباً مشترٍ لا صاحب الريل، فلا «ريلزاتي» هنا: يُفتح
       // الريل نفسه، ثم تعليقاته مُمرَّرةً إلى الردّ ومظلِّلةً له.
@@ -167,6 +223,7 @@ Future<void> navigateForNotificationTap(
       break;
   }
 
+  if (!fallbackToList) return;
   navigator.push(
     MaterialPageRoute(builder: (_) => const NotificationsScreen()),
   );

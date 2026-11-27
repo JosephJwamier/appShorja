@@ -269,7 +269,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           itemId: widget.listing.item.id,
           variantId: _selectedVariant?.id,
           quantity: _quantity,
-          couponCollectionId: _selectedCoupon?.id,
+          // الخادم لا يقبل كوبوناً مع عرض مقبول: السعر المتّفق عليه يحلّ
+          // محلّ السعر كله، فيُرسل العرض وحده.
+          couponCollectionId: _offerMessageId == null ? _selectedCoupon?.id : null,
           deliveryLocationId: _deliveryResult?.locationId,
           offerMessageId: _offerMessageId,
         );
@@ -386,8 +388,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         onReserve: _openReservationSheet,
         onToggleFavorite: _toggleFavorite,
         conditionLabel: conditionLabel,
-        eligibleCoupons: _eligibleCoupons,
-        selectedCoupon: _selectedCoupon,
+        // بسعر عرض مقبول لا مكان لكوبون — لا يُعرض اختياره.
+        eligibleCoupons: _acceptedOffer != null ? const [] : _eligibleCoupons,
+        selectedCoupon: _acceptedOffer != null ? null : _selectedCoupon,
         onPickCoupon: _openCouponPicker,
       ),
     );

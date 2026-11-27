@@ -41,6 +41,11 @@ class Reservation {
   /// البائع يسجّل أنه سلّم الطلب يداً بيد (بلا شركة توصيل).
   final bool canHandOver;
   final DateTime? handedOverAt;
+
+  /// أُلغي الطلب بعد تسليمه يداً بيد: القطعة عند المشتري، ويعيدها البائع
+  /// إلى المخزون حين يستعيدها.
+  final bool canMarkGoodsReturned;
+  final DateTime? goodsReturnedAt;
   final bool canRequestPaymentRelease;
   final double deliveryFee;
   final int warrantyDays;
@@ -77,6 +82,7 @@ class Reservation {
     if (canApprove) return true;
     if (canSendToDelivery) return true;
     if (canHandOver) return true;
+    if (canMarkGoodsReturned) return true;
     if (isBuyer && (deliveryOrder?.awaitingReceiptDecision ?? false)) {
       return true;
     }
@@ -115,6 +121,8 @@ class Reservation {
     this.canSendToDelivery = false,
     this.canHandOver = false,
     this.handedOverAt,
+    this.canMarkGoodsReturned = false,
+    this.goodsReturnedAt,
     this.canRequestPaymentRelease = false,
     this.deliveryFee = 0,
     this.warrantyDays = 7,
@@ -188,6 +196,10 @@ class Reservation {
       canHandOver: json['can_hand_over'] as bool? ?? false,
       handedOverAt: json['handed_over_at'] != null
           ? DateTime.parse(json['handed_over_at'] as String)
+          : null,
+      canMarkGoodsReturned: json['can_mark_goods_returned'] as bool? ?? false,
+      goodsReturnedAt: json['goods_returned_at'] != null
+          ? DateTime.parse(json['goods_returned_at'] as String)
           : null,
       canRequestPaymentRelease:
           json['can_request_payment_release'] as bool? ?? false,

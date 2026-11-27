@@ -40,6 +40,17 @@ class DeliveryService {
     throw Exception(data['message'] ?? 'تعذّر تسجيل التسليم');
   }
 
+  /// البائع استعاد قطعة طلبٍ أُلغي بعد تسليمه يداً بيد، فتعود إلى المخزون.
+  Future<String> markGoodsReturned({required int reservationId}) async {
+    final response =
+        await _client.post('/reservations/$reservationId/goods-returned/');
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return data['message'] as String? ?? 'أُعيدت القطعة إلى المخزون';
+    }
+    throw Exception(data['message'] ?? 'تعذّر إعادة القطعة إلى المخزون');
+  }
+
   /// Seller bundles several paid reservations for the same buyer/address
   /// into as few delivery trips as fit the company's size cap — one
   /// delivery fee per trip instead of one per reservation. The buyer is

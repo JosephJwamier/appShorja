@@ -336,6 +336,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
                 itemTitle: payload['item_title'] as String? ?? '',
                 price: double.tryParse(payload['price'].toString()) ?? 0,
                 depositAmount: double.tryParse(payload['deposit_amount'].toString()) ?? 0,
+                payInFull: payload['pay_in_full'] as bool? ?? false,
                 order: 0,
                 status: 'now_showing',
               ));
@@ -657,8 +658,10 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
     );
 
     if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('✅ تم الحجز وخصم العربون من محفظتك'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(nowShowing.payInFull
+            ? '✅ تم الحجز وخصم الثمن من محفظتك'
+            : '✅ تم الحجز وخصم العربون من محفظتك'),
         backgroundColor: AppColors.success,
       ));
       _startReserveCooldown();
@@ -949,7 +952,9 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> {
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text(
-                  '${formatIqd(item.price)} — عربون ${formatIqd(item.depositAmount)}',
+                  item.payInFull
+                      ? formatIqd(item.price)
+                      : '${formatIqd(item.price)} — عربون ${formatIqd(item.depositAmount)}',
                   style: const TextStyle(color: AppColors.gold, fontSize: 12),
                 ),
               ],
@@ -1193,6 +1198,7 @@ class _ReserveSheetState extends State<_ReserveSheet> {
       quantity: _quantity,
       screenshotBytes: widget.screenshotBytes,
       deliveryLocationId: _delivery!.locationId,
+      payInFull: widget.queueItem.payInFull,
     );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -1207,7 +1213,7 @@ class _ReserveSheetState extends State<_ReserveSheet> {
   @override
   Widget build(BuildContext context) {
     final item = widget.queueItem;
-    final totalDeposit = item.depositAmount * _quantity;
+    final payNow = (item.payInFull ? item.price : item.depositAmount) * _quantity;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1249,13 +1255,19 @@ class _ReserveSheetState extends State<_ReserveSheet> {
               ),
             ],
           ),
-          Text('العربون المستحق الآن: ${formatIqd(totalDeposit)}',
+          Text(
+              item.payInFull
+                  ? 'المبلغ المستحق الآن: ${formatIqd(payNow)}'
+                  : 'العربون المستحق الآن: ${formatIqd(payNow)}',
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
           const SizedBox(height: 4),
-          const Text('يُدفع باقي الثمن وأجرة التوصيل نقداً عند الاستلام',
+          Text(
+              item.payInFull
+                  ? 'يُدفع الثمن كاملاً من محفظتك، ويسلّمك البائع الطلب'
+                  : 'يُدفع باقي الثمن وأجرة التوصيل نقداً عند الاستلام',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+              style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 12),
           if (_resolvingLocation)
             const Padding(
@@ -1294,7 +1306,7 @@ class _ReserveSheetState extends State<_ReserveSheet> {
             child: _isSubmitting
                 ? const SizedBox(
                     height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('احجز وادفع العربون'),
+                : Text(item.payInFull ? 'احجز وادفع الثمن' : 'احجز وادفع العربون'),
           ),
         ],
       ),

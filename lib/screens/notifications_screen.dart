@@ -7,6 +7,7 @@ import '../services/reservation_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import 'reservations_screen.dart';
+import '../services/notification_navigator.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -240,7 +241,12 @@ class NotificationsScreen extends StatelessWidget {
                       ),
                       onDismissed: (_) => provider.deleteNotification(n.id),
                       child: GestureDetector(
-                        onTap: () => provider.markRead(n.id),
+                        onTap: () {
+                          provider.markRead(n.id);
+                          // يفتح ما يتحدّث عنه الإشعار، كالضغط عليه من الشاشة المقفلة.
+                          navigateForNotificationTap(context, n.type, n.data,
+                              fallbackToList: false);
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(14),

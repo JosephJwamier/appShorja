@@ -232,6 +232,48 @@ class ReservationDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleGoodsReturned(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('استلمت القطعة من المشتري؟'),
+        content: Text(
+          'اضغط فقط إن عاد "${reservation.item.title}" إلى يدك. '
+          'تعود ${reservation.quantity} قطعة إلى مخزونك ويستطيع غيره شراءها.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('لا'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('نعم، استلمتها'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final message = await DeliveryService()
+          .markGoodsReturned(reservationId: reservation.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+      );
+      await onRefresh();
+      if (context.mounted) navigator.pop();
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleConfirmDeliveryReceipt(BuildContext context) async {
     await onConfirmDeliveryReceipt(reservation);
     if (context.mounted) Navigator.pop(context);
@@ -765,6 +807,13 @@ class ReservationDetailScreen extends StatelessWidget {
               date: r.handedOverAt,
               done: true,
             ),
+          if (r.goodsReturnedAt != null)
+            _timelineItem(
+              icon: Icons.inventory_2_outlined,
+              label: 'استعاد البائع القطعة وأعادها للمخزون',
+              date: r.goodsReturnedAt,
+              done: true,
+            ),
           _timelineItem(
             icon: Icons.verified_outlined,
             label: settledLabel,
@@ -1211,6 +1260,24 @@ class ReservationDetailScreen extends StatelessWidget {
           onPressed: () => _handleHandOver(context),
           icon: const Icon(Icons.handshake_outlined, size: 18),
           label: const Text('سلّمته للمشتري يداً بيد'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (r.canMarkGoodsReturned) {
+      buttons.add(
+        OutlinedButton.icon(
+          onPressed: () => _handleGoodsReturned(context),
+          icon: const Icon(Icons.inventory_2_outlined, size: 18),
+          label: const Text('استلمت القطعة — أعِدها للمخزون'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: const BorderSide(color: AppColors.primary),
